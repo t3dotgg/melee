@@ -55,42 +55,69 @@ class WaterTests(unittest.TestCase):
 typedef uint16_t u16;
 typedef uint32_t u32;
 typedef struct CPUState { u32 gpr[32]; } CPUState;
-static unsigned char camera[0x38];
+static unsigned char ram[0x480000];
 static int enabled;
 int melee_stage_lighting_enabled(void) { return enabled; }
+static unsigned char* pointer(u32 address) {
+    assert(address >= 0x80000000U && address < 0x80480000U);
+    return &ram[address - 0x80000000U];
+}
+static u32 mem_read8(CPUState* ctx, u32 address) {
+    (void) ctx;
+    return *pointer(address);
+}
+static u32 mem_read16(CPUState* ctx, u32 address) {
+    return (mem_read8(ctx, address) << 8) | mem_read8(ctx, address + 1);
+}
+static u32 mem_read32(CPUState* ctx, u32 address) {
+    return (mem_read16(ctx, address) << 16) | mem_read16(ctx, address + 2);
+}
 static void mem_write16(CPUState* ctx, u32 address, u16 value) {
     (void) ctx;
-    assert(address + 2 <= sizeof(camera));
-    camera[address] = value >> 8;
-    camera[address + 1] = value;
+    *pointer(address) = value >> 8;
+    *pointer(address + 1) = value;
 }
-static u16 read16(unsigned address) {
-    return ((u16) camera[address] << 8) | camera[address + 1];
+static void mem_write32(CPUState* ctx, u32 address, u32 value) {
+    mem_write16(ctx, address, value >> 16);
+    mem_write16(ctx, address + 2, value);
 }
 #include "FountainWater.h"
-static void stage(int quality) {
+static void stage(int quality, unsigned capacity, int expected_sharp) {
     CPUState ctx = {{0}};
+    unsigned char* camera = pointer(MELEE_FOUNTAIN_CAMERA_DESC);
+    const u32 entry = 0x80432124U + 3 * 0x1CU;
+    memset(ram, 0, sizeof(ram));
     enabled = quality;
     /* Inputs at GXGetTexBufferSize, as emitted by grIzumi_801CD2D4. */
     ctx.gpr[3] = 80;
     ctx.gpr[4] = 60;
     ctx.gpr[5] = 4;
     melee_fountain_reserve_water(&ctx);
-    unsigned width = ctx.gpr[3], height = ctx.gpr[4];
-    assert(width * 3 == height * 4);
-    assert(width * height == 80 * 60 * (quality ? 16 : 1));
+    assert(ctx.gpr[3] * 3 == ctx.gpr[4] * 4);
+    assert(ctx.gpr[3] * ctx.gpr[4] == 80 * 60 * (quality ? 16 : 1));
     assert(ctx.gpr[5] == 4);
-    /* Toggling during loading cannot grow beyond the reserved allocation. */
-    enabled = !quality;
-    memset(camera, 0xA5, sizeof(camera));
-    ctx.gpr[3] = 0;
+    /* Existing entries keep their old capacity despite a larger request. */
+    if (capacity) {
+        *pointer(entry) = 4;
+        mem_write16(&ctx, entry + 6, 2001);
+        mem_write16(&ctx, entry + 8, 9999);
+        mem_write32(&ctx, entry + 12, capacity);
+    }
+    memset(camera, 0xA5, 0x38);
+    ctx.gpr[3] = MELEE_FOUNTAIN_CAMERA_DESC;
     melee_fountain_water_camera(&ctx);
-    assert(read16(0x0A) == width && read16(0x0E) == height);
-    assert(read16(0x12) == width && read16(0x16) == height);
-    for (unsigned i = 0; i < sizeof(camera); i++) {
+    unsigned width = mem_read16(&ctx, MELEE_FOUNTAIN_CAMERA_DESC + 0x0A);
+    unsigned height = mem_read16(&ctx, MELEE_FOUNTAIN_CAMERA_DESC + 0x0E);
+    assert(width * height == 80 * 60 * (expected_sharp ? 16 : 1));
+    assert(!expected_sharp || !capacity || width * height * 2 <= capacity);
+    assert(mem_read16(&ctx, MELEE_FOUNTAIN_CAMERA_DESC + 0x12) == width);
+    assert(mem_read16(&ctx, MELEE_FOUNTAIN_CAMERA_DESC + 0x16) == height);
+    for (unsigned i = 0; i < 0x38; i++) {
         if (i / 2 != 5 && i / 2 != 7 && i / 2 != 9 && i / 2 != 11)
             assert(camera[i] == 0xA5);
     }
+    /* Camera and image stay in sync if a user toggles during construction. */
+    enabled = !quality;
     ctx.gpr[3] = 0x80008000;
     ctx.gpr[4] = 80;
     ctx.gpr[5] = 60;
@@ -101,9 +128,12 @@ static void stage(int quality) {
     assert(ctx.gpr[3] == 0x80008000 && ctx.gpr[6] == 4 && ctx.gpr[7] == 2001);
 }
 int main(void) {
-    stage(1);
-    stage(0);
-    stage(1);
+    stage(1, 320 * 240 * 2, 1);
+    stage(0, 80 * 60 * 2, 0);
+    stage(1, 80 * 60 * 2, 0);
+    stage(0, 320 * 240 * 2, 0);
+    stage(1, 0, 1);
+    stage(1, 320 * 240 * 2, 1);
     return 0;
 }
 ''')

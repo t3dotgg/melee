@@ -2,28 +2,50 @@
 #ifndef MELEE_FOUNTAIN_WATER_H
 #define MELEE_FOUNTAIN_WATER_H
 
-/* Included only in the generated grizumi chunk. Keep the reflection camera,
- * image descriptor, and preloaded buffer at the same size. The reserve hook
- * runs before the camera and image are created. A live lighting switch takes
- * effect for reflection resolution when the next stage is loaded. */
+/* Included only in the generated grizumi chunk. Old save states and cached
+ * stages can retain the original buffer. Check the guest allocation before
+ * enlarging its camera or image. A fresh preload enables sharp reflections. */
 int melee_stage_lighting_enabled(void);
 
-static int melee_fountain_sharp_water;
+#define MELEE_FOUNTAIN_CAMERA_DESC 0x803E0F34U
 
 static void melee_fountain_reserve_water(CPUState* ctx)
 {
-    melee_fountain_sharp_water = melee_stage_lighting_enabled();
-    if (melee_fountain_sharp_water) {
+    if (melee_stage_lighting_enabled()) {
         ctx->gpr[3] = 320;
         ctx->gpr[4] = 240;
     }
 }
 
+static int melee_fountain_can_render_sharp_water(CPUState* ctx)
+{
+    unsigned index;
+    if (!melee_stage_lighting_enabled()) {
+        return 0;
+    }
+    /* preloadCache.entries, PreloadEntry, and lbDvd_GetPreloadedArchive.
+     * lbDvd_80017740 retains an existing entry even when a new reservation
+     * asks for more bytes. The entry's size is the actual allocation limit. */
+    for (index = 0; index < 80; index++) {
+        u32 entry = 0x80432124U + index * 0x1CU;
+        unsigned score = mem_read16(ctx, entry + 8U);
+        if (mem_read8(ctx, entry) != 0 && score > 0 && score < 0x8000U &&
+            mem_read16(ctx, entry + 6U) == 2001)
+        {
+            return mem_read32(ctx, entry + 0xCU) >= 320U * 240U * 2U;
+        }
+    }
+    /* With no matching entry, lb_800121FC allocates a new image buffer using
+     * the requested dimensions. This also supports direct scene restarts. */
+    return 1;
+}
+
 static void melee_fountain_water_camera(CPUState* ctx)
 {
     u32 descriptor = ctx->gpr[3];
-    u16 width = melee_fountain_sharp_water ? 320 : 80;
-    u16 height = melee_fountain_sharp_water ? 240 : 60;
+    int sharp = melee_fountain_can_render_sharp_water(ctx);
+    u16 width = sharp ? 320 : 80;
+    u16 height = sharp ? 240 : 60;
     /* HSD_CameraDescPerspective.viewport and .scissor, cobj.h. */
     mem_write16(ctx, descriptor + 0x0A, width);
     mem_write16(ctx, descriptor + 0x0E, height);
@@ -33,7 +55,11 @@ static void melee_fountain_water_camera(CPUState* ctx)
 
 static void melee_fountain_water_image(CPUState* ctx)
 {
-    if (melee_fountain_sharp_water) {
+    /* The guest descriptor carries the camera choice through save/load and
+     * through a settings change between camera and image construction. */
+    if (mem_read16(ctx, MELEE_FOUNTAIN_CAMERA_DESC + 0x0AU) == 320 &&
+        mem_read16(ctx, MELEE_FOUNTAIN_CAMERA_DESC + 0x0EU) == 240)
+    {
         ctx->gpr[4] = 320;
         ctx->gpr[5] = 240;
     }
