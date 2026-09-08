@@ -1,0 +1,48 @@
+diff --git a/Source/Core/Core/PowerPC/StaticRecomp/StaticRecompCore_Run.cpp b/Source/Core/Core/PowerPC/StaticRecomp/StaticRecompCore_Run.cpp
+index 1ea3c8a..3f8ddd0 100644
+--- a/Source/Core/Core/PowerPC/StaticRecomp/StaticRecompCore_Run.cpp
++++ b/Source/Core/Core/PowerPC/StaticRecomp/StaticRecompCore_Run.cpp
+@@ -13,6 +13,8 @@
+ #include "Core/Config/MainSettings.h"
+ #include "Core/Config/ConfigManager.h"
+ #include "Core/HW/SystemTimers.h"
++#include "Core/Core.h"
++#include "Core/HW/SI/SI.h"
+ 
+ #include <cstdio>
+ #include <cstdlib>
+@@ -183,6 +185,11 @@ void StaticRecompCore::Run()
+   };
+ 
+   const std::string initial_game_id = SConfig::GetInstance().GetGameID();
++  const char* late_input_setting = std::getenv("MELEE_LOW_LATENCY");
++  const bool late_input = m_strict_native && initial_game_id == "GALE01" &&
++                          SConfig::GetInstance().GetRevision() == 2 &&
++                          (!late_input_setting || std::string_view(late_input_setting) != "0");
++  bool late_input_reported = false;
+   const auto after_mtmsr = [this](u32 pc) {
+     if (pc < 4u || (pc & 3u) != 0)
+       return false;
+@@ -253,6 +260,22 @@ void StaticRecompCore::Run()
+           u32 linked_dispatch_address = runtime_dispatch_address;
+           if (m_has_rel_modules)
+             ResolveNativeAddress(runtime_dispatch_address, &linked_dispatch_address, nullptr);
++          // US v1.02 PADRead. Melee's 60 Hz alarm is independent of the SI
++          // poll slots, which restart at each VI field. Refresh at the read
++          // to remove the changing age of the last scheduled SI sample.
++          // The original PADRead still handles calibration and errors.
++          // Extra polls would change netplay and movie input streams.
++          if (late_input && runtime_dispatch_address == 0x8034DA00u && !Core::WantsDeterminism())
++          {
++            Core::UpdateInputGate(!Config::Get(Config::MAIN_INPUT_BACKGROUND_INPUT),
++                                  Config::Get(Config::MAIN_LOCK_CURSOR));
++            m_system.GetSerialInterface().UpdateDevices();
++            if (!late_input_reported)
++            {
++              std::fprintf(stderr, "[melee-input] SI refresh at PADRead enabled\n");
++              late_input_reported = true;
++            }
++          }
+           m_guest.pc = linked_dispatch_address;
+           m_module->dispatch(&m_guest, linked_dispatch_address);
+           if (m_has_rel_modules)
