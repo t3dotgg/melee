@@ -1,6 +1,6 @@
 diff --git a/Source/Core/Common/FixedFrameTiming.h b/Source/Core/Common/FixedFrameTiming.h
 new file mode 100644
-index 0000000..c6f97c1
+index 0000000..2141bc2
 --- /dev/null
 +++ b/Source/Core/Common/FixedFrameTiming.h
 @@ -0,0 +1,21 @@
@@ -15,16 +15,190 @@ index 0000000..c6f97c1
 +// VI has two fields per full frame. Divide cumulative time so fractional cycles
 +// carry between half-lines instead of shortening every scanline by rounding.
 +constexpr std::uint32_t FixedFrameTickOffset(std::uint32_t half_line,
-+                                           std::uint32_t half_lines_per_frame,
-+                                           std::uint32_t fields_per_second,
-+                                           std::uint32_t ticks_per_second)
++                                             std::uint32_t half_lines_per_frame,
++                                             std::uint32_t fields_per_second,
++                                             std::uint32_t ticks_per_second)
 +{
 +  if (half_lines_per_frame == 0 || fields_per_second == 0)
 +    return 0;
 +  return static_cast<std::uint64_t>(half_line) * ticks_per_second * 2 /
 +         (static_cast<std::uint64_t>(half_lines_per_frame) * fields_per_second);
 +}
-+}  // namespace Common
++} // namespace Common
+diff --git a/Source/Core/Common/MacFrameTimer.h b/Source/Core/Common/MacFrameTimer.h
+new file mode 100644
+index 0000000..c00386f
+--- /dev/null
++++ b/Source/Core/Common/MacFrameTimer.h
+@@ -0,0 +1,94 @@
++// SPDX-License-Identifier: GPL-2.0-or-later
++
++#pragma once
++
++#include <cerrno>
++#include <chrono>
++#include <cstdint>
++#include <thread>
++
++#include <mach/mach.h>
++#include <mach/mach_time.h>
++#include <pthread.h>
++#include <sys/event.h>
++#include <unistd.h>
++
++namespace Common
++{
++// Only CPU and GPU frame threads request this policy. Other PrecisionTimer
++// users keep their existing scheduling policy.
++inline void ConfigureMacFrameThread()
++{
++  pthread_set_qos_class_self_np(QOS_CLASS_USER_INTERACTIVE, 0);
++  thread_latency_qos_policy_data_t policy{LATENCY_QOS_TIER_0};
++  const auto thread = mach_thread_self();
++  thread_policy_set(thread, THREAD_LATENCY_QOS_POLICY, reinterpret_cast<thread_policy_t>(&policy),
++                    THREAD_LATENCY_QOS_POLICY_COUNT);
++  mach_port_deallocate(mach_task_self(), thread);
++}
++
++// A critical kqueue timer avoids the coalescing used by mach_wait_until. Sleep
++// against an absolute deadline, then use a short CPU wait. A scheduler yield
++// in the final interval can give up the CPU past the frame deadline.
++inline void SleepUntilMacFrame(std::chrono::steady_clock::time_point target)
++{
++  using Clock = std::chrono::steady_clock;
++  constexpr auto spin_time = std::chrono::microseconds{200};
++  static const mach_timebase_info_data_t timebase = []
++  {
++    mach_timebase_info_data_t result{};
++    mach_timebase_info(&result);
++    return result;
++  }();
++  struct FrameQueue
++  {
++    int descriptor = kqueue();
++    ~FrameQueue()
++    {
++      if (descriptor >= 0)
++        close(descriptor);
++    }
++  };
++  static thread_local FrameQueue queue;
++
++  while (true)
++  {
++    const auto mach_now = mach_absolute_time();
++    const auto wait = target - Clock::now() - spin_time;
++    if (wait <= Clock::duration::zero())
++      break;
++
++    const auto ns = std::chrono::duration_cast<std::chrono::nanoseconds>(wait).count();
++    const auto ticks = static_cast<std::uint64_t>(static_cast<unsigned __int128>(ns) *
++                                                  timebase.denom / timebase.numer);
++    if (queue.descriptor >= 0)
++    {
++      kevent64_s event{};
++      event.ident = 1;
++      event.filter = EVFILT_TIMER;
++      event.flags = EV_ADD | EV_ONESHOT;
++      event.fflags = NOTE_ABSOLUTE | NOTE_MACHTIME | NOTE_CRITICAL;
++      event.data = mach_now + ticks;
++      kevent64_s result{};
++      const int events = kevent64(queue.descriptor, &event, 1, &result, 1, 0, nullptr);
++      if ((events == 1 && (result.flags & EV_ERROR) == 0) || (events < 0 && errno == EINTR))
++        continue;
++    }
++    const auto result = mach_wait_until(mach_now + ticks);
++    if (result != KERN_SUCCESS && result != KERN_ABORTED)
++    {
++      std::this_thread::sleep_until(target - spin_time);
++      break;
++    }
++  }
++
++  while (Clock::now() < target)
++  {
++#if defined(__aarch64__)
++    __asm__ __volatile__("yield");
++#elif defined(__x86_64__)
++    __asm__ __volatile__("pause");
++#endif
++  }
++}
++} // namespace Common
+diff --git a/Source/Core/Common/Timer.cpp b/Source/Core/Common/Timer.cpp
+index fcbbd7b..c4be018 100644
+--- a/Source/Core/Common/Timer.cpp
++++ b/Source/Core/Common/Timer.cpp
+@@ -15,6 +15,10 @@
+ #include "Common/CommonTypes.h"
+ #include "Common/Logging/Log.h"
+
++#ifdef __APPLE__
++#include "Common/MacFrameTimer.h"
++#endif
++
+ namespace Common
+ {
+ template <typename Clock, typename Duration>
+@@ -94,7 +98,9 @@ u64 Timer::GetLocalTimeSinceJan1970()
+
+ // This is requested by Timer::IncreaseResolution on Windows.
+ // On Linux/other we hope/assume we already have 1ms scheduling granularity.
++#ifndef __APPLE__
+ static constexpr int TIMER_RESOLUTION_MS = 1;
++#endif
+
+ void Timer::IncreaseResolution()
+ {
+@@ -154,6 +160,9 @@ PrecisionTimer::~PrecisionTimer()
+
+ void PrecisionTimer::SleepUntil(Clock::time_point target)
+ {
++#ifdef __APPLE__
++  SleepUntilMacFrame(target);
++#else
+   constexpr auto SPIN_TIME =
+       std::chrono::milliseconds{TIMER_RESOLUTION_MS} + std::chrono::microseconds{20};
+
+@@ -191,6 +200,7 @@ void PrecisionTimer::SleepUntil(Clock::time_point target)
+     std::this_thread::yield();
+ #endif
+   }
++#endif
+ }
+
+ // Results are appropriately slewed on Linux, but not on Windows, macOS, or FreeBSD.
+diff --git a/Source/Core/Core/CoreTiming.cpp b/Source/Core/Core/CoreTiming.cpp
+index 26e9973..38550be 100644
+--- a/Source/Core/Core/CoreTiming.cpp
++++ b/Source/Core/Core/CoreTiming.cpp
+@@ -17,6 +17,10 @@
+ #include "Common/SPSCQueue.h"
+ #include "Common/ScopeGuard.h"
+
++#ifdef __APPLE__
++#include "Common/MacFrameTimer.h"
++#endif
++
+ #include "Core/Achievements/AchievementManager.h"
+ #include "Core/CPUThreadConfigCallback.h"
+ #include "Core/Config/MainSettings.h"
+@@ -409,6 +413,15 @@ TimePoint CoreTimingManager::GetTargetHostTime(s64 target_cycle)
+
+ void CoreTimingManager::SleepUntil(TimePoint time_point)
+ {
++#ifdef __APPLE__
++  // Configure each pacing thread once. A background timer can otherwise be
++  // coalesced past an 8.33 ms deadline even when it uses mach_wait_until.
++  static thread_local const bool frame_thread_configured = [] {
++    Common::ConfigureMacFrameThread();
++    return true;
++  }();
++  (void)frame_thread_configured;
++#endif
+   const bool use_precision_timer = m_use_precision_timer.load(std::memory_order_relaxed);
+
+   if (Core::IsCPUThread())
 diff --git a/Source/Core/Core/HW/VideoInterface.cpp b/Source/Core/Core/HW/VideoInterface.cpp
 index c3fdd35..6ac1b6f 100644
 --- a/Source/Core/Core/HW/VideoInterface.cpp
@@ -35,16 +209,16 @@ index c3fdd35..6ac1b6f 100644
  #include <cstddef>
 +#include <cstdlib>
 +#include <string_view>
- 
+
  #include "Common/ChunkFile.h"
  #include "Common/CommonTypes.h"
  #include "Common/Config/Config.h"
 +#include "Common/FixedFrameTiming.h"
  #include "Common/Logging/Log.h"
- 
+
  #include "VideoCommon/OnScreenDisplay.h"
 @@ -245,14 +248,47 @@ u32 VideoInterfaceManager::GetHalfLinesPerOddField() const
- 
+
  u32 VideoInterfaceManager::GetTicksPerEvenField() const
  {
 +  if (GetNativeRefreshRate() != 0)
@@ -55,14 +229,14 @@ index c3fdd35..6ac1b6f 100644
 +  }
    return GetTicksPerHalfLine() * GetHalfLinesPerEvenField();
  }
- 
+
  u32 VideoInterfaceManager::GetTicksPerOddField() const
  {
 +  if (GetNativeRefreshRate() != 0)
 +    return GetNativeTickOffset(GetHalfLinesPerOddField());
    return GetTicksPerHalfLine() * GetHalfLinesPerOddField();
  }
- 
+
 +u32 VideoInterfaceManager::GetNativeRefreshRate() const
 +{
 +  static const u32 requested_rate = []() -> u32 {
@@ -92,7 +266,7 @@ index c3fdd35..6ac1b6f 100644
  float VideoInterfaceManager::GetAspectRatio() const
  {
 @@ -536,6 +572,12 @@ u32 VideoInterfaceManager::GetNominalTicksPerHalfLine() const
- 
+
  u32 VideoInterfaceManager::GetTicksPerHalfLine() const
  {
 +  // The original 60 Hz input alarm and the NTSC VI run on different clocks.
@@ -103,7 +277,7 @@ index c3fdd35..6ac1b6f 100644
 +    return GetNativeTickOffset(m_half_line_count + 1) - GetNativeTickOffset(m_half_line_count);
    return GetNominalTicksPerHalfLine() / m_config_vi_oc_factor;
  }
- 
+
 diff --git a/Source/Core/Core/HW/VideoInterface.h b/Source/Core/Core/HW/VideoInterface.h
 index 6bf762a..baa59af 100644
 --- a/Source/Core/Core/HW/VideoInterface.h
@@ -114,6 +288,6 @@ index 6bf762a..baa59af 100644
    u32 GetTicksPerOddField() const;
 +  u32 GetNativeRefreshRate() const;
 +  u32 GetNativeTickOffset(u32 half_line) const;
- 
+
    void LogField(FieldType field, u32 xfb_address) const;
    void OutputField(FieldType field, u64 ticks);
