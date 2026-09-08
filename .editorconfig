@@ -16,7 +16,7 @@ charset = utf-8
 # clang-format handles indentation
 indent_style = unset
 
-[/native/macos/{launcher.m,input/*.inc}]
+[/native/macos/{launcher.m,input/*.inc,timing/benchmark_timer.cpp}]
 # clang-format handles Objective-C continuation alignment.
 indent_style = unset
 

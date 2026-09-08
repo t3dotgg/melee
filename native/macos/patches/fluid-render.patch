@@ -136,7 +136,7 @@ diff --git a/Source/Core/VideoBackends/Metal/MTLGfx.mm b/Source/Core/VideoBacken
 
 +  // At 120 FPS, two drawables stall rendering on a 60 Hz display.
 +  const char* fps = std::getenv("MELEE_RENDER_FPS");
-+  const bool high_refresh = !fps || std::string_view(fps) == "120";
++  const bool high_refresh = fps && std::string_view(fps) == "120";
 +  const char* drawables = std::getenv("MELEE_METAL_DRAWABLES");
 +  const bool triple_buffer = drawables ? std::string_view(drawables) == "3" :
 +                                        high_refresh || !MeleeRender::LowLatency();

@@ -50,8 +50,8 @@ class InstallTests(unittest.TestCase):
 
     def test_camera_hook_is_idempotent_and_validated(self):
         source = ('#include "../generated.h"\n'
-                  '// 800301FC: bl      0x8002A4AC\n'
-                  'label_80030200:\n')
+                    '// 800301FC: bl      0x8002A4AC\n'
+                    'label_80030200:\n')
         patched = MODULE.patch_camera_chunk(source)
         self.assertEqual(MODULE.patch_camera_chunk(patched), patched)
         with self.assertRaises(ValueError):
@@ -196,7 +196,7 @@ int main(int argc, char** argv) {
     assert(melee_refresh_finish(&ctx) == 0);
     assert(mem_read32(&ctx, 0x80006038U) == 123);
     /* Saving inside an extra render stores normal poses. Loading clears
-       history even when the saved frame counter equals the current one. */
+        history even when the saved frame counter equals the current one. */
     mem_write32(&ctx, 0x80006000U, 0x80008000U);
     melee_refresh_reset();
     tick(&ctx, 10, 10.0f, 0);
@@ -225,7 +225,7 @@ int main(int argc, char** argv) {
 ''')
             subprocess.run(
                 [compiler, "-std=c11", "-Wall", "-Wextra", "-Wno-unused-function",
-                 "-I", str(ROOT / "refresh"), str(source), "-lm", "-o", str(executable)],
+                    "-I", str(ROOT / "refresh"), str(source), "-lm", "-o", str(executable)],
                 check=True, capture_output=True, text=True,
             )
             for fps in ("120", "60", "unset"):

@@ -10,6 +10,12 @@ original load address. The game executable and disc files stay unchanged.
 ModernGekko and its Dolphin-derived runtime supply Metal graphics, audio,
 controller input, memory, timing, and GameCube services.
 
+The fluidity branch adds native render hooks after translation. It draws
+predicted joint and camera motion between the game's 60 Hz updates, uses
+exact 60 or 120 Hz video timing, samples controllers at the game read, and
+reduces Metal queue delay. These experiments change native behavior. The
+matching GameCube executable and disc data keep their original contents.
+
 This is static recompilation. It does not compile the decompiled game C directly
 against macOS libraries. The original 32-bit data layout remains in guest memory.
 The runtime stops if game CPU execution would require a PowerPC interpreter or

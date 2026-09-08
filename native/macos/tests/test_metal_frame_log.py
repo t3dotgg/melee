@@ -24,42 +24,42 @@ class MetalFrameLogTests(unittest.TestCase):
 
 int main(int argc, char** argv)
 {
-  Metal::MeleeFrameLog log(argv[1], 2);
-  log.RecordPresent(0, 10.0);
-  log.NextFrame();
-  log.RecordPresent(1, 10.01);
-  log.NextFrame();
-  // The cap must not overwrite earlier frames or allocate more records.
-  log.RecordPresent(log.CurrentFrame(), 99.0);
-  log.NextFrame();
-  if (log.CanRecord() || log.CurrentFrame() != 2)
+    Metal::MeleeFrameLog log(argv[1], 2);
+    log.RecordPresent(0, 10.0);
+    log.NextFrame();
+    log.RecordPresent(1, 10.01);
+    log.NextFrame();
+    // The cap must not overwrite earlier frames or allocate more records.
+    log.RecordPresent(log.CurrentFrame(), 99.0);
+    log.NextFrame();
+    if (log.CanRecord() || log.CurrentFrame() != 2)
     return 2;
 
-  // Completion callbacks can arrive after later frames have been submitted.
-  std::vector<std::thread> callbacks;
-  for (int i = 0; i < 4; ++i)
-  {
+    // Completion callbacks can arrive after later frames have been submitted.
+    std::vector<std::thread> callbacks;
+    for (int i = 0; i < 4; ++i)
+    {
     callbacks.emplace_back([&] {
-      for (int j = 0; j < 1000; ++j)
+        for (int j = 0; j < 1000; ++j)
         log.RecordGPU(0, 10.0, 10.000001);
     });
-  }
-  callbacks.emplace_back([&] { log.RecordDisplay(1, 10.02); });
-  callbacks.emplace_back([&] { log.RecordDisplay(0, 10.01); });
-  for (auto& callback : callbacks)
+    }
+    callbacks.emplace_back([&] { log.RecordDisplay(1, 10.02); });
+    callbacks.emplace_back([&] { log.RecordDisplay(0, 10.01); });
+    for (auto& callback : callbacks)
     callback.join();
-  log.RecordGPU(1, 10.012, 10.013);
-  log.RecordGPU(1, 10.010, 10.011);
-  log.RecordGPU(1, 0, 0);
-  log.RecordGPU(1, 20, 19);
-  return log.Write() ? 0 : 1;
+    log.RecordGPU(1, 10.012, 10.013);
+    log.RecordGPU(1, 10.010, 10.011);
+    log.RecordGPU(1, 0, 0);
+    log.RecordGPU(1, 20, 19);
+    return log.Write() ? 0 : 1;
 }
 '''
         )
         cls.executable = cls.directory / "frame_log"
         subprocess.run(
             ["c++", "-std=c++20", "-pthread", "-I", str(RENDER), str(source),
-             "-o", str(cls.executable)],
+                "-o", str(cls.executable)],
             check=True,
             capture_output=True,
             text=True,

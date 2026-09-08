@@ -44,6 +44,32 @@ open build/native/Melee.app
 
 Select Play. Escape opens the app menu. Command-comma opens Settings.
 
+This branch defaults to experimental 120 FPS rendering and 4x internal
+resolution, 2560 × 2112. Settings, Video has 60 FPS, 120 FPS, Auto resolution,
+and fixed resolution choices through 8x, 5120 × 4224. Auto follows the
+window's pixel size, including Retina scaling. Resolution changes apply when
+you resume. Frame rate, vertical sync, and the input delay switch apply on the next launch.
+
+The 120 FPS mode draws an extra frame between game updates. It predicts
+joint positions, rotations, and camera movement half a frame ahead. Game
+rules, collision, and animation clocks still run at 60 updates per second.
+Prediction resets on action changes, teleports, and scene changes. Some
+effects and interface elements still update at 60 Hz. Use a 120 Hz display
+to see all the extra motion. A 60 Hz display limits what you can see.
+
+Lower input delay samples controllers when the game reads them and presents
+completed frames sooner. The renderer submits GPU work before display waits. It uses three drawable
+buffers at 120 FPS and two at 60 FPS. The native video clock uses exact 60 or
+120 Hz, which removes the drift between Melee's 60 Hz input alarm and its
+original 59.94 Hz video timing. Mac frame waits use critical timers with a
+short final CPU wait. The app prevents App Nap during play and skips the verified GameCube scheduler
+idle loop. Vertical sync selects 60 FPS on a detected 60 Hz display to keep
+the game at normal speed.
+
+The [visual update notes](../native/macos/refresh/README.md),
+[timer notes](../native/macos/timing/README.md), and
+[Metal notes](../native/macos/render/README.md) describe the code and limits.
+
 Faster loading is enabled for local play. It removes simulated GameCube disc
 seek delays while keeping the game's normal frame rate. To use the original
 disc timing, turn off Faster loading in Settings, General. The preference is
@@ -82,7 +108,7 @@ this build path.
 
 Do not commit or upload the app, game module, generated C, disc data, or saves.
 
-## Checks on 2026-09-08
+## Earlier checks on the macOS base branch
 
 On an M5 Max with macOS 26.5.2, the native app completed a two-minute Mario
 versus Fox match on Yoshi's Island, displayed results, and returned to
@@ -115,3 +141,62 @@ The complete GameCube executable still matches SHA-1
 `08e0bf20134dfcb260699671004527b2d6bb1a45`. Public CI checks tools and the native
 static library. It does not have the game data needed for this matching check
 or the playable app build.
+
+## Measure this branch
+
+Save a state during an active Versus match, after the countdown. Use the
+same state for each comparison. The benchmark creates separate settings,
+cache, saves, screenshots, and logs under the output directory. It does not
+use the installed app's save folder.
+
+```sh
+python native/macos/benchmark.py --app build/native/Melee.app \
+  --state /path/to/match.sav --output build/native/perf-120 \
+  --fps 120 --scale 4 --seconds 30
+```
+
+Use `--fps 60` to compare 60 FPS. Use `--original-queues` to compare the
+original controller sampling and Metal queue settings. Add `--vsync` for
+vertical sync. Run one game at a time and let other builds finish first.
+
+`summary.json` reports render FPS, an estimate of simulation updates per
+second, GPU time, frame intervals, and the time from presentation submission
+to the Core Animation presentation callback. That interval is not total
+controller-to-screen latency. With vertical sync off, presentation callbacks
+can outnumber complete display refreshes. Check the monitor's refresh rate
+before treating those callbacks as complete visible frames.
+
+The benchmark rejects failed state loads and states outside a Versus match.
+Screenshots, game states, and built apps contain game data and stay local.
+
+## Fluidity checks on 2026-09-08
+
+The test Mac has an M5 Max and macOS 26.5.2. The monitor was set to
+3840 × 2160 at 60 Hz. Tests used the same saved Mario versus Peach match on
+Yoshi's Island, with five seconds of warmup before each measurement.
+
+| Internal resolution | Target | Measured render FPS | Median GPU time |
+| --- | ---: | ---: | ---: |
+| 4x, 2560 × 2112 | 120 | 119.97 | 3.30 ms |
+| 6x, 3840 × 3168 | 120 | 119.99 | 5.14 ms |
+| 4x, 2560 × 2112, vertical sync | 60 | 60.00 | 1.93 ms |
+| 8x, 5120 × 4224, vertical sync | 60 | 60.00 | 9.07 ms |
+
+The first three runs measured 20 seconds. The 8x run measured 15 seconds.
+Simulation counters advanced at about 60 updates per second in every run.
+Render counters and changed pose counts confirmed the extra visual updates.
+The 60 Hz monitor cannot verify 120 complete visible refreshes. A 120 Hz
+display still needs a visual check. These are short local measurements,
+not coverage of all characters, stages, or effects.
+
+The final app also passed attacks, jumping, shielding, a 120 FPS save/load
+round trip, invalid-state rejection, settings pause/resume, and saved Auto
+resolution. The controller test passed 103 checks through Apple's software
+controller API. Physical Bluetooth and rumble were not tested. Shutdown
+reported zero CPU fallback steps and zero failed code checks.
+
+The full repeat native build and app signature check passed. The 37 native
+tool and pose tests, three timing tests, and source and style checks passed.
+`tools/verify.py` confirmed that all original source units still match and
+the complete GameCube executable keeps SHA-1
+`08e0bf20134dfcb260699671004527b2d6bb1a45`.

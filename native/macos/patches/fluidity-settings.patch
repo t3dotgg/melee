@@ -1,0 +1,118 @@
+diff --git a/macos/MeleeFrontend.inc b/macos/MeleeFrontend.inc
+index ed26e0a08..0daf35652 100644
+--- a/macos/MeleeFrontend.inc
++++ b/macos/MeleeFrontend.inc
+@@ -3,6 +3,10 @@
+ #include "AudioCommon/AudioCommon.h"
+ #include "Common/IniFile.h"
+ #include "Core/Config/GraphicsSettings.h"
++#include "Core/Config/MainSettings.h"
++#include "Core/Config/StaticRecompSettings.h"
++#include <cstdlib>
++#include <cstring>
+ #include "Core/HW/GCPad.h"
+ #include "Core/HW/SI/SI.h"
+ #include "Core/HW/SI/SI_Device.h"
+@@ -196,15 +200,28 @@ extern std::atomic<bool> g_melee_menu_open;
+   }
+   [self button:@"Show save data" action:@selector(showSaves:) at:NSMakeRect(20,85,285,35) in:v];
+   v = [self tab:@"Video"];
+-  [self label:@"Internal resolution" at:NSMakeRect(20,265,220,25) in:v];
+-  NSPopUpButton* scale = [[NSPopUpButton alloc] initWithFrame:NSMakeRect(265,258,280,32) pullsDown:NO];
+-  [scale addItemsWithTitles:@[@"1× · Native", @"2×", @"3×", @"4×", @"5×", @"6×"]];
+-  [scale selectItemAtIndex:std::clamp(Config::Get(Config::GFX_EFB_SCALE)-1,0,5)];
++  [self label:@"Internal resolution" at:NSMakeRect(20,270,220,25) in:v];
++  NSPopUpButton* scale = [[NSPopUpButton alloc] initWithFrame:NSMakeRect(265,265,300,32) pullsDown:NO];
++  [scale addItemsWithTitles:@[@"Auto · Match window", @"1x · 640 × 528", @"2x · 1280 × 1056",
++      @"3x · 1920 × 1584", @"4x · 2560 × 2112", @"5x · 3200 × 2640",
++      @"6x · 3840 × 3168", @"7x · 4480 × 3696", @"8x · 5120 × 4224"]];
++  [scale selectItemAtIndex:std::clamp(Config::Get(Config::GFX_EFB_SCALE),0,8)];
+   scale.target=self; scale.action=@selector(scale:); [v addSubview:scale];
++  [self label:@"Frame rate" at:NSMakeRect(20,225,220,25) in:v];
++  NSPopUpButton* rate = [[NSPopUpButton alloc] initWithFrame:NSMakeRect(265,220,300,32) pullsDown:NO];
++  [rate addItemsWithTitles:@[@"60 FPS", @"120 FPS · Experimental"]];
++  [rate selectItemAtIndex:([self.preferences[@"render_fps"] intValue] == 60 ? 0 : 1)];
++  rate.target=self; rate.action=@selector(frameRate:); [v addSubview:rate];
+   NSButton* vs = [NSButton checkboxWithTitle:@"Vertical sync" target:self action:@selector(vsync:)];
+-  vs.frame=NSMakeRect(20,210,300,30); vs.state=Config::Get(Config::GFX_VSYNC); [v addSubview:vs];
+-  [self button:@"Toggle fullscreen" action:@selector(fullscreen:) at:NSMakeRect(20,155,250,35) in:v];
+-  [self label:@"Resolution updates when gameplay resumes. Look for sharper 3D edges; movies and original textures keep their detail.\n\nGameplay remains ≈60 FPS. A 120 Hz display works, but true 120 FPS interpolation is not implemented." at:NSMakeRect(20,30,565,110) in:v];
++  vs.frame=NSMakeRect(20,175,240,30);
++  vs.state=self.preferences[@"vsync"] ? [self.preferences[@"vsync"] boolValue] : Config::Get(Config::GFX_VSYNC);
++  [v addSubview:vs];
++  NSButton* latency = [NSButton checkboxWithTitle:@"Lower input delay" target:self action:@selector(lowLatency:)];
++  latency.frame=NSMakeRect(285,175,280,30);
++  latency.state=!self.preferences[@"low_latency"] || [self.preferences[@"low_latency"] boolValue];
++  [v addSubview:latency];
++  [self button:@"Toggle fullscreen" action:@selector(fullscreen:) at:NSMakeRect(20,125,250,35) in:v];
++  [self label:@"120 FPS adds predicted motion. Use a 120 Hz display.\nVertical sync uses 60 FPS on a 60 Hz display.\nFrame rate, sync, and input delay apply next launch.\nAuto resolution follows the window size." at:NSMakeRect(20,10,565,105) in:v];
+   v = [self tab:@"Audio"];
+   [self label:@"Master volume" at:NSMakeRect(20,260,550,30) in:v];
+   NSSlider* volume = [NSSlider sliderWithValue:Config::Get(Config::MAIN_AUDIO_VOLUME) minValue:0 maxValue:100 target:self action:@selector(volume:)];
+@@ -227,7 +244,7 @@ extern std::atomic<bool> g_melee_menu_open;
+   [self button:@"Refresh connected controllers" action:@selector(refresh:) at:NSMakeRect(20,80,330,32) in:v];
+   [self label:@"Keyboard stays active for Player 1. PS5: × attack, ○ special, □/△ jump, R1 grab, L2/R2 shield.\nXbox: A attack, B special, X/Y jump, RB grab, LT/RT shield.\nLeft stick / D-pad move • Right stick C-stick • Options/Menu starts." at:NSMakeRect(20,5,560,70) in:v];
+   v = [self tab:@"Gameplay"];
+-  [self label:@"Original Melee rules and timing" at:NSMakeRect(20,260,550,30) in:v];
++  [self label:@"Match rules" at:NSMakeRect(20,260,550,30) in:v];
+   [self label:@"Set stocks, time, items, and difficulty in Melee’s own menus. Settings pause gameplay; Home lets the game run with controller input blocked. Escape returns to Home.\n\nSave-state commands remain available in the macOS States menu. Memory-card saves persist automatically." at:NSMakeRect(20,65,555,180) in:v];
+   v = [self tab:@"Cheats"];
+   [self label:@"Cheat support is not enabled" at:NSMakeRect(20,260,550,30) in:v];
+@@ -235,8 +252,18 @@ extern std::atomic<bool> g_melee_menu_open;
+   [self position];
+ }
+ - (void)volume:(NSSlider*)sender { Config::SetCurrent(Config::MAIN_AUDIO_VOLUME,sender.intValue); AudioCommon::UpdateSoundStream(Core::System::GetInstance()); self.preferences[@"volume"]=@(sender.intValue); [self save]; }
+-- (void)scale:(NSPopUpButton*)sender { int value=(int)sender.indexOfSelectedItem+1; Config::SetCurrent(Config::GFX_EFB_SCALE,value); self.preferences[@"scale"]=@(value); [self save]; }
+-- (void)vsync:(NSButton*)sender { bool value=sender.state==NSControlStateValueOn; Config::SetCurrent(Config::GFX_VSYNC,value); self.preferences[@"vsync"]=@(value); [self save]; }
++- (void)scale:(NSPopUpButton*)sender { int value=(int)sender.indexOfSelectedItem; Config::SetCurrent(Config::GFX_EFB_SCALE,value); self.preferences[@"scale"]=@(value); [self save]; }
++- (void)vsync:(NSButton*)sender { bool value=sender.state==NSControlStateValueOn; self.preferences[@"vsync"]=@(value); [self save]; }
++- (void)frameRate:(NSPopUpButton*)sender
++{
++  self.preferences[@"render_fps"] = @(sender.indexOfSelectedItem == 0 ? 60 : 120);
++  [self save];
++}
++- (void)lowLatency:(NSButton*)sender
++{
++  self.preferences[@"low_latency"] = @(sender.state == NSControlStateValueOn);
++  [self save];
++}
+ - (void)fastLoading:(NSButton*)sender
+ {
+   if (!getenv("MELEE_APP_BUNDLE") || NetPlay::IsNetPlayRunning()) return;
+@@ -324,7 +351,35 @@ extern "C" void MeleeApplyMediaPreferences()
+       Config::SetCurrent(Config::MAIN_FAST_DISC_SPEED, fast_loading);
+     }
+     if (prefs[@"volume"]) Config::SetCurrent(Config::MAIN_AUDIO_VOLUME,std::clamp([prefs[@"volume"] intValue],0,100));
+-    if (prefs[@"scale"]) Config::SetCurrent(Config::GFX_EFB_SCALE,std::clamp([prefs[@"scale"] intValue],1,6));
++    if (getenv("MELEE_APP_BUNDLE") && !NetPlay::IsNetPlayRunning())
++    {
++      // Explicit environment values let local benchmarks select a launch mode.
++      const int fps = [prefs[@"render_fps"] intValue] == 60 ? 60 : 120;
++      setenv("MELEE_RENDER_FPS", fps == 120 ? "120" : "60", 0);
++      const bool vsync = prefs[@"vsync"] ? [prefs[@"vsync"] boolValue] : Config::Get(Config::GFX_VSYNC);
++      CGDisplayModeRef display_mode = CGDisplayCopyDisplayMode(CGMainDisplayID());
++      const double display_hz = display_mode ? CGDisplayModeGetRefreshRate(display_mode) : 0;
++      if (display_mode) CGDisplayModeRelease(display_mode);
++      if (vsync && display_hz > 0 && display_hz < 100)
++      {
++        setenv("MELEE_RENDER_FPS", "60", 1);
++        fprintf(stderr, "[melee-video] Using 60 FPS for vertical sync on a %.2f Hz display.\n", display_hz);
++      }
++      const bool low_latency = !prefs[@"low_latency"] || [prefs[@"low_latency"] boolValue];
++      setenv("MELEE_LOW_LATENCY", low_latency ? "1" : "0", 0);
++      const char* refresh = getenv("MELEE_RENDER_FPS");
++      const bool high_refresh = refresh && strcmp(refresh, "120") == 0;
++      const bool immediate = strcmp(getenv("MELEE_LOW_LATENCY"), "0") != 0;
++      Config::SetCurrent(Config::GFX_HACK_IMMEDIATE_XFB, high_refresh || immediate);
++      Config::SetCurrent(Config::GFX_HACK_CAP_IMMEDIATE_XFB, false);
++      Config::SetCurrent(Config::MAIN_VI_OVERCLOCK_ENABLE, high_refresh);
++      Config::SetCurrent(Config::MAIN_VI_OVERCLOCK, high_refresh ? 2.0f : 1.0f);
++      Config::SetCurrent(Config::MAIN_RUSH_FRAME_PRESENTATION, true);
++      Config::SetCurrent(Config::MAIN_PRECISION_FRAME_TIMING, true);
++      Config::SetCurrent(Config::MAIN_STATICRECOMP_IDLE_PC, 0x8034B164u);
++      Config::SetCurrent(Config::GFX_EFB_SCALE, 4);
++    }
++    if (prefs[@"scale"]) Config::SetCurrent(Config::GFX_EFB_SCALE,std::clamp([prefs[@"scale"] intValue],0,8));
+     if (prefs[@"vsync"]) Config::SetCurrent(Config::GFX_VSYNC,[prefs[@"vsync"] boolValue]);
+   }
+ }

@@ -290,8 +290,8 @@ static void melee_capture_scene(CPUState* ctx)
 }
 
 /* Save only visual transforms. Restore their exact bits before the next game
- * update and mark the derived matrices dirty. Physics never sees predicted
- * poses.
+ * update and mark the derived matrices dirty. The next game update uses the
+ * saved transforms.
  */
 static void melee_write_poses(CPUState* ctx, int predicted)
 {
