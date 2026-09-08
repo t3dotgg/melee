@@ -1,8 +1,9 @@
 # Native visual updates at 120 FPS
 
 `high_refresh.py` adds hooks to the generated USA v1.02 game loop. The
-verified GameCube executable stays unchanged. Set `MELEE_RENDER_FPS=60` to
-use the original drawing path. The native default is 120.
+verified GameCube executable stays unchanged. Set `MELEE_RENDER_FPS=120`
+to enable the extra drawing path with matching runtime timing. An unset value
+or `MELEE_RENDER_FPS=60` uses the original drawing path.
 
 The game still runs its input, animation clocks, collision, and game rules
 at 60 updates per second. After each normal render, the hook draws one extra
@@ -11,7 +12,9 @@ half a frame ahead using the previous two poses. This avoids the extra input
 delay of drawing a blend of old frames.
 
 The extra frame uses new geometry. It is not a second copy of the same XFB.
-A monotonic clock spaces render starts by 8.333 ms. The runtime must also use
+A monotonic clock spaces render starts by 8.333 ms. It uses the runtime's native
+wait function when available and reports a nanosleep fallback in the stats log.
+The runtime must also use
 120 Hz VI timing, immediate XFB presentation, and no immediate-XFB cap.
 
 The hook restores the exact saved transform and matrix bits before the next game
@@ -40,4 +43,16 @@ python3 -m unittest discover -s native/macos/tests -p test_high_refresh.py
 
 These tests check predicted poses, exact restoration, camera positions,
 action changes, frame rewinds, teleports, angle wrapping, removed objects,
-and the 60 FPS fallback. Runtime frame pacing and motion need a game run.
+the match-camera rewrite, quaternion descendants, and the 60 FPS fallback.
+Runtime frame pacing and motion need a game run.
+
+Set `MELEE_REFRESH_STATS=1` to log render totals, frames with a predicted pose,
+the current simulation counter, and measured render rate every two seconds.
+The first line reports the native wait or nanosleep fallback. Pose counts show
+that transforms changed, but do not measure display scanout or input latency.
+
+The match camera rewrites its WObjs during every render. A second generated
+hook at `0x80030200` reapplies the predicted camera after `Camera_8002A4AC` and
+before drawing. Quaternion and custom-matrix joints keep their local pose,
+but their derived matrices are also saved and restored. This keeps frozen
+bones attached to predicted parents.

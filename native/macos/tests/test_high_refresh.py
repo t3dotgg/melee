@@ -37,6 +37,17 @@ class InstallTests(unittest.TestCase):
             with self.subTest(source=source), self.assertRaises(ValueError):
                 MODULE.patch_chunk(source)
 
+    def test_camera_hook_is_idempotent_and_validated(self):
+        source = ('#include "../generated.h"\n'
+                  '// 800301FC: bl      0x8002A4AC\n'
+                  'label_80030200:\n')
+        patched = MODULE.patch_camera_chunk(source)
+        self.assertEqual(MODULE.patch_camera_chunk(patched), patched)
+        with self.assertRaises(ValueError):
+            MODULE.patch_camera_chunk(source.replace("0x8002A4AC", "0x8002247C"))
+        with self.assertRaises(ValueError):
+            MODULE.patch_camera_chunk(patched.replace(MODULE.CAMERA_HOOK, ""))
+
     def test_reject_partial_install(self):
         patched = MODULE.patch_chunk(self.fixture())
         with self.assertRaises(ValueError):
@@ -98,6 +109,11 @@ int main(int argc, char** argv) {
     mem_write32(&ctx, 0x80005028U, 0x80006000U);
     mem_write32(&ctx, 0x8000502CU, 0x80007000U);
     mem_write32(&ctx, 0x80006000U, 0x80008000U);
+    mem_write32(&ctx, 0x80006010U, 0x80006100U);
+    mem_write32(&ctx, 0x80006100U, 0x80008000U);
+    mem_write32(&ctx, 0x8000610CU, 0x80006000U);
+    mem_write32(&ctx, 0x80006114U, 1U << 17);
+    mem_write32(&ctx, 0x80006128U, melee_bits(1.0f));
     mem_write32(&ctx, 0x80005008U, 0x80005100U);
     ram[0x5106] = 2;
     mem_write32(&ctx, 0x80005128U, 0x80009000U);
@@ -116,15 +132,27 @@ int main(int argc, char** argv) {
     assert(melee_refresh_finish(&ctx) == 1);
     assert(melee_refresh_finish(&ctx) == 0);
     tick(&ctx, 2, 14.0f, 0);
+    mem_write32(&ctx, 0x80006114U, 1U << 17);
+    mem_write32(&ctx, 0x8000611CU, melee_bits(0.25f));
     assert(melee_refresh_finish(&ctx) == 1);
     assert(mem_read32(&ctx, 0x80006038U) == melee_bits(16.0f));
     assert(mem_read32(&ctx, 0x80479D58U) == 2);
     assert(mem_read32(&ctx, 0x8000A00CU) == melee_bits(8.0f));
+    assert(mem_read32(&ctx, 0x8000611CU) == melee_bits(0.25f));
+    assert(mem_read32(&ctx, 0x80006114U) & (1U << 6));
+    /* Match camera setup overwrites its WObjs before drawing. Reapply now. */
+    mem_write32(&ctx, 0x8000A00CU, melee_bits(7.0f));
+    melee_refresh_camera_update(&ctx, 0x80005100U);
+    assert(mem_read32(&ctx, 0x8000A00CU) == melee_bits(8.0f));
     /* The draw recomputes matrices. Direct game readers must get originals. */
     mem_write32(&ctx, 0x80006044U, 0xBADU);
+    mem_write32(&ctx, 0x80006144U, 0xBADU);
     mem_write32(&ctx, 0x80009054U, 0xBADU);
     assert(melee_refresh_finish(&ctx) == 0);
     assert(mem_read32(&ctx, 0x80006044U) == 0);
+    assert(mem_read32(&ctx, 0x80006144U) == 0);
+    assert(melee_rendered_frames == 4);
+    assert(melee_predicted_pose_frames == 1);
     assert(mem_read32(&ctx, 0x80009054U) == 0);
     assert(mem_read32(&ctx, 0x80006038U) == melee_bits(14.0f));
     assert(mem_read32(&ctx, 0x80006014U) & (1U << 6));
@@ -165,8 +193,10 @@ int main(int argc, char** argv) {
                  "-I", str(ROOT / "refresh"), str(source), "-lm", "-o", str(executable)],
                 check=True, capture_output=True, text=True,
             )
-            for fps in ("120", "60"):
+            for fps in ("120", "60", "unset"):
                 env = dict(os.environ, MELEE_RENDER_FPS=fps)
+                if fps == "unset":
+                    env.pop("MELEE_RENDER_FPS", None)
                 subprocess.run(
                     [str(executable), *([] if fps == "120" else ["disabled"])],
                     env=env, check=True, capture_output=True, text=True,

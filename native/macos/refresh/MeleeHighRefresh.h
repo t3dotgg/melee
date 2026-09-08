@@ -2,7 +2,9 @@
 #ifndef MELEE_HIGH_REFRESH_H
 #define MELEE_HIGH_REFRESH_H
 
+#include <dlfcn.h>
 #include <errno.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
 
@@ -38,13 +40,22 @@ static int melee_extra_render;
 static int melee_refresh_mode;
 static u64 melee_next_present_ns;
 static unsigned melee_present_remainder;
+static u64 melee_rendered_frames;
+static u64 melee_predicted_pose_frames;
+static int melee_frame_has_prediction;
+static int melee_stats_mode;
+static u64 melee_stats_time_ns;
+static u64 melee_stats_rendered_frames;
+typedef void (*MeleeNativeWait)(u64 duration_ns);
+static MeleeNativeWait melee_native_wait;
+static int melee_wait_resolved;
 
 static int melee_refresh_enabled(void)
 {
     if (melee_refresh_mode == 0) {
         const char* value = getenv("MELEE_RENDER_FPS");
         melee_refresh_mode =
-            value == NULL || strcmp(value, "120") == 0 ? 1 : -1;
+            value != NULL && strcmp(value, "120") == 0 ? 1 : -1;
     }
     return melee_refresh_mode > 0;
 }
@@ -64,6 +75,7 @@ static void melee_refresh_reset(void)
     melee_extra_render = 0;
     melee_next_present_ns = 0;
     melee_present_remainder = 0;
+    melee_frame_has_prediction = 0;
 }
 
 /* Space actual GX renders by 8.333 ms. Do not queue a burst after a slow
@@ -76,6 +88,17 @@ static void melee_refresh_pace(void)
     if (!melee_refresh_enabled()) {
         return;
     }
+    if (!melee_wait_resolved) {
+        const char* stats = getenv("MELEE_REFRESH_STATS");
+        melee_native_wait = (MeleeNativeWait) dlsym(
+            RTLD_DEFAULT, "MeleeNativeWaitNanoseconds");
+        melee_wait_resolved = 1;
+        if (stats != NULL && strcmp(stats, "1") == 0) {
+            fprintf(stderr, "[melee-refresh] wait=%s\n",
+                    melee_native_wait != NULL ? "native"
+                                              : "nanosleep-fallback");
+        }
+    }
     now = melee_monotonic_ns();
     if (melee_next_present_ns == 0 ||
         now > melee_next_present_ns + 16666667ULL)
@@ -85,9 +108,13 @@ static void melee_refresh_pace(void)
     }
     while (now < melee_next_present_ns) {
         u64 delay = melee_next_present_ns - now;
-        struct timespec wait = { (time_t) (delay / 1000000000ULL),
-                                 (long) (delay % 1000000000ULL) };
-        while (nanosleep(&wait, &wait) != 0 && errno == EINTR) {
+        if (melee_native_wait != NULL) {
+            melee_native_wait(delay);
+        } else {
+            struct timespec wait = { (time_t) (delay / 1000000000ULL),
+                                     (long) (delay % 1000000000ULL) };
+            while (nanosleep(&wait, &wait) != 0 && errno == EINTR) {
+            }
         }
         now = melee_monotonic_ns();
     }
@@ -192,9 +219,11 @@ static void melee_capture_pose(CPUState* ctx, u32 address, u32 owner,
     }
     continuous = pose->address == address && pose->owner == owner &&
                  pose->frame + 1 == melee_pose_frame && pose->count == count &&
+                 pose->rotation == rotation &&
                  memcmp(pose->identity, identity, sizeof(pose->identity)) == 0;
-    if (!continuous || !melee_predict(pose->predicted, current, pose->previous,
-                                      count, rotation))
+    if (!continuous || rotation == 2 ||
+        !melee_predict(pose->predicted, current, pose->previous, count,
+                       rotation))
     {
         memcpy(pose->predicted, current, count * sizeof(float));
     }
@@ -252,16 +281,17 @@ static void melee_capture_joints(CPUState* ctx, u32 root, u32 owner,
         if (next != 0 && size < MELEE_POSE_LIMIT) {
             pending[size++] = next;
         }
-        if ((flags & ((1U << 17) | (1U << 23) | (1U << 25))) != 0) {
-            continue;
-        }
         identity[0] = mem_read32(ctx, joint);
         identity[1] = mem_read32(ctx, joint + 0x18);
         identity[2] = mem_read32(ctx, joint + 0x7C);
         identity[3] = action;
         identity[4] = spawn;
-        melee_capture_pose(ctx, joint + 0x1C, owner, identity, 10, 1,
-                           joint + 0x14, 1U << 6);
+        /* Quaternion and custom-matrix joints retain their local pose, but
+         * still save and restore matrices derived from a predicted parent. */
+        melee_capture_pose(
+            ctx, joint + 0x1C, owner, identity, 10,
+            (flags & ((1U << 17) | (1U << 23) | (1U << 25))) ? 2 : 1,
+            joint + 0x14, (flags & (1U << 23)) ? 0 : 1U << 6);
     }
 }
 
@@ -304,7 +334,8 @@ static void melee_capture_scene(CPUState* ctx)
                     if (melee_ram(world, 0x20)) {
                         identity[2] = mem_read32(ctx, world);
                         identity[3] = mem_read32(ctx, world + 0x18);
-                        identity[4] = mem_read8(ctx, data + 0x50);
+                        identity[4] = mem_read8(ctx, data + 0x50) |
+                                      (mem_read32(ctx, 0x80452C6CU) << 8);
                         melee_capture_pose(ctx, world + 0xC, object, identity,
                                            3, 0, data + 8, 0xC0000000U);
                     }
@@ -341,9 +372,12 @@ static void melee_write_poses(CPUState* ctx, int predicted)
             continue;
         }
         for (i = 0; i < pose->count; i++) {
-            mem_write32(ctx, pose->address + i * 4,
-                        predicted ? melee_bits(pose->predicted[i])
-                                  : pose->saved[i]);
+            u32 bits =
+                predicted ? melee_bits(pose->predicted[i]) : pose->saved[i];
+            if (predicted && bits != pose->saved[i]) {
+                melee_frame_has_prediction = 1;
+            }
+            mem_write32(ctx, pose->address + i * 4, bits);
         }
         if (!predicted) {
             u32 matrix_object =
@@ -367,17 +401,84 @@ static void melee_write_poses(CPUState* ctx, int predicted)
     }
 }
 
+/* Camera_8002A4AC rewrites the match camera from game_camera on every draw.
+ * The generated callback invokes this after that copy and before SetCurrent.
+ * r29 still contains its HSD_GObj at the verified hook address 0x80030200.
+ */
+void melee_refresh_camera_update(CPUState* ctx, u32 object)
+{
+    unsigned index;
+    if (!melee_extra_render) {
+        return;
+    }
+    for (index = 0; index < melee_pose_count; index++) {
+        MeleePose* pose = melee_active_poses[index];
+        unsigned i;
+        if (pose->rotation != 0 || pose->owner != object) {
+            continue;
+        }
+        if (mem_read32(ctx, pose->address - 0xC) != pose->identity[2] ||
+            mem_read32(ctx, object + 0x28) != pose->identity[0])
+        {
+            continue;
+        }
+        for (i = 0; i < pose->count; i++) {
+            mem_write32(ctx, pose->address + i * 4,
+                        melee_bits(pose->predicted[i]));
+        }
+        mem_write32(ctx, pose->flags_address,
+                    mem_read32(ctx, pose->flags_address) | pose->dirty_mask);
+    }
+}
+
+static void melee_refresh_stats(CPUState* ctx)
+{
+    u64 now;
+    if (melee_stats_mode == 0) {
+        const char* value = getenv("MELEE_REFRESH_STATS");
+        melee_stats_mode = value != NULL && strcmp(value, "1") == 0 ? 1 : -1;
+    }
+    if (melee_stats_mode < 0) {
+        return;
+    }
+    now = melee_monotonic_ns();
+    if (melee_stats_time_ns == 0) {
+        melee_stats_time_ns = now;
+        melee_stats_rendered_frames = melee_rendered_frames;
+    } else if (now - melee_stats_time_ns >= 2000000000ULL) {
+        double fps =
+            (double) (melee_rendered_frames - melee_stats_rendered_frames) *
+            1000000000.0 / (double) (now - melee_stats_time_ns);
+        fprintf(
+            stderr,
+            "[melee-refresh] rendered_frames=%llu predicted_pose_frames=%llu "
+            "simulation_counter=%u rendered_fps=%.2f\n",
+            (unsigned long long) melee_rendered_frames,
+            (unsigned long long) melee_predicted_pose_frames,
+            mem_read32(ctx, 0x80479D58U), fps);
+        melee_stats_time_ns = now;
+        melee_stats_rendered_frames = melee_rendered_frames;
+    }
+}
+
 static int melee_refresh_finish(CPUState* ctx)
 {
+    melee_rendered_frames++;
     if (!melee_refresh_enabled()) {
+        melee_refresh_stats(ctx);
         return 0;
     }
     if (melee_extra_render) {
+        if (melee_frame_has_prediction) {
+            melee_predicted_pose_frames++;
+        }
         melee_write_poses(ctx, 0);
+        melee_refresh_stats(ctx);
         melee_extra_render = 0;
         return 0;
     }
     melee_capture_scene(ctx);
+    melee_frame_has_prediction = 0;
     melee_write_poses(ctx, 1);
     melee_extra_render = 1;
     return 1;
