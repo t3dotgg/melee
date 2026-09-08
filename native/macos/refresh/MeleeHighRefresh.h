@@ -19,6 +19,9 @@ typedef struct MeleePose {
     u32 identity[5];
     u32 frame;
     u32 saved[10];
+    u32 saved_matrix[12];
+    u32 saved_auxiliary[12];
+    u32 auxiliary_address;
     float previous[10];
     float predicted[10];
     u32 flags_address;
@@ -128,7 +131,9 @@ static int melee_predict(float* result, const float* current,
     for (i = 0; i < count; i++) {
         float delta = current[i] - previous[i];
         float limit = 20.0F;
-        if (rotation && i == 3) {
+        /* Euler rotation.w is unused. Keep scale unchanged because crossing
+         * unit scale allocates or frees the joint's derived scale vector. */
+        if (rotation && i >= 3 && i < 7) {
             result[i] = current[i];
             continue;
         }
@@ -138,8 +143,6 @@ static int melee_predict(float* result, const float* current,
         if (rotation && i < 3) {
             delta = remainderf(delta, 6.283185307179586F);
             limit = 1.2F;
-        } else if (rotation && i >= 4 && i < 7) {
-            limit = 0.5F;
         }
         if (fabsf(delta) > limit) {
             return 0;
@@ -205,6 +208,22 @@ static void melee_capture_pose(CPUState* ctx, u32 address, u32 owner,
     memcpy(pose->identity, identity, sizeof(pose->identity));
     memcpy(pose->saved, saved, count * sizeof(u32));
     memcpy(pose->previous, current, count * sizeof(float));
+    {
+        u32 object = rotation ? address - 0x1CU : flags_address - 8;
+        u32 matrix = object + (rotation ? 0x44U : 0x54U);
+        u32 auxiliary = mem_read32(ctx, object + (rotation ? 0x74U : 0x88U));
+        unsigned auxiliary_count = rotation ? 3 : 12;
+        for (i = 0; i < 12; i++) {
+            pose->saved_matrix[i] = mem_read32(ctx, matrix + i * 4);
+        }
+        pose->auxiliary_address = 0;
+        if (melee_ram(auxiliary, auxiliary_count * 4)) {
+            pose->auxiliary_address = auxiliary;
+            for (i = 0; i < auxiliary_count; i++) {
+                pose->saved_auxiliary[i] = mem_read32(ctx, auxiliary + i * 4);
+            }
+        }
+    }
     melee_active_poses[melee_pose_count++] = pose;
 }
 
@@ -325,6 +344,23 @@ static void melee_write_poses(CPUState* ctx, int predicted)
             mem_write32(ctx, pose->address + i * 4,
                         predicted ? melee_bits(pose->predicted[i])
                                   : pose->saved[i]);
+        }
+        if (!predicted) {
+            u32 matrix_object =
+                pose->rotation ? object : pose->flags_address - 8;
+            u32 matrix = matrix_object + (pose->rotation ? 0x44U : 0x54U);
+            u32 auxiliary = mem_read32(
+                ctx, matrix_object + (pose->rotation ? 0x74U : 0x88U));
+            unsigned auxiliary_count = pose->rotation ? 3 : 12;
+            for (i = 0; i < 12; i++) {
+                mem_write32(ctx, matrix + i * 4, pose->saved_matrix[i]);
+            }
+            if (auxiliary != 0 && auxiliary == pose->auxiliary_address) {
+                for (i = 0; i < auxiliary_count; i++) {
+                    mem_write32(ctx, auxiliary + i * 4,
+                                pose->saved_auxiliary[i]);
+                }
+            }
         }
         mem_write32(ctx, pose->flags_address,
                     mem_read32(ctx, pose->flags_address) | pose->dirty_mask);

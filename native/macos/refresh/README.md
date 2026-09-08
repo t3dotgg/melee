@@ -6,7 +6,7 @@ use the original drawing path. The native default is 120.
 
 The game still runs its input, animation clocks, collision, and game rules
 at 60 updates per second. After each normal render, the hook draws one extra
-frame. It predicts joint position, Euler rotation, scale, and camera position
+frame. It predicts joint position, Euler rotation, and camera position
 half a frame ahead using the previous two poses. This avoids the extra input
 delay of drawing a blend of old frames.
 
@@ -14,11 +14,12 @@ The extra frame uses new geometry. It is not a second copy of the same XFB.
 A monotonic clock spaces render starts by 8.333 ms. The runtime must also use
 120 Hz VI timing, immediate XFB presentation, and no immediate-XFB cap.
 
-The hook restores the exact saved transform bits before the next game update
-and marks derived matrices dirty. Prediction stops across fighter action or
+The hook restores the exact saved transform and matrix bits before the next game
+update and marks derived matrices dirty. Prediction stops across fighter action or
 spawn changes, scene changes, skipped game updates, frame rewinds, large
 position changes, and large pose changes. It skips quaternion joints and
-joints with custom matrices. These cases still get the extra draw.
+joints with custom matrices. It keeps scale unchanged to avoid extra scale-vector
+allocation during rendering. These cases still get the extra draw.
 
 This is an experimental visual change. Texture animation, interface counters,
 and particle systems that do not use joint transforms can still update at

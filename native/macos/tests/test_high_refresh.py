@@ -120,7 +120,12 @@ int main(int argc, char** argv) {
     assert(mem_read32(&ctx, 0x80006038U) == melee_bits(16.0f));
     assert(mem_read32(&ctx, 0x80479D58U) == 2);
     assert(mem_read32(&ctx, 0x8000A00CU) == melee_bits(8.0f));
+    /* The draw recomputes matrices. Direct game readers must get originals. */
+    mem_write32(&ctx, 0x80006044U, 0xBADU);
+    mem_write32(&ctx, 0x80009054U, 0xBADU);
     assert(melee_refresh_finish(&ctx) == 0);
+    assert(mem_read32(&ctx, 0x80006044U) == 0);
+    assert(mem_read32(&ctx, 0x80009054U) == 0);
     assert(mem_read32(&ctx, 0x80006038U) == melee_bits(14.0f));
     assert(mem_read32(&ctx, 0x80006014U) & (1U << 6));
     assert(mem_read32(&ctx, 0x8000A00CU) == melee_bits(7.0f));
