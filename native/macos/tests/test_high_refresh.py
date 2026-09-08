@@ -28,6 +28,17 @@ class InstallTests(unittest.TestCase):
         patched = MODULE.patch_chunk(self.fixture())
         self.assertEqual(MODULE.patch_chunk(patched), patched)
 
+    def test_upgrade_host_wait_to_guest_retrace(self):
+        source = MODULE.patch_chunk(self.fixture())
+        old = source.replace(
+            "label_801A5058:\n" + MODULE.HOOKS[-1][1],
+            "label_801A5058:\n    if (melee_refresh_finish(ctx)) {\n"
+            "        goto label_801A5034;\n    }\n",
+        ).replace("label_801A5034:\n", "label_801A5034:\n    melee_refresh_pace();\n")
+        self.assertEqual(MODULE.patch_chunk(old), source)
+        self.assertIn("ctx->pc = 0x8034F314u;", source)
+        self.assertNotIn("melee_refresh_pace", source)
+
     def test_reject_missing_and_duplicate_labels(self):
         for source in (
             self.fixture().replace("label_801A5058:\n", ""),

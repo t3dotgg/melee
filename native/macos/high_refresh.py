@@ -14,11 +14,12 @@ CAMERA_DECLARATION = "void melee_refresh_camera_update(CPUState* ctx, u32 object
 MARKER = "// Native Melee high refresh hooks v1"
 HOOKS = (
     ("801A4D34", "    melee_refresh_reset();\n"),
-    ("801A5034", "    melee_refresh_pace();\n"),
     (
         "801A5058",
         "    if (melee_refresh_finish(ctx)) {\n"
-        "        goto label_801A5034;\n"
+        "        ctx->lr = 0x801A5034u;\n"
+        "        ctx->pc = 0x8034F314u;\n"
+        "        return;\n"
         "    }\n",
     ),
 )
@@ -26,6 +27,14 @@ HOOKS = (
 
 def patch_chunk(source: str) -> str:
     if MARKER in source:
+        # Upgrade the first hook version, which slept the host CPU thread.
+        source = source.replace("label_801A5034:\n    melee_refresh_pace();\n",
+                                "label_801A5034:\n")
+        source = source.replace(
+            "label_801A5058:\n    if (melee_refresh_finish(ctx)) {\n"
+            "        goto label_801A5034;\n    }\n",
+            "label_801A5058:\n" + HOOKS[-1][1],
+        )
         for address, hook in HOOKS:
             if source.count(f"label_{address}:\n{hook}") != 1:
                 raise ValueError(f"Incomplete high refresh hook at {address}.")

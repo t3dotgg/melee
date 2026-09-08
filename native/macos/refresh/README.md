@@ -12,9 +12,10 @@ half a frame ahead using the previous two poses. This avoids the extra input
 delay of drawing a blend of old frames.
 
 The extra frame uses new geometry. It is not a second copy of the same XFB.
-A monotonic clock spaces render starts by 8.333 ms. It uses the runtime's native
-wait function when available and reports a nanosleep fallback in the stats log.
-The runtime must also use
+Before the extra render, the hook calls the original `VIWaitForRetrace`. This
+sleeps the guest game thread until the next 120 Hz VI interrupt. The runtime can
+continue controller alarms and audio during this wait. CoreTiming supplies the
+single host clock. The runtime must also use
 120 Hz VI timing, immediate XFB presentation, and no immediate-XFB cap.
 
 The hook restores the exact saved transform and matrix bits before the next game
@@ -32,7 +33,8 @@ This does not make collision or input processing run at 120 Hz.
 The addresses come from `config/GALE01/symbols.txt`. The hook boundaries are
 `gm_801A4D34` at `0x801A5034` and `0x801A5058`. The repeated block invalidates
 GX caches, starts rendering, runs render callbacks, and copies the XFB. It
-contains no game-object process update. Structure offsets come from
+contains no game-object process update. The extra render calls the original
+`VIWaitForRetrace` at `0x8034F314` and resumes at `0x801A5034`. Structure offsets come from
 `gobj.h`, `jobj.h`, `cobj.h`, `wobj.h`, and `ft/types.h`.
 
 Run the focused installer and pose tests with:
@@ -48,7 +50,7 @@ Runtime frame pacing and motion need a game run.
 
 Set `MELEE_REFRESH_STATS=1` to log render totals, frames with a predicted pose,
 the current simulation counter, and measured render rate every two seconds.
-The first line reports the native wait or nanosleep fallback. Pose counts show
+The first line reports `wait=guest-vi` for the extra render path. Pose counts show
 that transforms changed, but do not measure display scanout or input latency.
 
 The match camera rewrites its WObjs during every render. A second generated

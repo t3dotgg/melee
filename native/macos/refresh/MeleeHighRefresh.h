@@ -2,8 +2,6 @@
 #ifndef MELEE_HIGH_REFRESH_H
 #define MELEE_HIGH_REFRESH_H
 
-#include <dlfcn.h>
-#include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
@@ -38,17 +36,12 @@ static unsigned melee_pose_count;
 static u32 melee_pose_frame;
 static int melee_extra_render;
 static int melee_refresh_mode;
-static u64 melee_next_present_ns;
-static unsigned melee_present_remainder;
 static u64 melee_rendered_frames;
 static u64 melee_predicted_pose_frames;
 static int melee_frame_has_prediction;
 static int melee_stats_mode;
 static u64 melee_stats_time_ns;
 static u64 melee_stats_rendered_frames;
-typedef void (*MeleeNativeWait)(u64 duration_ns);
-static MeleeNativeWait melee_native_wait;
-static int melee_wait_resolved;
 
 static int melee_refresh_enabled(void)
 {
@@ -73,57 +66,7 @@ static void melee_refresh_reset(void)
     melee_pose_count = 0;
     melee_pose_frame = 0;
     melee_extra_render = 0;
-    melee_next_present_ns = 0;
-    melee_present_remainder = 0;
     melee_frame_has_prediction = 0;
-}
-
-/* Space actual GX renders by 8.333 ms. Do not queue a burst after a slow
- * frame. Rational deadlines retain the fractional third of a nanosecond at 120
- * Hz.
- */
-static void melee_refresh_pace(void)
-{
-    u64 now;
-    if (!melee_refresh_enabled()) {
-        return;
-    }
-    if (!melee_wait_resolved) {
-        const char* stats = getenv("MELEE_REFRESH_STATS");
-        melee_native_wait = (MeleeNativeWait) dlsym(
-            RTLD_DEFAULT, "MeleeNativeWaitNanoseconds");
-        melee_wait_resolved = 1;
-        if (stats != NULL && strcmp(stats, "1") == 0) {
-            fprintf(stderr, "[melee-refresh] wait=%s\n",
-                    melee_native_wait != NULL ? "native"
-                                              : "nanosleep-fallback");
-        }
-    }
-    now = melee_monotonic_ns();
-    if (melee_next_present_ns == 0 ||
-        now > melee_next_present_ns + 16666667ULL)
-    {
-        melee_next_present_ns = now;
-        melee_present_remainder = 0;
-    }
-    while (now < melee_next_present_ns) {
-        u64 delay = melee_next_present_ns - now;
-        if (melee_native_wait != NULL) {
-            melee_native_wait(delay);
-        } else {
-            struct timespec wait = { (time_t) (delay / 1000000000ULL),
-                                     (long) (delay % 1000000000ULL) };
-            while (nanosleep(&wait, &wait) != 0 && errno == EINTR) {
-            }
-        }
-        now = melee_monotonic_ns();
-    }
-    melee_next_present_ns += 8333333ULL;
-    melee_present_remainder++;
-    if (melee_present_remainder == 3) {
-        melee_next_present_ns++;
-        melee_present_remainder = 0;
-    }
 }
 
 static int melee_ram(u32 address, unsigned bytes)
@@ -437,6 +380,10 @@ static void melee_refresh_stats(CPUState* ctx)
     if (melee_stats_mode == 0) {
         const char* value = getenv("MELEE_REFRESH_STATS");
         melee_stats_mode = value != NULL && strcmp(value, "1") == 0 ? 1 : -1;
+        if (melee_stats_mode > 0) {
+            fprintf(stderr, "[melee-refresh] wait=%s\n",
+                    melee_refresh_enabled() ? "guest-vi" : "runtime");
+        }
     }
     if (melee_stats_mode < 0) {
         return;
