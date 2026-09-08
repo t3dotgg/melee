@@ -61,14 +61,14 @@ def patch_loop(source: str) -> str:
     return patch_chunk(
         source, LOOP_DECLARATIONS,
         {"801A5034": "    melee_stage_lighting_begin(ctx);\n",
-         "801A5048": "    melee_stage_lighting_finish(ctx);\n"},
+            "801A5048": "    melee_stage_lighting_finish(ctx);\n"},
         ("// 801A5034: bl      0x8033C898",
-         "// 801A5044: bl      0x80390FC0"),
+            "// 801A5044: bl      0x80390FC0"),
     )
 
 
 def patch_light_callback(source: str, address: str, call: str,
-                         implementation: bool = False) -> str:
+                            implementation: bool = False) -> str:
     declarations = ('#include "../MeleeStageLighting.h"\n'
                     if implementation else LIGHT_DECLARATION)
     return patch_chunk(

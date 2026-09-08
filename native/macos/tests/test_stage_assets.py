@@ -28,7 +28,7 @@ int MeleeStageLightingEnabled() { return live_setting; }
 #endif
 
 static void create_archive(const std::filesystem::path& path,
-                           std::uintmax_t size = 611125)
+                            std::uintmax_t size = 611125)
 {
     std::filesystem::create_directories(path.parent_path());
     std::ofstream output(path, std::ios::binary | std::ios::trunc);
@@ -93,7 +93,7 @@ int main(int argc, char** argv)
                 flags.append("-DEXPORTED_SETTING")
             subprocess.run(
                 ["c++", "-std=c++20", "-Wall", "-Wextra", "-Werror", "-I",
-                 str(ROOT / "lighting"), str(source), "-o", str(executable), *flags],
+                    str(ROOT / "lighting"), str(source), "-o", str(executable), *flags],
                 check=True,
                 capture_output=True,
                 text=True,

@@ -48,6 +48,11 @@ open "build/native/Melee for Mac.app"
 
 Select Play. Escape opens the app menu. Command-comma opens Settings.
 
+Settings, Video also has a Stage lighting switch for Fountain of Dreams,
+Battlefield, and Final Destination. Lights update when play resumes. Water
+quality and sky colors update on stage load. See the
+[stage lighting notes](stage-lighting.md) for changes and measurements.
+
 The `native/texture-upscale` branch can load a complete 4x texture pack.
 See the [texture build guide](../tools/texture_upscale/README.md) for automatic
 generation or the private generated assets. Pass `--texture-pack` to bundle

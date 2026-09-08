@@ -139,7 +139,7 @@ int main(void) {
 ''')
             subprocess.run(
                 [compiler, "-std=c11", "-Wall", "-Wextra", "-Werror",
-                 "-I", str(ROOT / "lighting"), str(source), "-o", str(executable)],
+                    "-I", str(ROOT / "lighting"), str(source), "-o", str(executable)],
                 check=True,
             )
             subprocess.run([str(executable)], check=True)

@@ -93,7 +93,7 @@ class InstallTests(unittest.TestCase):
             with patch.object(MODULE, "HERE", base):
                 MODULE.install(generated)
                 outputs = {path: path.read_bytes() for path in generated.rglob("*")
-                           if path.is_file()}
+                            if path.is_file()}
                 MODULE.install(generated)
             for path, source in outputs.items():
                 self.assertEqual(path.read_bytes(), source)
@@ -253,9 +253,9 @@ int main(int argc, char** argv) {
     }
     if (argc > 1) return 0;
     /* The authored magenta trim gets a palette change only on FD map 3.
-     * Vertex colors, textured/lit materials, and translucent effects retain
-     * their source colors. A runtime toon flag must not hide the trim.
-     */
+        * Vertex colors, textured/lit materials, and translucent effects retain
+        * their source colors. A runtime toon flag must not hide the trim.
+        */
     for (unsigned stage = 0; stage < 2; stage++) {
         unsigned modes[] = {1, 0x1001, 0x11, 0x12, 0x1C, 0x60000001U};
         for (unsigned i = 0; i < sizeof(modes) / sizeof(modes[0]); i++) {
@@ -268,7 +268,7 @@ int main(int argc, char** argv) {
             memcpy(original_ram, ram, sizeof(ram));
             melee_stage_lighting_begin(&ctx);
             assert(mem_read32(&ctx, 0x8000A004U) ==
-                   (stage == 0 && i < 2 ? 0x3E8ED433U : 0xFF00FF33U));
+                    (stage == 0 && i < 2 ? 0x3E8ED433U : 0xFF00FF33U));
             melee_stage_lighting_finish(&ctx);
             assert(memcmp(ram, original_ram, sizeof(ram)) == 0);
         }
@@ -329,7 +329,7 @@ int main(int argc, char** argv) {
 ''')
             executable = base / "test"
             flags = [compiler, "-std=c11", "-Wall", "-Wextra", "-Werror",
-                     "-Wno-unused-function", str(source), "-lm", "-o", str(executable)]
+                        "-Wno-unused-function", str(source), "-lm", "-o", str(executable)]
             if os.uname().sysname != "Darwin":
                 flags.append("-ldl")
             subprocess.run(flags, check=True, capture_output=True, text=True)
