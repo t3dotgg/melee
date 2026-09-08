@@ -74,4 +74,32 @@ static void melee_final_destination_material(MeleeStageMaterialProfile* p,
     }
 }
 
+/* The platform's magenta, white, and orange trim is authored unlit geometry,
+ * not a missing texture. These exact colors have no material color tracks
+ * in GrNLa.dat. The caller limits this palette to opaque, untextured constant
+ * materials. Keep the alpha byte and all other material colors unchanged.
+ */
+static unsigned melee_final_destination_diffuse(unsigned original,
+                                                unsigned map)
+{
+    unsigned color;
+    if (map != 3) {
+        return original;
+    }
+    switch (original >> 8) {
+    case 0xFF00FF:
+        color = 0x3E8ED4;
+        break;
+    case 0xFFFFFF:
+        color = 0x98D0E8;
+        break;
+    case 0xFF5900:
+        color = 0xD68C2C;
+        break;
+    default:
+        return original;
+    }
+    return (color << 8) | (original & 0xFFU);
+}
+
 #endif
