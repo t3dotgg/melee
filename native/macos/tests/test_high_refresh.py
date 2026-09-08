@@ -195,6 +195,30 @@ int main(int argc, char** argv) {
     mem_write32(&ctx, 0x80006038U, 123);
     assert(melee_refresh_finish(&ctx) == 0);
     assert(mem_read32(&ctx, 0x80006038U) == 123);
+    /* Saving inside an extra render stores normal poses. Loading clears
+       history even when the saved frame counter equals the current one. */
+    mem_write32(&ctx, 0x80006000U, 0x80008000U);
+    melee_refresh_reset();
+    tick(&ctx, 10, 10.0f, 0);
+    assert(melee_refresh_finish(&ctx) == 1);
+    assert(melee_refresh_finish(&ctx) == 0);
+    tick(&ctx, 11, 14.0f, 0);
+    assert(melee_refresh_finish(&ctx) == 1);
+    assert(mem_read32(&ctx, 0x80006038U) == melee_bits(16.0f));
+    MeleeNativePrepareState(&ctx, 0);
+    assert(mem_read32(&ctx, 0x80006038U) == melee_bits(14.0f));
+    MeleeNativePrepareState(&ctx, 1);
+    assert(melee_extra_render == 0 && melee_pose_count == 0);
+    /* A missed load notification still cannot restore over another frame. */
+    tick(&ctx, 20, 20.0f, 0);
+    assert(melee_refresh_finish(&ctx) == 1);
+    assert(melee_refresh_finish(&ctx) == 0);
+    tick(&ctx, 21, 24.0f, 0);
+    assert(melee_refresh_finish(&ctx) == 1);
+    tick(&ctx, 50, 100.0f, 0);
+    assert(melee_refresh_finish(&ctx) == 1);
+    assert(mem_read32(&ctx, 0x80006038U) == melee_bits(100.0f));
+    assert(melee_refresh_finish(&ctx) == 0);
     puts("poses predict, restore, and reject discontinuities");
     return 0;
 }

@@ -344,6 +344,22 @@ static void melee_write_poses(CPUState* ctx, int predicted)
     }
 }
 
+/* Called by the runtime on its CPU thread before saving or loading RAM.
+ * Save exact game poses even if the user stops during the extra render. Loads
+ * discard host history, which is deliberately absent from the save format.
+ */
+__attribute__((visibility("default"), used)) void
+MeleeNativePrepareState(CPUState* ctx, u32 loading)
+{
+    if (melee_extra_render && mem_read32(ctx, 0x80479D58U) == melee_pose_frame)
+    {
+        melee_write_poses(ctx, 0);
+    }
+    if (loading) {
+        melee_refresh_reset();
+    }
+}
+
 /* Camera_8002A4AC rewrites the match camera from game_camera on every draw.
  * The generated callback invokes this after that copy and before SetCurrent.
  * r29 still contains its HSD_GObj at the verified hook address 0x80030200.
@@ -414,6 +430,12 @@ static int melee_refresh_finish(CPUState* ctx)
     if (!melee_refresh_enabled()) {
         melee_refresh_stats(ctx);
         return 0;
+    }
+    /* A state load or scene transition can replace RAM between hook calls.
+     * Never restore an old pose over a different simulation update. */
+    if (melee_extra_render && mem_read32(ctx, 0x80479D58U) != melee_pose_frame)
+    {
+        melee_refresh_reset();
     }
     if (melee_extra_render) {
         if (melee_frame_has_prediction) {

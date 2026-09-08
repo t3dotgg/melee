@@ -30,6 +30,11 @@ and particle systems that do not use joint transforms can still update at
 60 Hz. Render callbacks run twice and can have their own visual side effects.
 This does not make collision or input processing run at 120 Hz.
 
+Before a save, `game-refresh.patch` calls the module to restore normal poses.
+Before a load, it restores any active prediction and clears host pose history.
+The save format stays unchanged. A changed simulation counter also discards
+stale history if a load notification is missed.
+
 The addresses come from `config/GALE01/symbols.txt`. The hook boundaries are
 `gm_801A4D34` at `0x801A5034` and `0x801A5058`. The repeated block invalidates
 GX caches, starts rendering, runs render callbacks, and copies the XFB. It

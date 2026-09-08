@@ -1,0 +1,63 @@
+diff --git a/Source/Core/Core/PowerPC/StaticRecomp/StaticRecompCore.cpp b/Source/Core/Core/PowerPC/StaticRecomp/StaticRecompCore.cpp
+--- a/Source/Core/Core/PowerPC/StaticRecomp/StaticRecompCore.cpp
++++ b/Source/Core/Core/PowerPC/StaticRecomp/StaticRecompCore.cpp
+@@ -108,6 +108,19 @@
+   return true;
+ }
+ }  // namespace
++
++// State operations already run on the CPU thread. Use the loaded module's
++// handle so this optional hook also works for libraries with local symbols.
++void StaticRecompCore::PrepareNativeState(bool loading)
++{
++  if (!m_module_active || !m_library.IsOpen())
++    return;
++  using PrepareState = void (*)(CPUState*, u32);
++  const auto prepare = reinterpret_cast<PrepareState>(
++      m_library.GetSymbolAddress("MeleeNativePrepareState"));
++  if (prepare)
++    prepare(&m_guest, loading ? 1U : 0U);
++}
+ 
+ bool StaticRecompCore::IsModuleActive() const
+ {
+diff --git a/Source/Core/Core/PowerPC/StaticRecomp/StaticRecompCore.h b/Source/Core/Core/PowerPC/StaticRecomp/StaticRecompCore.h
+--- a/Source/Core/Core/PowerPC/StaticRecomp/StaticRecompCore.h
++++ b/Source/Core/Core/PowerPC/StaticRecomp/StaticRecompCore.h
+@@ -50,6 +50,7 @@
+ 
+   void Run() override;
+   void RunBootFunction();
++  void PrepareNativeState(bool loading);
+   void SingleStep() override;
+   bool IsModuleActive() const;
+   bool DispatchableAt(u32 address);
+diff --git a/Source/Core/Core/State.cpp b/Source/Core/Core/State.cpp
+--- a/Source/Core/Core/State.cpp
++++ b/Source/Core/Core/State.cpp
+@@ -43,6 +43,7 @@
+ #include "Core/Movie.h"
+ #include "Core/NetPlay/NetPlayProto.h"
+ #include "Core/PowerPC/PowerPC.h"
++#include "Core/PowerPC/StaticRecomp/StaticRecompCore.h"
+ #include "Core/System.h"
+ 
+ #include "UICommon/UICommon.h"
+@@ -177,6 +178,8 @@
+ 
+ static bool LoadFromBuffer(Core::System& system, std::span<u8> buffer)
+ {
++  if (g_static_recomp_core)
++    g_static_recomp_core->PrepareNativeState(true);
+   u8* ptr = buffer.data();
+   PointerWrap p(&ptr, buffer.size(), PointerWrap::Mode::Read);
+   DoState(system, p);
+@@ -186,6 +189,8 @@
+ // Returns the required size, or 0 on failure.
+ static std::size_t SaveToBuffer(Core::System& system, Common::UniqueBuffer<u8>& buffer)
+ {
++  if (g_static_recomp_core)
++    g_static_recomp_core->PrepareNativeState(false);
+   // Attempt to save to our provided buffer as-is.
+   // If buffer isn't large enough, PointerWrap transitions to MeasureMode,
+   //  and then we have our measurement for a second attempt.
