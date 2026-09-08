@@ -9,11 +9,11 @@ extern HSD_ObjAllocData gobjproc_alloc_data;
 // Last scheduled process for one object list and process priority.
 static inline HSD_GObjProc** processTailSlot(int p_link, int s_link)
 {
-    return &HSD_GObj_804D7844[p_link +
-                              s_link * (HSD_GObjLibInitData.p_link_max + 1)];
+    return &HSD_GObj_ProcList[p_link +
+                             s_link * (HSD_GObjLibInitData.p_link_max + 1)];
 }
 
-void HSD_GObjProc_8038FAA8(HSD_GObjProc* gproc)
+void HSD_GObjProc_QueueProc(HSD_GObjProc* gproc)
 {
     HSD_GObj* owner;
     HSD_GObjProc* predecessor;
@@ -54,8 +54,8 @@ void HSD_GObjProc_8038FAA8(HSD_GObjProc* gproc)
     }
 
     // No predecessor exists at this priority. Insert at the scheduler head.
-    gproc->next = HSD_GObj_804D7840[s_link];
-    HSD_GObj_804D7840[s_link] = gproc;
+    gproc->next = HSD_GObj_GObjProcHead[s_link];
+    HSD_GObj_GObjProcHead[s_link] = gproc;
     gproc->prev = NULL;
     goto link_owner;
 
@@ -71,19 +71,23 @@ link_owner:
     gproc->child = owner->proc;
     owner->proc = gproc;
     // Include an insertion immediately after the active process in traversal.
-    if (HSD_GObj_804CE3E4.b0 && gproc->prev == HSD_GObj_804D7838 &&
-        gproc->next == HSD_GObj_804D7830 && s_link == HSD_GObj_804D7834)
+    if (HSD_GObj_DelayedProcInfo.in_delayed_proc &&
+        gproc->prev == HSD_GObj_CurrentInvokedProc &&
+        gproc->next == HSD_GObj_NextInvokedProc &&
+        s_link == HSD_GObj_CurrentInvokedSLink)
     {
-        HSD_GObj_804D7830 = gproc;
+        HSD_GObj_NextInvokedProc = gproc;
     }
 }
 
-void HSD_GObjProc_8038FC18(HSD_GObjProc* gproc)
+void HSD_GObjProc_UnqueueProc(HSD_GObjProc* gproc)
 {
     int p_link = gproc->gobj->p_link;
     int s_link = gproc->s_link;
-    if (HSD_GObj_804CE3E4.b0 && gproc == HSD_GObj_804D7830) {
-        HSD_GObj_804D7830 = gproc->next;
+    if (HSD_GObj_DelayedProcInfo.in_delayed_proc &&
+        gproc == HSD_GObj_NextInvokedProc)
+    {
+        HSD_GObj_NextInvokedProc = gproc->next;
     }
     if (gproc == *processTailSlot(p_link, s_link)) {
         if (gproc->prev != NULL && gproc->prev->gobj->p_link == p_link) {
@@ -95,17 +99,17 @@ void HSD_GObjProc_8038FC18(HSD_GObjProc* gproc)
     if (gproc->prev != NULL) {
         gproc->prev->next = gproc->next;
     } else {
-        HSD_GObj_804D7840[s_link] = gproc->next;
+        HSD_GObj_GObjProcHead[s_link] = gproc->next;
     }
     if (gproc->next != NULL) {
         gproc->next->prev = gproc->prev;
     }
 }
 
-void HSD_GObjProc_8038FCE4(HSD_GObjProc* gproc)
+void HSD_GObjProc_UnlinkProcFromGObj(HSD_GObjProc* gproc)
 {
     HSD_GObj* gobj = gproc->gobj;
-    HSD_GObjProc_8038FC18(gproc);
+    HSD_GObjProc_UnqueueProc(gproc);
     if (gobj->proc == gproc) {
         gobj->proc = gproc->child;
     } else {
@@ -137,27 +141,29 @@ HSD_GObjProc* HSD_GObj_SetupProc(HSD_GObj* gobj, HSD_GObjEvent callback,
     gproc->flags_3 = 3;
     gproc->gobj = gobj;
     gproc->on_invoke = callback;
-    HSD_GObjProc_8038FAA8(gproc);
+    HSD_GObjProc_QueueProc(gproc);
     return gproc;
 }
 
-void HSD_GObjProc_8038FE24(HSD_GObjProc* gproc)
+void HSD_GObjProc_RemoveProc(HSD_GObjProc* gproc)
 {
     // The scheduler frees its active process after the callback returns.
-    if (!HSD_GObj_804CE3E4.b0 && gproc == HSD_GObj_804D7838) {
-        HSD_GObj_804CE3E4.b2 = true;
+    if (!HSD_GObj_DelayedProcInfo.in_delayed_proc &&
+        gproc == HSD_GObj_CurrentInvokedProc)
+    {
+        HSD_GObj_DelayedProcInfo.delay_remove_proc = true;
     } else {
-        HSD_GObjProc_8038FCE4(gproc);
+        HSD_GObjProc_UnlinkProcFromGObj(gproc);
         HSD_ObjFree(&gobjproc_alloc_data, gproc);
     }
 }
 
-void HSD_GObjProc_8038FED4(HSD_GObj* gobj)
+void HSD_GObjProc_RemoveAllProcs(HSD_GObj* gobj)
 {
     HSD_GObjProc* process = gobj->proc;
     while (process != NULL) {
         HSD_GObjProc* next_owned_process = process->child;
-        HSD_GObjProc_8038FE24(process);
+        HSD_GObjProc_RemoveProc(process);
         process = next_owned_process;
     }
 }
