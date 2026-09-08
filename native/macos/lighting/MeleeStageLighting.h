@@ -239,10 +239,12 @@ static void melee_stage_material_profile(MeleeStageMaterialProfile* profile,
     }
 }
 
-static void melee_stage_material(CPUState* ctx, u32 mobj,
+static void melee_stage_material(CPUState* ctx, u32 mobj, unsigned map,
                                  const MeleeStageMaterialProfile* profile)
 {
     u32 material;
+    u32 original_diffuse;
+    u32 diffuse;
     float shininess;
     if (!melee_stage_ram(mobj, 0x24)) {
         return;
@@ -256,10 +258,22 @@ static void melee_stage_material(CPUState* ctx, u32 mobj,
         ctx, material,
         melee_stage_gain(mem_read32(ctx, material), profile->ambient_gain),
         mobj);
-    melee_stage_write(ctx, material + 4U,
-                      melee_stage_gain(mem_read32(ctx, material + 4U),
-                                       profile->diffuse_gain),
-                      mobj);
+    original_diffuse = mem_read32(ctx, material + 4U);
+    diffuse = original_diffuse;
+    /* Final Destination has authored, untextured magenta trim. Give only
+     * those opaque constant materials the new palette. Vertex colors,
+     * textures, lit materials, and translucent effects keep their own colors.
+     * The optional toon flag does not change this constant-material test.
+     */
+    if (melee_stage_kind == 0x25 && map == 3 &&
+        (mem_read32(ctx, mobj + 4U) & 0x60000FFFU) == 1U)
+    {
+        diffuse = melee_final_destination_diffuse(original_diffuse, map);
+    }
+    if (diffuse == original_diffuse) {
+        diffuse = melee_stage_gain(original_diffuse, profile->diffuse_gain);
+    }
+    melee_stage_write(ctx, material + 4U, diffuse, mobj);
     melee_stage_write(ctx, material + 8U,
                       melee_stage_gain(mem_read32(ctx, material + 8U),
                                        profile->specular_gain),
@@ -306,7 +320,7 @@ static void melee_stage_materials(CPUState* ctx, u32 root, unsigned map)
             u32 dobj = mem_read32(ctx, joint + 0x18U);
             unsigned draws = 0;
             while (melee_stage_ram(dobj, 0x18) && draws++ < 512) {
-                melee_stage_material(ctx, mem_read32(ctx, dobj + 8U),
+                melee_stage_material(ctx, mem_read32(ctx, dobj + 8U), map,
                                      &profile);
                 dobj = mem_read32(ctx, dobj + 4U);
             }

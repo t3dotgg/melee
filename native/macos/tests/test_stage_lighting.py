@@ -127,6 +127,11 @@ static void profile_material(MeleeStageMaterialProfile* p, unsigned map, float f
     p->specular_gain[0] = 0.5f;
     p->shininess_gain = 2;
 }
+static unsigned melee_final_destination_diffuse(unsigned original, unsigned map) {
+    if (map == 3 && (original >> 8) == 0xFF00FFU)
+        return 0x3E8ED400U | (original & 255U);
+    return original;
+}
 '''
             for index, (name, prefix) in enumerate((
                 ("BattlefieldLighting.h", "battlefield"),
@@ -247,6 +252,33 @@ int main(int argc, char** argv) {
         assert(memcmp(&ctx, &original_ctx, sizeof(ctx)) == 0);
     }
     if (argc > 1) return 0;
+    /* The authored magenta trim gets a palette change only on FD map 3.
+     * Vertex colors, textured/lit materials, and translucent effects retain
+     * their source colors. A runtime toon flag must not hide the trim.
+     */
+    for (unsigned stage = 0; stage < 2; stage++) {
+        unsigned modes[] = {1, 0x1001, 0x11, 0x12, 0x1C, 0x60000001U};
+        for (unsigned i = 0; i < sizeof(modes) / sizeof(modes[0]); i++) {
+            scene(&ctx, stage ? 0x24 : 0x25);
+            mem_write32(&ctx, MELEE_STAGE_MAPS + 6 * 4, 0);
+            mem_write32(&ctx, MELEE_STAGE_MAPS + 3 * 4, 0x80005000U);
+            mem_write32(&ctx, 0x80007014U, 3);
+            mem_write32(&ctx, 0x80009004U, modes[i]);
+            mem_write32(&ctx, 0x8000A004U, 0xFF00FF33U);
+            memcpy(original_ram, ram, sizeof(ram));
+            melee_stage_lighting_begin(&ctx);
+            assert(mem_read32(&ctx, 0x8000A004U) ==
+                   (stage == 0 && i < 2 ? 0x3E8ED433U : 0xFF00FF33U));
+            melee_stage_lighting_finish(&ctx);
+            assert(memcmp(ram, original_ram, sizeof(ram)) == 0);
+        }
+    }
+    scene(&ctx, 0x25);
+    mem_write32(&ctx, 0x80009004U, 1);
+    mem_write32(&ctx, 0x8000A004U, 0xFF00FF33U);
+    melee_stage_lighting_begin(&ctx);
+    assert(mem_read32(&ctx, 0x8000A004U) == 0xFF00FF33U);
+    melee_stage_lighting_finish(&ctx);
     /* A state save strips temporary fields, and loading clears the snapshot. */
     scene(&ctx, 0x24); memcpy(original_ram, ram, sizeof(ram));
     melee_stage_lighting_begin(&ctx);
