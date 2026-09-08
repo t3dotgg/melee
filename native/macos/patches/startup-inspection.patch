@@ -1,0 +1,135 @@
+diff --git a/include/moderngekko/game.hpp b/include/moderngekko/game.hpp
+--- a/include/moderngekko/game.hpp
++++ b/include/moderngekko/game.hpp
+@@ -35,7 +35,8 @@
+   explicit operator bool() const { return metadata.has_value(); }
+ };
+
+-GameInspectResult InspectGame(const std::filesystem::path& root);
++// DOL checks always run. Asset hashes are optional for local playback.
++GameInspectResult InspectGame(const std::filesystem::path& root, bool hash_assets = true);
+ std::optional<std::string> HashFileSha256(const std::filesystem::path& path);
+ std::optional<std::string> HashDirectorySha256(const std::filesystem::path& root);
+ }  // namespace moderngekko
+diff --git a/include/moderngekko/runtime.hpp b/include/moderngekko/runtime.hpp
+--- a/include/moderngekko/runtime.hpp
++++ b/include/moderngekko/runtime.hpp
+@@ -71,6 +71,8 @@
+   bool fullscreen = false;
+   bool allow_interpreter = false;
+   bool show_fps_in_title = true;
++  // Disable only when the caller does not need the full asset identity.
++  bool hash_assets = true;
+   std::optional<std::string> window_title;
+   // Boot straight into a savestate instead of from the title screen.
+   std::optional<std::filesystem::path> load_state_path;
+diff --git a/src/runtime/game.cpp b/src/runtime/game.cpp
+--- a/src/runtime/game.cpp
++++ b/src/runtime/game.cpp
+@@ -69,7 +69,7 @@
+   return Sha256(std::move(manifest));
+ }
+
+-GameInspectResult InspectGame(const std::filesystem::path& input_root)
++GameInspectResult InspectGame(const std::filesystem::path& input_root, bool hash_assets)
+ {
+   std::error_code ec;
+   const auto root = std::filesystem::weakly_canonical(input_root, ec);
+@@ -143,10 +143,13 @@
+       return {{}, "can't hash files/_Main.rel"};
+     metadata.rel_sha256 = *rel_hash;
+   }
+-  const auto assets_hash = HashDirectorySha256(root / "files");
+-  if (!assets_hash)
+-    return {{}, "can't hash the files directory"};
+-  metadata.assets_sha256 = *assets_hash;
++  if (hash_assets)
++  {
++    const auto assets_hash = HashDirectorySha256(root / "files");
++    if (!assets_hash)
++      return {{}, "can't hash the files directory"};
++    metadata.assets_sha256 = *assets_hash;
++  }
+   return {std::move(metadata), {}};
+ }
+ }  // namespace moderngekko
+diff --git a/src/runtime/dolphin_runtime.cpp b/src/runtime/dolphin_runtime.cpp
+--- a/src/runtime/dolphin_runtime.cpp
++++ b/src/runtime/dolphin_runtime.cpp
+@@ -557,7 +557,7 @@
+         RuntimeError{RuntimeErrorCode::AlreadyActive,
+                      "only one ModernGekko runtime may be active per process"}};
+
+-  GameInspectResult inspected = InspectGame(config.game_root);
++  GameInspectResult inspected = InspectGame(config.game_root, config.hash_assets);
+   if (!inspected)
+     return {{}, RuntimeError{RuntimeErrorCode::InvalidGame, inspected.error}};
+
+diff --git a/tools/moderngekko_run.cpp b/tools/moderngekko_run.cpp
+--- a/tools/moderngekko_run.cpp
++++ b/tools/moderngekko_run.cpp
+@@ -282,7 +282,13 @@
+   if (dol_changed)
+     std::cout << "Applied native DOL patches\n";
+ #endif
+-  const auto inspected = moderngekko::InspectGame(config.game_root);
++#ifndef MODERNGEKKO_REQUIRED_ASSETS_SHA256
++  // Bundled local play does not use the asset digest. Keep it for netplay and
++  // releases that compare the complete game data with a required hash.
++  if (std::getenv("MELEE_APP_BUNDLE") != nullptr && !netplay_role)
++    config.hash_assets = false;
++#endif
++  const auto inspected = moderngekko::InspectGame(config.game_root, config.hash_assets);
+   if (!inspected) {
+     std::cerr << "invalid game: " << inspected.error << '\n';
+     return 2;
+diff --git a/tests/game_inspect_test.cpp b/tests/game_inspect_test.cpp
+--- a/tests/game_inspect_test.cpp
++++ b/tests/game_inspect_test.cpp
+@@ -31,9 +31,9 @@
+   dol[0xe0] = 0x80; dol[0xe1] = 0x00; dol[0xe2] = 0x31; dol[0xe3] = 0x00;
+   std::ofstream(root / "sys" / "main.dol", std::ios::binary)
+       .write(reinterpret_cast<const char*>(dol.data()), dol.size());
++  std::ofstream(root / "files" / "asset.bin", std::ios::binary) << "original asset";
+
+   const auto result = moderngekko::InspectGame(root);
+-  fs::remove_all(root);
+   if (!result || result.metadata->disc_id != "TEST01" ||
+       result.metadata->game_name != "Synthetic Test Game" ||
+       result.metadata->platform != moderngekko::GamePlatform::Wii ||
+@@ -41,5 +41,35 @@
+       result.metadata->dol_sha256 !=
+           "ee292f5fc3d0e5cfa32d951bd682a3cd2806c102e4a0a50300a2c480e21bcef6")
+     return 1;
++
++  const auto local = moderngekko::InspectGame(root, false);
++  if (!local || !local.metadata->assets_sha256.empty() ||
++      local.metadata->dol_sha256 != result.metadata->dol_sha256 ||
++      result.metadata->assets_sha256.empty())
++    return 2;
++
++  // Full inspection still identifies changes to game assets.
++  std::ofstream(root / "files" / "asset.bin", std::ios::binary) << "changed asset";
++  const auto changed = moderngekko::InspectGame(root);
++  if (!changed || changed.metadata->assets_sha256 == result.metadata->assets_sha256)
++    return 3;
++
++  // Local playback does not read asset contents during inspection.
++  fs::permissions(root / "files" / "asset.bin", fs::perms::none);
++  const bool asset_readable = std::ifstream(root / "files" / "asset.bin").good();
++  const auto unreadable_local = moderngekko::InspectGame(root, false);
++  const auto unreadable_full = moderngekko::InspectGame(root);
++  fs::permissions(root / "files" / "asset.bin", fs::perms::owner_all);
++  if (!unreadable_local || (!asset_readable && unreadable_full))
++    return 4;
++
++  // Skipping asset hashes must not accept an invalid executable.
++  dol[0xe0] = 0;
++  std::ofstream(root / "sys" / "main.dol", std::ios::binary)
++      .write(reinterpret_cast<const char*>(dol.data()), dol.size());
++  const auto invalid = moderngekko::InspectGame(root, false);
++  fs::remove_all(root);
++  if (invalid || invalid.error != "DOL entry point is outside its text sections")
++    return 5;
+   return 0;
+ }

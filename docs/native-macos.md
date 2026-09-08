@@ -71,9 +71,14 @@ The [visual update notes](../native/macos/refresh/README.md),
 [Metal notes](../native/macos/render/README.md) describe the code and limits.
 
 Faster loading is enabled for local play. It removes simulated GameCube disc
-seek delays while keeping the game's normal frame rate. To use the original
-disc timing, turn off Faster loading in Settings, General. The preference is
-saved. It does not override netplay settings.
+seek delays and raises the modeled buffer transfer rate to 256 MiB/s. Reads
+keep their asynchronous completion order and 600 microsecond command delay.
+To use the original disc timing, turn off Faster loading in Settings, General.
+The preference is saved. It does not override netplay settings.
+
+Bundled local startup skips unused whole-asset hashes. Executable checks still
+run. Netplay, import tools, and builds that require an asset digest retain full
+asset hashing.
 
 The app keeps its pipeline list under `~/Library/Application Support/t3.melee.native/Cache`.
 Known pipelines can compile before gameplay on later launches. Metal does not
@@ -136,6 +141,38 @@ times on this Mac, not measurements of file I/O alone.
 | --- | ---: | ---: |
 | VS menu to character select | 3.71 s | 0.94 s |
 | Stage select to Yoshi's Island | 2.26 s | 0.85 s |
+
+A second pass removed two full asset-hash scans at startup and tested a higher
+local transfer rate. The comparison used the same Mac at 3x internal resolution,
+the same assets and pipeline cache, and no diagnostic tracing during timing.
+
+| Test | Before the second pass | After |
+| --- | ---: | ---: |
+| Normal launch to first rendered frame | 10.46 to 13.68 s | 1.60 to 1.65 s |
+| Launch into the same saved menu, median | 14.99 s | 0.75 s |
+| Warm character-select transition, 32 versus 256 MiB/s | 0.92 s | 0.79 s |
+| Warm Yoshi's Island transition, 32 versus 256 MiB/s | 0.86 s | 0.81 s |
+
+Normal startup used two old-build launches and three new-build launches. Saved
+menu startup used three of each. The transfer comparison kept the startup
+change enabled on both sides and used the last three of four transitions per
+launch, across three 32 MiB/s launches and two 256 MiB/s launches. The same
+input hold and 30-frame settling interval are included in each transition.
+A 1024 MiB/s trial gave little additional benefit. `MELEE_DISC_MIB_PER_SECOND`
+can select a rate from 32 to 1024 for developer comparisons. Normal local play
+uses 256. The override only applies when Faster loading is enabled, the app is
+bundled, and netplay is inactive.
+
+The final build also completed a two-minute Mario versus Peach match on Fountain
+of Dreams and restored a saved result screen. Its 242 sampled frame-rate readings
+had a 59.94 FPS median. Shutdown reported no CPU fallback or failed code checks.
+Turning Faster loading off restored approximately 3.74-second character-select
+and 2.27-second stage transitions in the same test.
+
+The original game keeps a 20-frame input wait on main-menu entry and five-frame
+waits on submenu changes. This update preserves those waits and the normal game
+clock. Graphics prewarming was also tested. An unused variant added about
+102 ms to startup, so broader prewarming was not retained.
 
 The complete GameCube executable still matches SHA-1
 `08e0bf20134dfcb260699671004527b2d6bb1a45`. Public CI checks tools and the native

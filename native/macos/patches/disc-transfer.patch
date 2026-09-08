@@ -1,0 +1,76 @@
+--- a/Source/Core/Core/HW/DVD/DVDInterface.cpp
++++ b/Source/Core/Core/HW/DVD/DVDInterface.cpp
+@@ -5,6 +5,9 @@
+
+ #include <algorithm>
+ #include <array>
++#include <charconv>
++#include <cstdlib>
++#include <string_view>
+ #include <memory>
+ #include <optional>
+ #include <string>
+@@ -38,6 +41,7 @@
+ #include "Core/IOS/DI/DI.h"
+ #include "Core/IOS/IOS.h"
+ #include "Core/Movie.h"
++#include "Core/NetPlay/NetPlayProto.h"
+ #include "Core/System.h"
+
+ #include "DiscIO/Blob.h"
+@@ -69,6 +73,26 @@
+
+ namespace DVD
+ {
++// Local Melee reads retain asynchronous completion and command latency.
++// The override supports repeatable comparisons with the original 32 MiB/s cap.
++static u64 MeleeTransferRate()
++{
++  static const u64 rate = []() -> u64 {
++    constexpr u64 default_rate = 256 * 1024 * 1024;
++    const char* text = std::getenv("MELEE_DISC_MIB_PER_SECOND");
++    if (!text)
++      return default_rate;
++    const std::string_view input(text);
++    unsigned value = 0;
++    const auto parsed = std::from_chars(input.data(), input.data() + input.size(), value);
++    if (parsed.ec != std::errc{} || parsed.ptr != input.data() + input.size() ||
++        value < 32 || value > 1024)
++      return default_rate;
++    return u64(value) * 1024 * 1024;
++  }();
++  return rate;
++}
++
+ // internal hardware addresses
+ constexpr u32 DI_STATUS_REGISTER = 0x00;
+ constexpr u32 DI_COVER_REGISTER = 0x04;
+@@ -1032,6 +1056,10 @@
+ void DVDInterface::ScheduleReads(u64 offset, u32 length, const DiscIO::Partition& partition,
+                                  u32 output_address, ReplyType reply_type)
+ {
++  const bool fast_disc = Config::Get(Config::MAIN_FAST_DISC_SPEED);
++  const u64 transfer_rate = fast_disc && std::getenv("MELEE_APP_BUNDLE") &&
++                                    !NetPlay::IsNetPlayRunning() ?
++                                MeleeTransferRate() : BUFFER_TRANSFER_RATE;
+   // The drive continues to read 1 MiB beyond the last read position when idle.
+   // If a future read falls within this window, part of the read may be returned
+   // from the buffer. Data can be transferred from the buffer at up to 32 MiB/s.
+@@ -1066,7 +1094,7 @@
+   dvd_offset = Common::AlignDown(dvd_offset, DVD_ECC_BLOCK_SIZE);
+   const u64 first_block = dvd_offset;
+
+-  if (Config::Get(Config::MAIN_FAST_DISC_SPEED))
++  if (fast_disc)
+   {
+     // The SUDTR setting makes us act as if all reads are buffered
+     buffer_start = std::numeric_limits<u64>::min();
+@@ -1148,7 +1176,7 @@
+       // TODO: This calculation is slightly wrong when decrypt is true - it uses the size of
+       // the copy from IOS to PPC but is supposed to model the copy from the disc drive to IOS.
+       ticks_until_completion +=
+-          static_cast<u64>(chunk_length) * ticks_per_second / BUFFER_TRANSFER_RATE;
++          static_cast<u64>(chunk_length) * ticks_per_second / transfer_rate;
+       buffered_blocks++;
+     }
+     else
