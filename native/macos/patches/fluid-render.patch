@@ -1,0 +1,196 @@
+diff --git a/Source/Core/DolphinNoGUI/PlatformMacos.mm b/Source/Core/DolphinNoGUI/PlatformMacos.mm
+--- a/Source/Core/DolphinNoGUI/PlatformMacos.mm
++++ b/Source/Core/DolphinNoGUI/PlatformMacos.mm
+@@ -14,6 +14,7 @@
+ #include <AppKit/AppKit.h>
+ #include <Carbon/Carbon.h>
+ #include <Foundation/Foundation.h>
++#include <QuartzCore/QuartzCore.h>
+ #include <array>
+ #include <chrono>
+ #include <climits>
+@@ -118,6 +119,7 @@
+ }
+
+ - (void)windowDidResize:(NSNotification*)notification;
++- (void)windowDidChangeBackingProperties:(NSNotification*)notification;
+ - (void)mouseEntered:(NSEvent*)event;
+ - (void)mouseExited:(NSEvent*)event;
+ - (void)windowWillClose:(NSNotification*)notification;
+@@ -137,6 +139,14 @@
+
+ - (void)windowDidResize:(NSNotification*)notification
+ {
++  if (g_presenter)
++    g_presenter->ResizeSurface();
++}
++
++- (void)windowDidChangeBackingProperties:(NSNotification*)notification
++{
++  NSWindow* window = [notification object];
++  [[[window contentView] layer] setContentsScale:[window backingScaleFactor]];
+   if (g_presenter)
+     g_presenter->ResizeSurface();
+ }
+diff --git a/Source/Core/VideoBackends/Metal/MTLGfx.mm b/Source/Core/VideoBackends/Metal/MTLGfx.mm
+--- a/Source/Core/VideoBackends/Metal/MTLGfx.mm
++++ b/Source/Core/VideoBackends/Metal/MTLGfx.mm
+@@ -2,6 +2,8 @@
+ // SPDX-License-Identifier: GPL-2.0-or-later
+
+ #include "VideoBackends/Metal/MTLGfx.h"
++
++#include "VideoBackends/Metal/MeleeMetalFrameLog.h"
+
+ #include "VideoBackends/Metal/MTLBoundingBox.h"
+ #include "VideoBackends/Metal/MTLObjectCache.h"
+@@ -14,6 +16,7 @@
+
+ #include "VideoCommon/FramebufferManager.h"
+ #include "VideoCommon/Present.h"
++#include "VideoCommon/MeleeRenderConfig.h"
+ #include "VideoCommon/VideoBackendBase.h"
+
+ #include <fstream>
+@@ -21,13 +24,22 @@
+ Metal::Gfx::Gfx(MRCOwned<CAMetalLayer*> layer) : m_layer(std::move(layer))
+ {
+   UpdateActiveConfig();
+-  [m_layer setDisplaySyncEnabled:g_ActiveConfig.bVSyncActive];
++  g_melee_frame_log = MeleeFrameLog::FromEnvironment();
+
+   SetupSurface();
+   g_state_tracker->FlushEncoders();
+ }
+
+-Metal::Gfx::~Gfx() = default;
++Metal::Gfx::~Gfx()
++{
++  if (g_melee_frame_log)
++  {
++    g_state_tracker->FlushEncoders();
++    g_state_tracker->WaitForFlushedEncoders();
++    g_melee_frame_log->Write();
++    g_melee_frame_log.reset();
++  }
++}
+
+ bool Metal::Gfx::IsHeadless() const
+ {
+@@ -454,6 +466,9 @@
+   {
+     CheckForSurfaceChange();
+     CheckForSurfaceResize();
++    // Start the game render before drawable acquisition can block on the display.
++    if (MeleeRender::LowLatency())
++      g_state_tracker->FlushEncoders();
+     m_drawable = MRCRetain([m_layer nextDrawable]);
+     if (!m_drawable)
+       return false;
+@@ -470,6 +485,14 @@
+     g_state_tracker->EndRenderPass();
+     if (m_drawable)
+     {
++      if (g_melee_frame_log && g_melee_frame_log->CanRecord())
++      {
++        const auto frame = g_melee_frame_log->CurrentFrame();
++        g_melee_frame_log->RecordPresent(frame, CACurrentMediaTime());
++        [m_drawable addPresentedHandler:[log = g_melee_frame_log, frame](id<MTLDrawable> drawable) {
++          log->RecordDisplay(frame, [drawable presentedTime]);
++        }];
++      }
+       // PresentDrawable refuses to allow Dolphin to present faster than the display's refresh rate
+       // when windowed (or fullscreen with vsync enabled, but that's more understandable).
+       // On the other hand, it helps Xcode's GPU captures start and stop on frame boundaries
+@@ -485,6 +508,8 @@
+       m_drawable = nullptr;
+     }
+     g_state_tracker->FlushEncoders();
++    if (g_melee_frame_log)
++      g_melee_frame_log->NextFrame();
+   }
+ }
+
+@@ -507,6 +532,12 @@
+ {
+   auto info = GetSurfaceInfo();
+
++  // Two drawables bound the display queue. Keep a comparison option for GPU-bound runs.
++  const char* drawables = std::getenv("MELEE_METAL_DRAWABLES");
++  const bool triple_buffer = drawables ? std::string_view(drawables) == "3" :
++                                        !MeleeRender::LowLatency();
++  [m_layer setMaximumDrawableCount:triple_buffer ? 3 : 2];
++  [m_layer setDisplaySyncEnabled:g_ActiveConfig.bVSyncActive];
+   [m_layer setDrawableSize:{static_cast<double>(info.width), static_cast<double>(info.height)}];
+
+   TextureConfig cfg(info.width, info.height, 1, 1, 1, info.format, AbstractTextureFlag_RenderTarget,
+diff --git a/Source/Core/VideoBackends/Metal/MTLMain.mm b/Source/Core/VideoBackends/Metal/MTLMain.mm
+--- a/Source/Core/VideoBackends/Metal/MTLMain.mm
++++ b/Source/Core/VideoBackends/Metal/MTLMain.mm
+@@ -180,6 +180,7 @@
+
+   [view setWantsLayer:YES];
+   [view setLayer:layer];
++  [layer setContentsScale:[[view window] backingScaleFactor]];
+
+   wsi.render_surface = layer;
+ #endif
+diff --git a/Source/Core/VideoBackends/Metal/MTLStateTracker.mm b/Source/Core/VideoBackends/Metal/MTLStateTracker.mm
+--- a/Source/Core/VideoBackends/Metal/MTLStateTracker.mm
++++ b/Source/Core/VideoBackends/Metal/MTLStateTracker.mm
+@@ -2,6 +2,8 @@
+ // SPDX-License-Identifier: GPL-2.0-or-later
+
+ #include "VideoBackends/Metal/MTLStateTracker.h"
++
++#include "VideoBackends/Metal/MeleeMetalFrameLog.h"
+
+ #include <algorithm>
+ #include <bit>
+@@ -433,6 +435,14 @@
+         }
+       }];
+   m_current_perf_query = nullptr;
++  if (g_melee_frame_log && g_melee_frame_log->CanRecord())
++  {
++    const auto frame = g_melee_frame_log->CurrentFrame();
++    [m_current_render_cmdbuf
++        addCompletedHandler:[log = g_melee_frame_log, frame](id<MTLCommandBuffer> buffer) {
++          log->RecordGPU(frame, [buffer GPUStartTime], [buffer GPUEndTime]);
++        }];
++  }
+   [m_current_render_cmdbuf commit];
+   m_last_render_cmdbuf = std::move(m_current_render_cmdbuf);
+   m_current_render_cmdbuf = nullptr;
+diff --git a/Source/Core/VideoCommon/Present.cpp b/Source/Core/VideoCommon/Present.cpp
+--- a/Source/Core/VideoCommon/Present.cpp
++++ b/Source/Core/VideoCommon/Present.cpp
+@@ -18,6 +18,7 @@
+ #include "VideoCommon/FrameDumper.h"
+ #include "VideoCommon/FramebufferManager.h"
+ #include "VideoCommon/OnScreenUI.h"
++#include "VideoCommon/MeleeRenderConfig.h"
+ #include "VideoCommon/PostProcessing.h"
+ #include "VideoCommon/VertexManagerBase.h"
+ #include "VideoCommon/VideoConfig.h"
+@@ -901,8 +902,6 @@
+
+ void Presenter::Present(PresentInfo* present_info)
+ {
+-  m_present_count++;
+-
+   if (g_gfx->IsHeadless() || (!m_onscreen_ui && !m_xfb_entry))
+     return;
+
+@@ -950,6 +949,11 @@
+       m_onscreen_ui->DrawImGui();
+   }
+
++  // Let Metal finish GPU work while the CPU waits for the presentation deadline.
++  // PresentBackbuffer submits a final command buffer on the same ordered queue.
++  if (g_backend_info.api_type == APIType::Metal && MeleeRender::LowLatency())
++    g_gfx->Flush();
++
+   // Present to the window system.
+   {
+     std::lock_guard<std::mutex> guard(m_swap_mutex);
