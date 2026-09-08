@@ -1,0 +1,119 @@
+diff --git a/Source/Core/Common/FixedFrameTiming.h b/Source/Core/Common/FixedFrameTiming.h
+new file mode 100644
+index 0000000..c6f97c1
+--- /dev/null
++++ b/Source/Core/Common/FixedFrameTiming.h
+@@ -0,0 +1,21 @@
++// SPDX-License-Identifier: GPL-2.0-or-later
++
++#pragma once
++
++#include <cstdint>
++
++namespace Common
++{
++// VI has two fields per full frame. Divide cumulative time so fractional cycles
++// carry between half-lines instead of shortening every scanline by rounding.
++constexpr std::uint32_t FixedFrameTickOffset(std::uint32_t half_line,
++                                           std::uint32_t half_lines_per_frame,
++                                           std::uint32_t fields_per_second,
++                                           std::uint32_t ticks_per_second)
++{
++  if (half_lines_per_frame == 0 || fields_per_second == 0)
++    return 0;
++  return static_cast<std::uint64_t>(half_line) * ticks_per_second * 2 /
++         (static_cast<std::uint64_t>(half_lines_per_frame) * fields_per_second);
++}
++}  // namespace Common
+diff --git a/Source/Core/Core/HW/VideoInterface.cpp b/Source/Core/Core/HW/VideoInterface.cpp
+index c3fdd35..6ac1b6f 100644
+--- a/Source/Core/Core/HW/VideoInterface.cpp
++++ b/Source/Core/Core/HW/VideoInterface.cpp
+@@ -7,10 +7,13 @@
+ #include <array>
+ #include <cmath>
+ #include <cstddef>
++#include <cstdlib>
++#include <string_view>
+ 
+ #include "Common/ChunkFile.h"
+ #include "Common/CommonTypes.h"
+ #include "Common/Config/Config.h"
++#include "Common/FixedFrameTiming.h"
+ #include "Common/Logging/Log.h"
+ 
+ #include "VideoCommon/OnScreenDisplay.h"
+@@ -245,14 +248,47 @@ u32 VideoInterfaceManager::GetHalfLinesPerOddField() const
+ 
+ u32 VideoInterfaceManager::GetTicksPerEvenField() const
+ {
++  if (GetNativeRefreshRate() != 0)
++  {
++    const u32 odd_half_lines = GetHalfLinesPerOddField();
++    return GetNativeTickOffset(odd_half_lines + GetHalfLinesPerEvenField()) -
++           GetNativeTickOffset(odd_half_lines);
++  }
+   return GetTicksPerHalfLine() * GetHalfLinesPerEvenField();
+ }
+ 
+ u32 VideoInterfaceManager::GetTicksPerOddField() const
+ {
++  if (GetNativeRefreshRate() != 0)
++    return GetNativeTickOffset(GetHalfLinesPerOddField());
+   return GetTicksPerHalfLine() * GetHalfLinesPerOddField();
+ }
+ 
++u32 VideoInterfaceManager::GetNativeRefreshRate() const
++{
++  static const u32 requested_rate = []() -> u32 {
++    const char* value = std::getenv("MELEE_RENDER_FPS");
++    if (value && std::string_view(value) == "120")
++      return 120;
++    if (value && std::string_view(value) == "60")
++      return 60;
++    return 0;
++  }();
++
++  if (Core::WantsDeterminism() ||
++      GetHalfLinesPerOddField() + GetHalfLinesPerEvenField() == 0)
++    return 0;
++  return requested_rate;
++}
++
++u32 VideoInterfaceManager::GetNativeTickOffset(u32 half_line) const
++{
++  return Common::FixedFrameTickOffset(half_line,
++                                     GetHalfLinesPerOddField() + GetHalfLinesPerEvenField(),
++                                     GetNativeRefreshRate(),
++                                     m_system.GetSystemTimers().GetTicksPerSecond());
++}
++
+ // Get the aspect ratio of VI's active area.
+ float VideoInterfaceManager::GetAspectRatio() const
+ {
+@@ -536,6 +572,12 @@ u32 VideoInterfaceManager::GetNominalTicksPerHalfLine() const
+ 
+ u32 VideoInterfaceManager::GetTicksPerHalfLine() const
+ {
++  // The original 60 Hz input alarm and the NTSC VI run on different clocks.
++  // Keep native VI at exactly 60 or 120 Hz without changing game or audio time.
++  // Cumulative division carries the fraction between half-lines. Rounding each
++  // interval down would reintroduce drift and periodic dropped frames.
++  if (GetNativeRefreshRate() != 0)
++    return GetNativeTickOffset(m_half_line_count + 1) - GetNativeTickOffset(m_half_line_count);
+   return GetNominalTicksPerHalfLine() / m_config_vi_oc_factor;
+ }
+ 
+diff --git a/Source/Core/Core/HW/VideoInterface.h b/Source/Core/Core/HW/VideoInterface.h
+index 6bf762a..baa59af 100644
+--- a/Source/Core/Core/HW/VideoInterface.h
++++ b/Source/Core/Core/HW/VideoInterface.h
+@@ -405,6 +405,8 @@ private:
+   u32 GetHalfLinesPerOddField() const;
+   u32 GetTicksPerEvenField() const;
+   u32 GetTicksPerOddField() const;
++  u32 GetNativeRefreshRate() const;
++  u32 GetNativeTickOffset(u32 half_line) const;
+ 
+   void LogField(FieldType field, u32 xfb_address) const;
+   void OutputField(FieldType field, u64 ticks);
