@@ -1,0 +1,56 @@
+diff --git a/macos/MeleeFrontend.inc b/macos/MeleeFrontend.inc
+--- a/macos/MeleeFrontend.inc
++++ b/macos/MeleeFrontend.inc
+@@ -18,6 +18,13 @@
+ extern std::atomic<bool> g_melee_menu_open;
+ #include "MeleeControllerConfig.h"
+ #include "MeleeInputTest.inc"
++
++static std::atomic<bool> g_melee_stage_lighting{true};
++
++extern "C" __attribute__((visibility("default"), used)) int MeleeStageLightingEnabled()
++{
++  return g_melee_stage_lighting.load(std::memory_order_relaxed) ? 1 : 0;
++}
+
+ @interface MeleeFrontend : NSObject
+ @property NSWindow* game;
+@@ -224,7 +231,11 @@
+   latency.state=!self.preferences[@"low_latency"] || [self.preferences[@"low_latency"] boolValue];
+   [v addSubview:latency];
+   [self button:@"Toggle fullscreen" action:@selector(fullscreen:) at:NSMakeRect(20,125,250,35) in:v];
+-  [self label:@"120 FPS adds predicted motion. Use a 120 Hz display.\nDisplays below 120 Hz use 60 FPS.\nFrame rate, sync, and input delay apply next launch.\nAuto resolution follows the window size." at:NSMakeRect(20,10,565,105) in:v];
++  NSButton* lighting = [NSButton checkboxWithTitle:@"Stage lighting" target:self action:@selector(stageLighting:)];
++  lighting.frame=NSMakeRect(285,128,280,30);
++  lighting.state=MeleeStageLightingEnabled();
++  [v addSubview:lighting];
++  [self label:@"120 FPS adds predicted motion. Use a 120 Hz display.\nDisplays below 120 Hz use 60 FPS.\nFrame rate, sync, and input delay apply next launch.\nLighting updates on resume. Water and sky update on stage load." at:NSMakeRect(20,10,565,105) in:v];
+   v = [self tab:@"Textures"];
+   const auto texture_pack = MeleeTextures::FindPackRoot(
+       getenv("MELEE_TEXTURE_PACK") ?: "", File::GetBundleDirectory());
+@@ -279,6 +290,13 @@
+ - (void)textures:(NSButton*)sender
+ {
+   self.preferences[@"textures"] = @(sender.state == NSControlStateValueOn);
++  [self save];
++}
++- (void)stageLighting:(NSButton*)sender
++{
++  const bool enabled = sender.state == NSControlStateValueOn;
++  g_melee_stage_lighting.store(enabled, std::memory_order_relaxed);
++  self.preferences[@"stage_lighting"] = @(enabled);
+   [self save];
+ }
+ - (void)fastLoading:(NSButton*)sender
+@@ -362,6 +380,11 @@
+   @autoreleasepool {
+     NSString* path=[[NSString stringWithUTF8String:File::GetUserPath(D_CONFIG_IDX).c_str()] stringByAppendingPathComponent:@"MeleeFrontend.plist"];
+     NSDictionary* prefs=[NSDictionary dictionaryWithContentsOfFile:path];
++    const char* stage_lighting = getenv("MELEE_STAGE_LIGHTING");
++    const bool stage_lighting_enabled = stage_lighting ? strcmp(stage_lighting, "0") != 0 :
++        (!prefs[@"stage_lighting"] || [prefs[@"stage_lighting"] boolValue]);
++    g_melee_stage_lighting.store(stage_lighting_enabled, std::memory_order_relaxed);
++    fprintf(stderr, "[melee-lighting] %s\n", stage_lighting_enabled ? "enabled" : "disabled");
+     const auto texture_pack = MeleeTextures::FindPackRoot(
+         getenv("MELEE_TEXTURE_PACK") ?: "", File::GetBundleDirectory());
+     if (getenv("MELEE_APP_BUNDLE") || getenv("MELEE_TEXTURE_PACK"))

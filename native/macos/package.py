@@ -17,6 +17,7 @@ import plistlib
 import re
 import shutil
 import subprocess
+import sys
 import tempfile
 
 
@@ -233,6 +234,10 @@ def assemble(root: Path, app: Path, texture_pack: Path | None = None) -> None:
     module.chmod(module.stat().st_mode | 0o200)
     for directory in ("sys", "files"):
         shutil.copytree(root / "private/GALE01r2" / directory, resources / "Game" / directory)
+    original_sky = resources / "Game/files/GrNLa.dat"
+    if original_sky.is_file():
+        run(sys.executable, HERE / "lighting/remaster_final_destination.py",
+            original_sky, resources / "Lighting/GrNLa.dat")
     shutil.copytree(root / "build/runtime/Sys", resources / "Sys")
     if texture_pack is not None:
         shutil.copytree(texture_pack / "GALE01", resources / "Textures/GALE01")

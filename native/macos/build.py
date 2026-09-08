@@ -125,6 +125,7 @@ def main():
         (runtime, HERE / "patches/branding.patch"),
         (runtime, HERE / "patches/fluidity-settings.patch"),
         (runtime, HERE / "patches/texture-pack.patch"),
+        (runtime, HERE / "patches/stage-lighting-ui.patch"),
         (runtime / "upstream/ModernGekko-Template/lib/ModernGekko", HERE / "patches/runtime-sdl.patch"),
         (runtime / "upstream/ModernGekko-Template/lib/ModernGekko", HERE / "patches/runtime-cache.patch"),
         (runtime / "upstream/ModernGekko-Template/lib/ModernGekko", HERE / "patches/startup-inspection.patch"),
@@ -141,6 +142,7 @@ def main():
         (dolphin, HERE / "patches/game-refresh.patch"),
         (dolphin, HERE / "patches/texture-cache.patch"),
         (dolphin, HERE / "patches/ending-stills.patch"),
+        (dolphin, HERE / "patches/stage-assets.patch"),
     ]
     # Restore only our known patches before the upstream script checks its patches.
     # This keeps repeat builds safe when patch hunks touch the same source file.
@@ -166,8 +168,11 @@ def main():
     shutil.copy2(HERE / "render/MeleeRenderConfig.h", dolphin / "Source/Core/VideoCommon")
     shutil.copy2(HERE / "textures/MeleeTexturePack.h", dolphin / "Source/Core/VideoCommon")
     shutil.copy2(HERE / "textures/MeleeEndingStills.h", dolphin / "Source/Core/VideoCommon")
+    shutil.copy2(HERE / "lighting/MeleeStageAssets.h", dolphin / "Source/Core/DiscIO")
     # Reapply after generation. The verified DOL and extracted disc remain unchanged.
     run(sys.executable, HERE / "high_refresh.py", "--generated", runtime / "private/recompiled/generated")
+    run(sys.executable, HERE / "stage_lighting.py", "--generated", runtime / "private/recompiled/generated")
+    run(sys.executable, HERE / "lighting/fountain_water.py", "--generated", runtime / "private/recompiled/generated")
     run("cmake", "--build", runtime / "build/game", "-j", args.jobs)
     run("cmake", "--build", runtime / "build/runtime", "--target", "moderngekko-run", "-j", args.jobs)
     texture_options = ["--texture-pack", args.texture_pack] if args.texture_pack else []
