@@ -23,6 +23,21 @@ sessions also keep the original VI timing. The setting is read once per process.
 The separate game render patch must supply the additional scene draw for 120
 distinct frames. VI timing alone cannot create another game image.
 
+## Guest timebase
+
+`../patches/native-timebase.patch` applies at the same Dolphin source root after
+the native input patch. The native dispatch loop used raw instruction charges
+to advance its local timebase. CoreTiming scales those charges when CPU or VI
+overclock is enabled. At the next burst, `SyncIn` reset the native timebase from
+CoreTiming. At a 2x overclock, 240 instruction cycles therefore advanced the local
+timebase by 20 ticks, while CoreTiming advanced it by 10. The next sync could move
+the game clock backward.
+
+The patch reads the authoritative hardware timebase after each dispatch charge.
+Ordinary dispatches, host calls, and burst entry then use the same scaled clock.
+It removes the second timebase accumulator. Both changed runtime files compiled
+with the ARM64 runtime flags. Game performance still needs an integrated run.
+
 ## Mac waits
 
 The original precision timer sleeps until 1.02 ms before its deadline, then calls
