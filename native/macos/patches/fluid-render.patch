@@ -130,14 +130,16 @@ diff --git a/Source/Core/VideoBackends/Metal/MTLGfx.mm b/Source/Core/VideoBacken
    }
  }
 
-@@ -507,6 +532,12 @@
+@@ -507,6 +532,14 @@
  {
    auto info = GetSurfaceInfo();
 
-+  // Two drawables bound the display queue. Keep a comparison option for GPU-bound runs.
++  // At 120 FPS, two drawables stall rendering on a 60 Hz display.
++  const char* fps = std::getenv("MELEE_RENDER_FPS");
++  const bool high_refresh = !fps || std::string_view(fps) == "120";
 +  const char* drawables = std::getenv("MELEE_METAL_DRAWABLES");
 +  const bool triple_buffer = drawables ? std::string_view(drawables) == "3" :
-+                                        !MeleeRender::LowLatency();
++                                        high_refresh || !MeleeRender::LowLatency();
 +  [m_layer setMaximumDrawableCount:triple_buffer ? 3 : 2];
 +  [m_layer setDisplaySyncEnabled:g_ActiveConfig.bVSyncActive];
    [m_layer setDrawableSize:{static_cast<double>(info.width), static_cast<double>(info.height)}];
