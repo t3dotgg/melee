@@ -38,6 +38,12 @@ The CPU and GPU pacing threads request interactive QoS and latency tier zero
 once. Other timer users keep their thread policy. The app also needs its active
 gameplay process activity to stop App Nap. The renderer patch owns that activity.
 
+The runtime exports `MeleeNativeWaitNanoseconds(uint64_t delay)` for the generated
+C render code. That code resolves the function with `dlsym`. Both paths then use
+the same wait implementation and thread timer. The argument is a relative delay
+to avoid mixing clock epochs. The caller rechecks its absolute deadline after
+each wait. The function caps a single wait at one second.
+
 ## Checks
 
 Run the focused tests with no game data or runtime build:

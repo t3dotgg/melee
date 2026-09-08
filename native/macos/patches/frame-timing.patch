@@ -169,7 +169,7 @@ index fcbbd7b..c4be018 100644
 
  // Results are appropriately slewed on Linux, but not on Windows, macOS, or FreeBSD.
 diff --git a/Source/Core/Core/CoreTiming.cpp b/Source/Core/Core/CoreTiming.cpp
-index 26e9973..38550be 100644
+index 26e9973..ce4b5f1 100644
 --- a/Source/Core/Core/CoreTiming.cpp
 +++ b/Source/Core/Core/CoreTiming.cpp
 @@ -17,6 +17,10 @@
@@ -183,7 +183,28 @@ index 26e9973..38550be 100644
  #include "Core/Achievements/AchievementManager.h"
  #include "Core/CPUThreadConfigCallback.h"
  #include "Core/Config/MainSettings.h"
-@@ -409,6 +413,15 @@ TimePoint CoreTimingManager::GetTargetHostTime(s64 target_cycle)
+@@ -32,6 +36,20 @@
+ #include "VideoCommon/VideoConfig.h"
+ #include "VideoCommon/VideoEvents.h"
+
++#ifdef __APPLE__
++// The generated C module finds this entry point with dlsym. Keep it exported
++// when the runtime uses hidden symbols and dead stripping.
++extern "C" __attribute__((visibility("default"), used)) void MeleeNativeWaitNanoseconds(u64 delay);
++
++extern "C" void MeleeNativeWaitNanoseconds(u64 delay)
++{
++  // Bound the conversion to a signed duration. The caller rechecks its deadline
++  // after the wait, so a long delay can be handled in several calls.
++  const auto duration = std::chrono::nanoseconds{static_cast<s64>(std::min<u64>(delay, 1000000000))};
++  Common::SleepUntilMacFrame(Clock::now() + duration);
++}
++#endif
++
+ namespace CoreTiming
+ {
+ static constexpr int MAX_SLICE_LENGTH = 20000;
+@@ -409,6 +427,15 @@ TimePoint CoreTimingManager::GetTargetHostTime(s64 target_cycle)
 
  void CoreTimingManager::SleepUntil(TimePoint time_point)
  {
