@@ -1,0 +1,22 @@
+diff --git a/Source/Core/DiscIO/DirectoryBlob.cpp b/Source/Core/DiscIO/DirectoryBlob.cpp
+--- a/Source/Core/DiscIO/DirectoryBlob.cpp
++++ b/Source/Core/DiscIO/DirectoryBlob.cpp
+@@ -24,6 +24,7 @@
+ #include "Core/IOS/ES/Formats.h"
+ #include "DiscIO/Blob.h"
+ #include "DiscIO/DiscUtils.h"
++#include "DiscIO/MeleeStageAssets.h"
+ #include "DiscIO/VolumeDisc.h"
+ #include "DiscIO/VolumeWii.h"
+ #include "DiscIO/WiiEncryptionCache.h"
+@@ -93,7 +94,9 @@
+     if (std::holds_alternative<ContentFile>(m_content_source))
+     {
+       const auto& content = std::get<ContentFile>(m_content_source);
+-      File::DirectIOFile file(content.m_filename, File::AccessMode::Read);
++      const auto replacement = MeleeStageAssets::Replacement(content.m_filename);
++      File::DirectIOFile file(replacement ? *replacement : content.m_filename,
++                              File::AccessMode::Read);
+       if (!file.OffsetRead(content.m_offset + offset_in_content, *buffer, bytes_to_read))
+       {
+         return false;
