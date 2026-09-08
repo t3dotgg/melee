@@ -1,0 +1,53 @@
+diff --git a/Source/Core/Core/State.cpp b/Source/Core/Core/State.cpp
+index 4f8d2c0..1dfd75e 100644
+--- a/Source/Core/Core/State.cpp
++++ b/Source/Core/Core/State.cpp
+@@ -318,7 +318,7 @@ void SaveAs(Core::System& system, std::string filename)
+       });
+ }
+ 
+-static void LoadAsFromCore(Core::System& system, std::string filename)
++static bool LoadAsFromCore(Core::System& system, std::string filename)
+ {
+   s_compress_and_dump_thread.WaitForCompletion();
+ 
+@@ -372,6 +372,8 @@ static void LoadAsFromCore(Core::System& system, std::string filename)
+ 
+   if (s_on_after_load_callback)
+     s_on_after_load_callback();
++
++  return loaded_successfully;
+ }
+ 
+ void LoadAs(Core::System& system, std::string filename)
+@@ -384,6 +386,17 @@ void LoadAs(Core::System& system, std::string filename)
+   });
+ }
+ 
++bool LoadAsBlocking(Core::System& system, std::string filename)
++{
++  // Hold the CPU, audio and video locks until the load and any undo finish.
++  // The guard makes this a temporary CPU thread and avoids queued-job waits
++  // that could outlive the CPU thread during shutdown.
++  const Core::CPUThreadGuard guard(system);
++  if (!CheckIfStateLoadIsAllowed(system))
++    return false;
++  return LoadAsFromCore(system, std::move(filename));
++}
++
+ void SetOnAfterLoadCallback(AfterLoadCallbackFunc callback)
+ {
+   s_on_after_load_callback = std::move(callback);
+diff --git a/Source/Core/Core/State.h b/Source/Core/Core/State.h
+index 1c4eeb0..4c74359 100644
+--- a/Source/Core/Core/State.h
++++ b/Source/Core/Core/State.h
+@@ -97,6 +97,8 @@ void Load(Core::System& system, int slot);
+ 
+ void SaveAs(Core::System& system, std::string filename);
+ void LoadAs(Core::System& system, std::string filename);
++// Returns after the load finishes. False includes invalid files and refused loads.
++[[nodiscard]] bool LoadAsBlocking(Core::System& system, std::string filename);
+ 
+ void LoadLastSaved(Core::System& system, int i = 1);
+ void SaveFirstSaved(Core::System& system);

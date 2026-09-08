@@ -1,0 +1,17 @@
+diff --git a/src/runtime/dolphin_runtime.cpp b/src/runtime/dolphin_runtime.cpp
+index f17c6af..7cdc5aa 100644
+--- a/src/runtime/dolphin_runtime.cpp
++++ b/src/runtime/dolphin_runtime.cpp
+@@ -333,7 +333,11 @@ std::optional<RuntimeError> ApplyAutomationCommand(Runtime& runtime,
+     State::SaveAs(system, command.path.string());
+     break;
+   case automation::CommandType::LoadState:
+-    State::LoadAs(system, command.path.string());
++    if (!State::LoadAsBlocking(system, command.path.string()))
++    {
++      return RuntimeError{RuntimeErrorCode::InvalidState,
++                          "Could not load savestate: " + command.path.string()};
++    }
+     break;
+   case automation::CommandType::Screenshot:
+     SaveAutomationScreenshot(NormalizeScreenshotPath(command.path));
