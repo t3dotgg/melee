@@ -1,0 +1,30 @@
+diff --git a/Source/Core/Core/PowerPC/StaticRecomp/StaticRecompCore_Run.cpp b/Source/Core/Core/PowerPC/StaticRecomp/StaticRecompCore_Run.cpp
+index ee0fc9b..e75b5df 100644
+--- a/Source/Core/Core/PowerPC/StaticRecomp/StaticRecompCore_Run.cpp
++++ b/Source/Core/Core/PowerPC/StaticRecomp/StaticRecompCore_Run.cpp
+@@ -13,6 +13,7 @@
+ #include "Core/Config/MainSettings.h"
+ #include "Core/Config/ConfigManager.h"
+ #include "Core/HW/SystemTimers.h"
++#include "Core/HW/Memmap.h"
+ #include "Core/Core.h"
+ #include "Core/HW/SI/SI.h"
+
+@@ -304,8 +305,15 @@ void StaticRecompCore::Run()
+           // when the next burst resets it to the hardware timebase.
+           m_guest.timebase = m_system.GetSystemTimers().GetFakeTimeBase();
+
+-          // Idle loop skipping for configured target loops (e.g. Wii Menu OSIdleThread)
+-          if (m_guest.pc == m_idle_pc && m_idle_pc != 0)
++          // US v1.02 SelectThread waits at 0x8034B164 while RunQueueBits is zero.
++          // A newly runnable thread must execute now. Skip only while the queue
++          // is empty and an interrupt can wake it. Other configured loops keep
++          // their existing behavior.
++          const bool can_skip_idle =
++              m_guest.pc == m_idle_pc && m_idle_pc != 0 &&
++              (m_idle_pc != 0x8034B164u ||
++               ((m_guest.msr & 0x8000u) != 0 && m_system.GetMemory().Read_U32(0x804D73D8u) == 0));
++          if (can_skip_idle)
+           {
+             m_system.GetCoreTiming().Idle();
+           }

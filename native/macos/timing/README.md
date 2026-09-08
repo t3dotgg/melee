@@ -53,11 +53,20 @@ The CPU and GPU pacing threads request interactive QoS and latency tier zero
 once. Other timer users keep their thread policy. The app also needs its active
 gameplay process activity to stop App Nap. The renderer patch owns that activity.
 
-The runtime exports `MeleeNativeWaitNanoseconds(uint64_t delay)` for the generated
-C render code. That code resolves the function with `dlsym`. Both paths then use
-the same wait implementation and thread timer. The argument is a relative delay
-to avoid mixing clock epochs. The caller rechecks its absolute deadline after
-each wait. The function caps a single wait at one second.
+The extra game render waits for a guest VI interrupt. CoreTiming can then
+advance the hardware and the game input alarm while the render thread waits.
+
+## Idle loop
+
+The native frontend sets `StaticRecompIdlePC` to `0x8034B164`, the verified
+`SelectThread` loop that waits for `RunQueueBits` to become nonzero. One game
+profile spent 16.4% of its CPU thread samples in that loop. The runtime can skip
+those instruction cycles and advance to the next hardware event.
+
+`../patches/native-idle.patch` applies after `native-timebase.patch` and the
+native input patch. It checks that interrupts are enabled and `RunQueueBits` at
+`0x804D73D8` is zero before the skip. A thread that just became runnable starts
+without an extra wait. Other configured idle loops keep their original behavior.
 
 ## Checks
 
