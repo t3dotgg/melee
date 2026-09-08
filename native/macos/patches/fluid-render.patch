@@ -37,18 +37,17 @@ diff --git a/Source/Core/DolphinNoGUI/PlatformMacos.mm b/Source/Core/DolphinNoGU
  void PlatformMacOS::MainLoop()
  {
 +  // Keep macOS from coalescing frame deadlines while the native game is running.
-+  id activity = [[[NSProcessInfo processInfo]
++  id activity = [[NSProcessInfo processInfo]
 +      beginActivityWithOptions:NSActivityUserInitiated | NSActivityLatencyCritical
-+                        reason:@"Native Melee frame pacing"] retain];
++                        reason:@"Native Melee frame pacing"];
    while (IsRunning())
    {
      UpdateRunningFlag();
-@@ -306,6 +320,8 @@
+@@ -306,6 +320,7 @@
      ProcessEvents();
      UpdateWindowPosition();
    }
 +  [[NSProcessInfo processInfo] endActivity:activity];
-+  [activity release];
  }
 
  WindowSystemInfo PlatformMacOS::GetWindowSystemInfo() const
