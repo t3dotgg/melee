@@ -75,8 +75,9 @@ five seconds per timer. One Apple Silicon run on September 8, 2026 gave:
 
 These are host wait measurements. They do not measure input-to-display latency
 or certify sustained game performance. Background activity can change the
-results. The initial background tests showed millisecond wake delays with both
-the original wait and plain Mach waits.
+results. A later run gave 120 Hz p99 lateness of 5.947 ms for the native timer and
+11.489 ms for the original timer. The initial background tests also showed
+millisecond wake delays with both the original wait and plain Mach waits.
 
 `Timer.cpp`, `CoreTiming.cpp`, and `VideoInterface.cpp` compiled with the actual
 ARM64 runtime flags in isolated output files. Full game verification belongs to
