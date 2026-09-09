@@ -35,7 +35,7 @@ modify orig/GALE01/sys/main.dol, its SHA-1
 | Callbacks/objects | gobjproc.c, gobjplink.c, and gobjgxlink.c maintain priority lists, attachment cleanup, and render passes; callbacks are indirect data pointers. | Object IDs and typed component/callback vectors. Preserve priority and insertion order; queue mutations during iteration; render from immutable snapshots. |
 | Archives/animation | archive.c, lbarchive.c, ftdata.c, and aobj.c rely on relocation chains, symbols, in-place buffers, and track bytecode. DAT files also provide attributes/models. | Validating importer converts tracks and metadata to host-endian arrays and AssetId handles, retaining source offsets for diagnostics. |
 | GX rendering | cobj.c, jobj.c, dobj.c, tobj.c, gobjgxlink.c, and displayfunc.c use GX state, TEV, display-list order, XFB, and VI timing. | D3D12 renderer (Vulkan optional) consuming a Melee render IR for camera, material, mesh, texture, and ordered passes. Keep screenshot compatibility mode. |
-| Audio | axdriver.c and synth.c use AX voices, command streams, ARAM sample addresses, DVD reads, and mixer callbacks. | Decode banks/streams to host buffers and schedule voices on WASAPI/XAudio2. Preserve priority, pan, pitch, aux effects, and completion callbacks. |
+| Audio | axdriver.c and synth.c use AX voices, command streams, ARAM sample addresses, DVD reads, and mixer callbacks. | Decode banks/streams to host buffers and schedule voices on a Windows backend (currently dynamically loaded waveOut; WASAPI/XAudio2 can replace it). Preserve priority, pan, pitch, aux effects, and completion callbacks. |
 | Input | controller.c queues four PADStatus channels, clamps/scales sticks, derives direction bits, and maintains history; lb_0195.c schedules alarms and gm_1A45.c waits for the queue. | XInput/Raw Input (SDL adapter optional) feeds timestamped PadState. At each 60 Hz tick reproduce trigger/release/repeat semantics. Keep Xbox A attack/confirm, B special/back, X/Y jump. |
 | Disc/loading | lbdvd.c, lbarchive.c, and devcom.c expect DVD entry numbers, asynchronous callbacks, modeled seek/transfer timing, and heap buffers. | Async package/file service rooted at extracted assets. Make ordering, cancellation, and fast-loading policy explicit. |
 | Timing/threads | OSDisableInterrupts, alarms, VI retrace, scheduler queues, and OSTime are used throughout. | steady_clock, fixed 60 Hz simulation scheduler, separate 60/120 render clock, and mutex or single-thread ownership. |
@@ -93,15 +93,16 @@ validated big-endian MARC asset parsing, rooted synchronous/asynchronous asset
 I/O, typed XInput mapping, a deterministic 60 Hz simulation scheduler with an
 independent 120 Hz render clock, and an ordered render snapshot/interpolation
 interface. These components build as a 64-bit Windows executable without the
-DOL or GameCube SDK and have focused CTest coverage. The executable is a shell
-and deterministic demo game; a small typed fighter rules slice now covers
-movement, jump, gravity, attack, and special actions. Full fighter rules,
-scenes, collision, GX-compatible rendering, audio, and the complete asset
-catalog still require source-level ports.
+DOL or GameCube SDK and have focused CTest coverage. The executable includes a
+two-fighter training shell with native collision snapshots and XInput control;
+a small typed fighter rules slice covers movement, jump, gravity, attack, and
+special actions. Full fighter rules, scenes, GX-compatible rendering, and the
+complete asset catalog still require source-level ports.
 The object/scene kernel now provides stable IDs, deterministic priority order,
-safe callback mutation, and pointer-free snapshots. A deterministic null audio
-mixer also provides typed voices, priority eviction, stop/completion semantics,
-and a backend seam for WASAPI/XAudio2.
+safe callback mutation, and pointer-free snapshots. The audio mixer provides
+typed voices, priority eviction, stop/completion semantics, and a dynamically
+loaded Windows waveOut PCM backend with a null fallback; training attacks emit
+short native tones.
 
 ## Acceptance tests
 
