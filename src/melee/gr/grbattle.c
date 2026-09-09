@@ -18,14 +18,9 @@
 #include <sysdolphin/baselib/jobj.h>
 #include <sysdolphin/baselib/random.h>
 
-/** @var ::grBattle_YakumonoParam::bg_curr_color_overlay
- * @todo ::ColorOverlay_x8_t, from ::grMaterial_801C9604
- * @var ::grBattle_YakumonoParam::bg_prev_color_overlay
- * @copydoc ::grBattle_YakumonoParam::bg_curr_color_overlay
- */
 struct grBattle_YakumonoParam {
-    int bg_curr_color_overlay;
-    int bg_prev_color_overlay;
+    union ColorOverlay_x8_t* bg_curr_color_overlay;
+    union ColorOverlay_x8_t* bg_prev_color_overlay;
 };
 
 /* 219C98 */ static void grBattle_OnDemoInit(int);

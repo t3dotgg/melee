@@ -70,7 +70,7 @@
 /* 21B2E0 */ static void grLast_8021B2E0(Ground_GObj*);
 /* 21B2E4 */ static void grLast_8021B2E4(Ground_GObj*);
 /* 21B2E8 */ static void grLast_8021B2E8(Ground_GObj*);
-/* 21B5C4 */ static bool grLast_8021B5C4(Ground_GObj*);
+/* 21B5C4 */ static int grLast_8021B5C4(Ground_GObj*);
 /* 21B920 */ static void grLast_8021B920(Ground_GObj*, int);
 /* 21C40C */ static void grLast_8021C40C(Ground_GObj*, GXColor, float);
 /* 21C500 */ static void grLast_8021C500(Ground_GObj*);
@@ -91,7 +91,7 @@ Vec3 const grLast_803B848C = { 0.0f, 1.0f, 0.0f };
 Vec3 const grLast_803B8498 = { 0.0f, 0.0f, 1.0f };
 
 /// @todo yakumono struct
-static int* yakumono_param;
+static union ColorOverlay_x8_t** yakumono_param;
 
 static void grLast_OnDemoInit(enum_t arg0)
 {

@@ -124,7 +124,7 @@ struct grIceMt_YakumonoParam {
     float xCC;
 };
 
-/* 1F6868 */ static void grIceMt_801F6868(bool id);
+/* 1F6868 */ static void grIceMt_801F6868(int id);
 /* 1F686C */ static void grIceMt_801F686C(void);
 /* 1F7080 */ static void grIceMt_801F7080(void);
 /* 1F71DC */ static void grIceMt_801F71DC(void);
@@ -190,7 +190,7 @@ grIceMt_801FA0BC(struct grIceMt_GObj9_GObj10_UnderUpperIdPair* ids);
 /* 1FA364 */ static bool grIceMt_801FA364(struct grIceMt_FA364_State* state,
                                           float* out, GrIceMtCb cb,
                                           Ground_GObj* gobj);
-/* 1FA4CC */ static int fn_801FA4CC(int num);
+/* 1FA4CC */ static bool fn_801FA4CC(int num);
 /* 1FA500 */ static int grIceMt_801FA500(HSD_GObj*, HSD_JObj*);
 /* 1FA854 */ static void grIceMt_801FA854(void);
 /* 1FA8F8 */ static DynamicsDesc* grIceMt_801FA8F8(enum_t id);
@@ -405,7 +405,7 @@ static const GrIm588 grIm_804DB59C = { 3, 4 };
 static const GrIm588 grIm_804DB5A0 = { 1, 2 };
 static const GrIm588 grIm_804DB5A4 = { 3, 4 };
 
-void grIceMt_801F6868(bool id) {}
+void grIceMt_801F6868(int id) {}
 
 void grIceMt_801F686C(void)
 {
@@ -1920,7 +1920,7 @@ bool grIceMt_801FA364(struct grIceMt_FA364_State* state, f32* out,
     return ret;
 }
 
-int fn_801FA4CC(int num)
+bool fn_801FA4CC(int num)
 { // https://decomp.me/scratch/pSJNA
     if (num == 1) {
         Ground_801C5740(num);

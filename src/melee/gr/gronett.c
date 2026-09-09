@@ -118,7 +118,7 @@ static struct grOnett_StageParam* yakumono_param;
 
 static s32 grOt_804D69C4;
 
-void grOnett_801E3734(bool arg) {}
+void grOnett_801E3734(int arg) {}
 
 void grOnett_801E3738(void)
 {

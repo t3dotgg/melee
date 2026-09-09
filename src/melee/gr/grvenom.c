@@ -45,7 +45,7 @@ struct grVenom_YakumonoParam {
     f32 x2C;
     char x30[0x34 - 0x30];
     f32 x34;
-    s32 x38;
+    union ColorOverlay_x8_t* x38;
 };
 
 static grVe_Data grVe_803E5348 = {
@@ -409,7 +409,7 @@ void grVenom_8020362C(void)
         }
     }
 }
-void grVenom_80203B14(bool arg) {}
+void grVenom_80203B14(int arg) {}
 
 static inline void inlineA0(void)
 {

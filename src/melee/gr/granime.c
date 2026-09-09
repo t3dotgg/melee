@@ -52,7 +52,11 @@
 /* 4D695C */ static float grAnime_804D695C;
 
 struct padded_jmp_buf {
+#ifdef MELEE_NATIVE
+    jmp_buf buf;
+#else
     __jmp_buf buf;
+#endif
     u8 pad[0x118 - 0xF8];
 };
 
@@ -1050,7 +1054,11 @@ void grAnime_801C8138(HSD_GObj* gobj, enum_t arg1, bool arg2)
 void fn_801C82E8(int arg0, int* arg1)
 {
     *arg1 = arg0;
+#ifdef MELEE_NATIVE
+    longjmp(grAnime_8049EE40.buf, 1);
+#else
     longjmp(&grAnime_8049EE40.buf, 1);
+#endif
 }
 
 HSD_AObj* grAnime_801C8318(HSD_GObj* gobj, int arg1, u32 arg2)
@@ -1071,7 +1079,11 @@ HSD_AObj* grAnime_801C8318(HSD_GObj* gobj, int arg1, u32 arg2)
     if (arg2 & 4) {
         var_r30 |= 0x100;
     }
+#ifdef MELEE_NATIVE
+    if (setjmp(grAnime_8049EE40.buf) == 0) {
+#else
     if (__setjmp(&grAnime_8049EE40.buf) == 0) {
+#endif
         HSD_ForeachAnim(jobj, JOBJ_TYPE, var_r30, fn_801C82E8, AOBJ_ARG_AV,
                         &sp14);
     }
