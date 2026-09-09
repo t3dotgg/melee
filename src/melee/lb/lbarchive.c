@@ -342,15 +342,38 @@ static struct SceneCameraDesc* native_scene_cameras(
                                     offset + (uint32_t) (j * 8u + 4u), &target,
                                     &present, error))
             return NULL;
-        /* Camera animation conversion is a separate schema.  Keep null
-         * animation arrays valid while the descriptor remains usable. */
         if (present) {
-            if (error != NULL) {
-                error->status = NATIVE_ARCHIVE_UNSUPPORTED;
-                error->offset = 32u + offset + (uint32_t) (j * 8u + 4u);
-                error->message = "camera animation schema is not implemented";
+            size_t animation_count = 0;
+            size_t k;
+            HSD_CameraAnim** animations;
+            for (k = 0; k < 256; ++k) {
+                uint32_t animation_offset;
+                bool animation_present;
+                if (!native_scene_reference(
+                        binding, target + (uint32_t) (k * 4u),
+                        &animation_offset, &animation_present, error))
+                    return NULL;
+                if (!animation_present) break;
+                ++animation_count;
             }
-            return NULL;
+            if (animation_count == 0) return NULL;
+            animations = native_scene_alloc(
+                binding, (animation_count + 1) * sizeof(*animations));
+            if (animations == NULL) return NULL;
+            for (k = 0; k < animation_count; ++k) {
+                uint32_t animation_offset;
+                bool animation_present;
+                if (!native_scene_reference(
+                        binding, target + (uint32_t) (k * 4u),
+                        &animation_offset, &animation_present, error) ||
+                    !animation_present ||
+                    NativeArchiveCameraAnimation(binding->graph,
+                                                 animation_offset,
+                                                 &animations[k], error) !=
+                        NATIVE_ARCHIVE_OK)
+                    return NULL;
+            }
+            cameras[j].anims = animations;
         }
     }
     return cameras;

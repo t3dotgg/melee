@@ -6,6 +6,7 @@
 #include <sysdolphin/baselib/jobj.h>
 #include <sysdolphin/baselib/mobj.h>
 #include <sysdolphin/baselib/pobj.h>
+#include <sysdolphin/baselib/robj.h>
 #include <sysdolphin/baselib/tobj.h>
 #include <sysdolphin/baselib/wobj.h>
 #include <melee/lb/lbanim.h>
@@ -38,6 +39,9 @@ typedef enum Schema {
     SCHEMA_FOBJ,
     SCHEMA_WOBJ,
     SCHEMA_COBJ,
+    SCHEMA_CANIM,
+    SCHEMA_WOBJANIM,
+    SCHEMA_ROBJANIM,
     SCHEMA_VECTOR,
     SCHEMA_MATRIX,
     SCHEMA_STRING,
@@ -307,6 +311,18 @@ static void* add_node(NativeArchiveGraph* graph, uint32_t offset,
          * decoded below into the wider native union members. */
         disk_size = 64;
         host_size = sizeof(HSD_CObjDesc);
+        break;
+    case SCHEMA_CANIM:
+        disk_size = 12;
+        host_size = sizeof(HSD_CameraAnim);
+        break;
+    case SCHEMA_WOBJANIM:
+        disk_size = 8;
+        host_size = sizeof(HSD_WObjAnim);
+        break;
+    case SCHEMA_ROBJANIM:
+        disk_size = 8;
+        host_size = sizeof(HSD_RObjAnimJoint);
         break;
     case SCHEMA_VECTOR:
         disk_size = 12;
@@ -823,6 +839,26 @@ static bool convert_node(NativeArchiveGraph* graph, Node* node)
         }
         break;
     }
+    case SCHEMA_CANIM: {
+        HSD_CameraAnim* animation = node->value;
+        animation->aobjdesc = link_node(graph, offset, SCHEMA_AOBJ, 0);
+        animation->eye_anim = link_node(graph, offset + 4, SCHEMA_WOBJANIM, 0);
+        animation->interest_anim =
+            link_node(graph, offset + 8, SCHEMA_WOBJANIM, 0);
+        break;
+    }
+    case SCHEMA_WOBJANIM: {
+        HSD_WObjAnim* animation = node->value;
+        animation->aobjdesc = link_node(graph, offset, SCHEMA_AOBJ, 0);
+        animation->robjanim = link_node(graph, offset + 4, SCHEMA_ROBJANIM, 0);
+        break;
+    }
+    case SCHEMA_ROBJANIM: {
+        HSD_RObjAnimJoint* animation = node->value;
+        animation->next = link_node(graph, offset, SCHEMA_ROBJANIM, 0);
+        animation->aobjdesc = link_node(graph, offset + 4, SCHEMA_AOBJ, 0);
+        break;
+    }
     case SCHEMA_VECTOR: {
         Vec3* vector = node->value;
         *vector = read_vec(bytes);
@@ -1092,6 +1128,7 @@ ROOT_READER(NativeArchiveAnimation, HSD_AnimJoint, SCHEMA_ANIMATION)
 ROOT_READER(NativeArchiveAObj, HSD_AObjDesc, SCHEMA_AOBJ)
 ROOT_READER(NativeArchiveWObj, HSD_WObjDesc, SCHEMA_WOBJ)
 ROOT_READER(NativeArchiveCObj, HSD_CObjDesc, SCHEMA_COBJ)
+ROOT_READER(NativeArchiveCameraAnimation, HSD_CameraAnim, SCHEMA_CANIM)
 
 static NativeArchiveStatus find_named_root(NativeArchiveGraph* graph,
                                            const char* name, uint32_t* offset,
