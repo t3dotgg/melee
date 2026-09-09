@@ -10,6 +10,7 @@
 #include <melee/it/ithitbox.h>
 #include <melee/it/kinds/ityaku.h>
 #include <melee/it/types.h>
+#include <melee/lb/inlines.h>
 #include <melee/lb/lb_00B0.h>
 #include <melee/lb/lb_013B.h>
 #include <sysdolphin/baselib/debug.h>
@@ -187,7 +188,8 @@ void grMaterial_801C8B68(HSD_JObj* jobj, int arg1)
                         }
                     }
                     if (var_r3) {
-                        HSD_IDInsertToTable(NULL, (uintptr_t) var_r30, var_r30);
+                        HSD_IDInsertToTable(NULL, (uintptr_t) var_r30,
+                                            var_r30);
                     }
                     if (!(jobj->flags & 0x1000)) {
                         var_r30 = HSD_JObjGetChild(jobj);
@@ -508,7 +510,13 @@ void grMaterial_801C9470(Item_GObj* gobj, CommandInfo* cmd)
 void grMaterial_801C9490(Item_GObj* gobj, CommandInfo* cmd)
 {
     Ground* gp = gobj->user_data;
+#ifdef MELEE_NATIVE
+    u32 val = (CMD_U16(cmd->u, 0) >> 2) & 0xFF;
+    /* This extension consumes one word, like the other color commands. */
+    NEXT_CMD(cmd);
+#else
     u32 val = (*(u16*) cmd->ptr[0] >> 2) & 0xFF;
+#endif
     gp->xC0 = (f32) val;
     gp->x10_flags.b6 = 1;
 }
@@ -575,7 +583,8 @@ static inline Ground* grMaterial_801C9604_inline(HSD_GObj* arg0)
     return arg0->user_data;
 }
 
-void grMaterial_801C9604(HSD_GObj* gobj, union ColorOverlay_x8_t* arg1, bool arg2)
+void grMaterial_801C9604(HSD_GObj* gobj, union ColorOverlay_x8_t* arg1,
+                         bool arg2)
 {
     Ground* gp = grMaterial_801C9604_inline(gobj);
     ColorOverlay* co = grMaterial_GetOverlay(gp);

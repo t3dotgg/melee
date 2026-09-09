@@ -1,6 +1,7 @@
 #include <melee/ft/forward.h>
 
 #include "forward.h"
+#include "inlines.h"
 #include "lbarchive.h"
 #include "lbcommand.h"
 #include "types.h"
@@ -23,7 +24,7 @@ bool lb_80013BB0(ColorOverlay* overlay)
 
 bool lb_80013BB8(ColorOverlay* overlay)
 {
-    overlay->x0_timer += overlay->x8_ptr1->unk.timer;
+    overlay->x0_timer += CMD_FIELD(overlay->x8_ptr1, unk, timer);
     ++overlay->x8_ptr1;
     return false;
 }
@@ -55,9 +56,10 @@ static inline void readLightColor(ColorOverlay* overlay)
 
 static bool lb_80013C18(ColorOverlay* overlay)
 {
-    overlay->x7C_light_enable = overlay->x8_ptr1->light_rot2.light_enable;
-    overlay->x74_light_rot_x = overlay->x8_ptr1->light_rot2.x;
-    overlay->x78_light_rot_yz = overlay->x8_ptr1->light_rot2.yz;
+    overlay->x7C_light_enable =
+        CMD_FIELD(overlay->x8_ptr1, light_rot2, light_enable);
+    overlay->x74_light_rot_x = CMD_FIELD(overlay->x8_ptr1, light_rot2, x);
+    overlay->x78_light_rot_yz = CMD_FIELD(overlay->x8_ptr1, light_rot2, yz);
     ++overlay->x8_ptr1;
     readLightColor(overlay);
     overlay->x7C_flag2 = true;
@@ -74,7 +76,7 @@ static bool lb_80013D68(ColorOverlay* overlay)
 // The command word supplies the duration. The next word supplies RGBA.
 static bool lb_80013E3C(ColorOverlay* overlay)
 {
-    float blend_frames = overlay->x8_ptr1++->unk.timer;
+    float blend_frames = CMD_FIELD(overlay->x8_ptr1++, unk, timer);
     overlay->x64_lightblend_red = ((0.5f + overlay->x8_ptr1->light_color.r) -
                                    overlay->x50_light_color.r) /
                                   blend_frames;
@@ -93,8 +95,8 @@ static bool lb_80013E3C(ColorOverlay* overlay)
 
 static bool lb_80013F78(ColorOverlay* overlay)
 {
-    overlay->x74_light_rot_x = overlay->x8_ptr1->light_rot1.x;
-    overlay->x78_light_rot_yz = overlay->x8_ptr1->light_rot1.yz;
+    overlay->x74_light_rot_x = CMD_FIELD(overlay->x8_ptr1, light_rot1, x);
+    overlay->x78_light_rot_yz = CMD_FIELD(overlay->x8_ptr1, light_rot1, yz);
     ++overlay->x8_ptr1;
     return false;
 }
@@ -128,7 +130,7 @@ static bool lb_80014014(ColorOverlay* overlay)
 
 static bool lb_800140F8(ColorOverlay* overlay)
 {
-    float blend_frames = overlay->x8_ptr1++->unk.timer;
+    float blend_frames = CMD_FIELD(overlay->x8_ptr1++, unk, timer);
     overlay->x40_colorblend_red =
         ((0.5f + overlay->x8_ptr1->light_color.r) - overlay->x2C_hex.r) /
         blend_frames;
@@ -172,7 +174,7 @@ bool lb_80014258(Fighter_GObj* gobj, void* overlay_data, FtCmd2 execute_cmd)
     }
 
     while (overlay->x8_ptr1 != NULL && overlay->x0_timer == 0) {
-        u32 opcode = overlay->x8_ptr1->unk.unk;
+        u32 opcode = CMD_FIELD(overlay->x8_ptr1, unk, unk);
         if (!Command_Execute((CommandInfo*) overlay, opcode)) {
             if (opcode < 0x15U) {
                 u32 handler_index = opcode - 0xA;

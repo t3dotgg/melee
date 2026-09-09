@@ -356,11 +356,23 @@ struct ColorOverlay {
     union ColorOverlay_x8_t* x8_ptr1; // 0x8
     s32 xC_loop;                      // 0xc
     s32* x10_ptr2;                    // 0x10
-    s32 x14;                          // 0x14
-    s32* x18_alloc;                   // 0x18
-    s32 x1c;                          // 0x1c
-    s32 x20;                          // 0x20
-    s32 x24;                          // 0x24
+#ifdef MELEE_NATIVE
+    /* These words overlap CommandInfo's return stack during script dispatch.
+     */
+    uintptr_t x14;
+#else
+    s32 x14; // 0x14
+#endif
+    s32* x18_alloc; // 0x18
+#ifdef MELEE_NATIVE
+    uintptr_t x1c;
+    uintptr_t x20;
+    uintptr_t x24;
+#else
+    s32 x1c; // 0x1c
+    s32 x20; // 0x20
+    s32 x24; // 0x24
+#endif
     union {
         enum_t i;
         struct ColorOverlay_UnkInner* ptr;
@@ -535,10 +547,18 @@ struct Command_04 {
     u32 x;
 };
 struct Command_05 {
+#ifdef MELEE_NATIVE
+    u32 offset;
+#else
     union CmdUnion* ptr;
+#endif
 };
 struct Command_07 {
+#ifdef MELEE_NATIVE
+    u32 offset;
+#else
     union CmdUnion* ptr;
+#endif
 };
 struct Command_09 {
     u32 id : 6;
@@ -1011,10 +1031,15 @@ struct CommandInfo {
         }* u;
     };
     u32 loop_count; // 0x0C
+#ifdef MELEE_NATIVE
+    /* The original command state reserves five words after loop_count. */
+    union CmdUnion* event_return[5];
+#else
     union CmdUnion*
         event_return[3]; // 0x10 - Array Size is purely made-up for now
     u32 loop_count_dup;  // 0x14
     u32 unk_x18;         // 0x18
+#endif
 };
 
 struct LbShadow {
