@@ -116,6 +116,8 @@ NativeDatArchive NativeDatArchive::parse(std::span<const std::byte> input)
         // Unaligned slots occur in valid TyMnInfo.dat, so range validation is
         // deliberately byte-based rather than imposing host alignment.
         require_range(archive.header_.data_size, slot, 4, "relocation slot");
+        validate_data_offset(be32(archive.data(), slot), archive.header_.data_size,
+                             true, "relocation target");
         archive.relocation_offsets_.push_back(slot);
     }
 
@@ -181,11 +183,8 @@ const NativeDatExternal* NativeDatArchive::find_external(std::string_view name) 
 std::optional<std::size_t> NativeDatArchive::relocation_target(std::size_t index) const noexcept
 {
     if (index >= relocation_offsets_.size()) return std::nullopt;
-    const auto slot = relocation_offsets_[index];
-    if (slot > data().size() || 4 > data().size() - slot) return std::nullopt;
-    const auto target = be32(data(), slot);
-    if (target > data().size()) return std::nullopt;
-    return static_cast<std::size_t>(target);
+    const auto target = static_cast<std::size_t>(be32(data(), relocation_offsets_[index]));
+    return target <= data().size() ? std::optional<std::size_t>(target) : std::nullopt;
 }
 
 std::vector<std::size_t> NativeDatArchive::external_reference_offsets(
@@ -205,10 +204,11 @@ std::vector<std::size_t> NativeDatArchive::external_reference_offsets(
 std::span<const std::byte> NativeDatArchive::data_at(std::size_t offset,
                                                       std::size_t size) const
 {
-    if (offset > data().size() || size > data().size() - offset) {
+    const auto block = data();
+    if (offset > block.size() || size > block.size() - offset) {
         throw std::out_of_range("DAT data range is outside data block");
     }
-    return data().subspan(offset, size);
+    return block.subspan(offset, size);
 }
 
 } // namespace melee::native

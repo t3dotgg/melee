@@ -41,7 +41,9 @@ public:
     std::span<const std::byte> blob() const noexcept { return blob_; }
     std::span<const std::byte> data() const noexcept
     {
-        return std::span<const std::byte>(blob_).subspan(0x20, header_.data_size);
+        return blob_.empty() ? std::span<const std::byte>{}
+                             : std::span<const std::byte>(blob_).subspan(
+                                   0x20, header_.data_size);
     }
     const std::vector<std::uint32_t>& relocation_offsets() const noexcept
     {

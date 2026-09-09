@@ -3,7 +3,10 @@
 #include <cassert>
 #include <cstdlib>
 #include <cstring>
+#include <filesystem>
+#include <fstream>
 #include <iostream>
+#include <iterator>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -42,16 +45,17 @@ std::vector<std::byte> fixture()
 }
 
 template <typename Function>
-void expect_invalid(Function&& function)
+void expect_invalid(const char* label, Function&& function)
 {
     bool rejected = false;
     try { function(); }
     catch (const std::invalid_argument&) { rejected = true; }
+    if (!rejected) std::cerr << "not rejected: " << label << "\n";
     assert(rejected);
 }
 } // namespace
 
-int main()
+int main(int argc, char** argv)
 {
     using namespace melee::native;
     auto bytes = fixture();
@@ -71,37 +75,69 @@ int main()
     assert(references.size() == 1 && references[0] == 4);
     assert(archive.external_reference_offsets("missing").empty());
     assert(archive.data_at(8, 4).size() == 4);
-    const auto copied_archive = archive;
-    assert(copied_archive.data().size() == archive.data().size());
-    assert(std::to_integer<unsigned>(copied_archive.data()[0]) ==
-           std::to_integer<unsigned>(archive.data()[0]));
     // The source remains untouched and the parsed archive owns its copy.
     assert(bytes == original);
     bytes[32] = std::byte{0xff};
     assert(std::to_integer<unsigned>(archive.data()[0]) == 0);
+    const auto copied = archive;
+    assert(copied.data().data() == copied.blob().data() + 0x20);
+    assert(copied.data().data() != archive.data().data());
+    assert(copied.relocation_target(0).value() == 8);
 
     auto bad = fixture();
     put32(bad, 0, 71);
-    expect_invalid([&] { (void)NativeDatArchive::parse(bad); });
+    expect_invalid("file size", [&] { (void)NativeDatArchive::parse(bad); });
     bad = fixture();
     put32(bad, 44, 12); // relocation slot starts at the end of data.
-    expect_invalid([&] { (void)NativeDatArchive::parse(bad); });
+    expect_invalid("relocation slot", [&] { (void)NativeDatArchive::parse(bad); });
     bad = fixture();
     put32(bad, 48, 12); // public object must start inside data.
-    expect_invalid([&] { (void)NativeDatArchive::parse(bad); });
+    expect_invalid("public offset", [&] { (void)NativeDatArchive::parse(bad); });
     bad = fixture();
     put32(bad, 52, 99); // symbol offset outside the string table.
-    expect_invalid([&] { (void)NativeDatArchive::parse(bad); });
+    expect_invalid("symbol offset", [&] { (void)NativeDatArchive::parse(bad); });
     bad = fixture();
     bad[67] = std::byte{'x'};
-    bad[71] = std::byte{'x'}; // remove both string-table terminators.
-    expect_invalid([&] { (void)NativeDatArchive::parse(bad); });
+    bad[71] = std::byte{'x'}; // remove all possible symbol terminators.
+    expect_invalid("symbol terminator", [&] { (void)NativeDatArchive::parse(bad); });
     bad = fixture();
     put32(bad, 36, 4); // external chain loops back to itself.
-    expect_invalid([&] { (void)NativeDatArchive::parse(bad); });
+    expect_invalid("chain cycle", [&] { (void)NativeDatArchive::parse(bad); });
     bad = fixture();
     put32(bad, 36, 12); // external chain points past the data block.
-    expect_invalid([&] { (void)NativeDatArchive::parse(bad); });
+    expect_invalid("chain range", [&] { (void)NativeDatArchive::parse(bad); });
+
+    bad = fixture();
+    put32(bad, 32, 13);
+    expect_invalid("relocation target", [&] { (void)NativeDatArchive::parse(bad); });
+    bad = fixture();
+    put32(bad, 32, 12); // One-past-end is a valid empty-range target.
+    const auto one_past = NativeDatArchive::parse(bad);
+    assert(one_past.relocation_target(0).value() == 12);
+    assert(one_past.data_at(12, 0).empty());
+    bad = fixture();
+    put32(bad, 8, 0xffffffffU); // table count overrun.
+    expect_invalid("table count", [&] { (void)NativeDatArchive::parse(bad); });
+
+    // Optional local compatibility check; no original game data is checked in.
+    for (int i = 1; i < argc; ++i) {
+        std::ifstream file(argv[i], std::ios::binary);
+        if (!file) throw std::runtime_error("cannot open local DAT fixture");
+        const std::vector<char> chars{std::istreambuf_iterator<char>(file), {}};
+        std::vector<std::byte> raw(chars.size());
+        std::memcpy(raw.data(), chars.data(), chars.size());
+        const auto local = NativeDatArchive::parse(raw);
+        std::size_t external_references = 0;
+        for (const auto& entry : local.external_entries()) {
+            external_references += local.external_reference_offsets(entry.name).size();
+        }
+        std::cout << std::filesystem::path(argv[i]).filename().string()
+                  << ": data=" << local.data().size()
+                  << " relocations=" << local.relocation_offsets().size()
+                  << " public=" << local.public_entries().size()
+                  << " external=" << local.external_entries().size()
+                  << " external_references=" << external_references << '\n';
+    }
 
     if (const char* fixture_path = std::getenv("MELEE_DAT_FIXTURE");
         fixture_path != nullptr && fixture_path[0] != '\0') {
