@@ -14,7 +14,11 @@ typedef struct KinokoAnim {
 typedef struct KinokoAttrs {
     f32 x0;
     f32 x4;
+#ifdef MELEE_NATIVE
+    HSD_AnimJoint* animations[2];
+#else
     s32 x8;
+#endif
 } KinokoAttrs;
 
 HSD_AnimJoint* it_80293660(int idx);

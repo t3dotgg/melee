@@ -36,12 +36,20 @@ ItemStateTable it_803F5DB0[] = {
 void it_8028F9D8(Item_GObj* arg0, Vec3* arg1, f32 arg8)
 {
     Item* temp_r30 = GET_ITEM(arg0);
+#ifdef MELEE_NATIVE
+    itFoodsAttributes* attrs =
+        temp_r30->xC4_article_data->x4_specialAttributes;
+    u32 index = temp_r30->xDD4_itemVar.foods.x0;
+    temp_r30->pos.x = arg1->x + arg8 * attrs[index].offset_x;
+    temp_r30->pos.y = arg1->y + attrs[index + 1].previous_y;
+#else
     Vec4* temp_r6 = temp_r30->xC4_article_data->x4_specialAttributes;
     f32 var_2;
     temp_r30->pos.x =
         arg1->x + (arg8 * temp_r6[temp_r30->xDD4_itemVar.foods.x0].w);
     var_2 = temp_r6[temp_r30->xDD4_itemVar.foods.x0 + 1].x;
     temp_r30->pos.y = var_2 + arg1->y;
+#endif
     temp_r30->pos.z = arg1->z;
     HSD_JObjSetTranslate(arg0->hsd_obj, &temp_r30->pos);
 }

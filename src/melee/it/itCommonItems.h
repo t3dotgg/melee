@@ -436,10 +436,24 @@ typedef struct itFoods_ItemVars {
 } itFoods_ItemVars;
 
 typedef struct itFoodsAttributes {
+#ifdef MELEE_NATIVE
+    union {
+        s32 x0;
+        f32 previous_y;
+    };
+#else
     s32 x0;
+#endif
     HSD_Joint* x4;
     s32 x8;
+#ifdef MELEE_NATIVE
+    union {
+        s32 xC;
+        f32 offset_x;
+    };
+#else
     s32 xC;
+#endif
 } itFoodsAttributes;
 
 typedef struct itWhispyApple_ItemVars {
@@ -1281,6 +1295,9 @@ typedef struct it_2E5A_TierEntry {
     /* 0x14 */ s32 threshold;
     /* 0x18 */ f32 scale;
     /* 0x1C */ itECB ecb;
+#ifdef MELEE_NATIVE
+    struct ItemStateDesc* native_state;
+#endif
 } it_2E5A_TierEntry;
 
 /// Special attributes for it_2E5A items. Base physics parameters followed by
