@@ -1,4 +1,5 @@
 #include <assert.h>
+#undef __assert
 #include <stdint.h>
 #include <stdio.h>
 

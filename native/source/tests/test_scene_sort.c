@@ -4,6 +4,7 @@
 
 /* Include the implementation to test its private sort lists. */
 #include <assert.h>
+#undef __assert
 
 #include <sysdolphin/baselib/aobj.h>
 #include <sysdolphin/baselib/displayfunc.c>

@@ -1,6 +1,7 @@
 #include <Runtime/platform.h>
 
 #include <assert.h>
+#undef __assert
 #include <math.h>
 #include <stdarg.h>
 #include <stdio.h>
