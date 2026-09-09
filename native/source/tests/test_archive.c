@@ -4,6 +4,7 @@
 #include <sysdolphin/baselib/cobj.h>
 #include <sysdolphin/baselib/dobj.h>
 #include <sysdolphin/baselib/jobj.h>
+#include <sysdolphin/baselib/lobj.h>
 #include <sysdolphin/baselib/mobj.h>
 #include <sysdolphin/baselib/pobj.h>
 #include <sysdolphin/baselib/robj.h>
@@ -393,6 +394,81 @@ static void test_joint_display_descriptor_graph(void)
     CHECK(root->u.dobjdesc->pobjdesc != NULL);
     CHECK(strcmp(root->u.dobjdesc->pobjdesc->class_name, "HSD_PObj") == 0);
     CHECK(root->u.dobjdesc->pobjdesc->u.joint == root);
+    NativeArchiveGraphClose(graph);
+    NativeArchiveClose(archive);
+}
+
+static void test_light_descriptor_graph(void)
+{
+    Fixture fixture = fixture_new(220);
+    NativeArchive* archive;
+    NativeArchiveGraph* graph;
+    NativeArchiveError error = { 0 };
+    HSD_LightDesc* light = NULL;
+    HSD_LightAnim* animation = NULL;
+
+    /* Two light descriptors exercise point and raw attenuation unions. */
+    reference(&fixture, 0, 152);
+    reference(&fixture, 4, 28);
+    reference(&fixture, 16, 56);
+    reference(&fixture, 24, 76);
+    reference(&fixture, 44, 88);
+    reference(&fixture, 48, 108);
+    reference(&fixture, 52, 128);
+    word(&fixture, 8, ((uint32_t) LOBJ_POINT << 16));
+    word(&fixture, 36, ((uint32_t) LOBJ_SPOT << 16) | LOBJ_LIGHT_ATTN);
+    fixture.bytes[HEADER_SIZE + 12] = 255;
+    fixture.bytes[HEADER_SIZE + 13] = 128;
+    fixture.bytes[HEADER_SIZE + 14] = 64;
+    fixture.bytes[HEADER_SIZE + 15] = 255;
+    fixture.bytes[HEADER_SIZE + 40] = 32;
+    fixture.bytes[HEADER_SIZE + 41] = 64;
+    fixture.bytes[HEADER_SIZE + 42] = 96;
+    fixture.bytes[HEADER_SIZE + 43] = 255;
+    word(&fixture, 60, 0x3f800000);
+    word(&fixture, 64, 0x40000000);
+    word(&fixture, 68, GX_DA_MEDIUM);
+    word(&fixture, 76, 0x3f000000);
+    word(&fixture, 80, 0x3f800000);
+    word(&fixture, 84, GX_DA_GENTLE);
+    word(&fixture, 92, 0x3f800000);
+    word(&fixture, 96, 0x40000000);
+    word(&fixture, 100, 0x40400000);
+    word(&fixture, 112, 0x3f800000);
+    word(&fixture, 116, 0x40000000);
+    word(&fixture, 120, 0x40400000);
+    word(&fixture, 124, 0);
+    word(&fixture, 128, 0x3f000000);
+    word(&fixture, 132, 0x3f800000);
+    word(&fixture, 136, 0x40000000);
+    word(&fixture, 140, 0x40400000);
+    word(&fixture, 144, 0x40800000);
+    word(&fixture, 148, 0x40a00000);
+    memcpy(fixture.bytes + HEADER_SIZE + 152, "HSD_LObj", 9);
+
+    reference(&fixture, 168, 180);
+    reference(&fixture, 172, 196);
+    public_symbol(&fixture, 0, "light");
+    public_symbol(&fixture, 164, "light_anim");
+    archive = open_fixture(&fixture);
+    graph = open_graph(archive);
+    CHECK(NativeArchiveLight(graph, 0, &light, &error) == NATIVE_ARCHIVE_OK);
+    CHECK(light != NULL && light->next != NULL);
+    CHECK(light->flags == LOBJ_POINT);
+    CHECK(light->color.g == 128);
+    CHECK(light->position != NULL && light->position->pos.x == 1.0f);
+    CHECK(light->u.point->ref_br == 0.5f);
+    CHECK(light->u.point->ref_dist == 1.0f);
+    CHECK(light->u.point->dist_func == GX_DA_GENTLE);
+    CHECK(light->next->flags == LOBJ_SPOT);
+    CHECK(light->next->u.attn->a0 == 0.5f);
+    CHECK(light->next->u.attn->k2 == 5.0f);
+    CHECK(NativeArchiveLightByName(graph, "light", &light, &error) ==
+          NATIVE_ARCHIVE_OK);
+    CHECK(NativeArchiveLightAnimationByName(graph, "light_anim", &animation,
+                                            &error) == NATIVE_ARCHIVE_OK);
+    CHECK(animation != NULL && animation->aobjdesc != NULL);
+    CHECK(animation->position_anim != NULL);
     NativeArchiveGraphClose(graph);
     NativeArchiveClose(archive);
 }
@@ -1037,6 +1113,7 @@ int main(void)
     test_joint_graph();
     test_shape_animation_graph();
     test_joint_display_descriptor_graph();
+    test_light_descriptor_graph();
     test_animation_graph();
     test_texture_animation_graph();
     test_wobj();

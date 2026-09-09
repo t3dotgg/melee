@@ -392,13 +392,97 @@ static struct SceneCameraDesc* native_scene_cameras(
     return cameras;
 }
 
+static HSD_LightAnim** native_scene_light_anims(
+    NativeArchiveBinding* binding, uint32_t offset, NativeArchiveError* error)
+{
+    size_t count = 0;
+    size_t i;
+    HSD_LightAnim** animations;
+    for (i = 0; i < 256; ++i) {
+        uint32_t target;
+        bool present;
+        if (!native_scene_reference(binding, offset + (uint32_t) (i * 4u),
+                                    &target, &present, error))
+            return NULL;
+        if (!present) break;
+        ++count;
+    }
+    if (count == 0) return NULL;
+    animations = native_scene_alloc(binding, (count + 1) * sizeof(*animations));
+    if (animations == NULL) return NULL;
+    for (i = 0; i < count; ++i) {
+        uint32_t target;
+        bool present;
+        if (!native_scene_reference(binding, offset + (uint32_t) (i * 4u),
+                                    &target, &present, error) || !present ||
+            NativeArchiveLightAnimation(binding->graph, target,
+                                        &animations[i], error) !=
+                NATIVE_ARCHIVE_OK)
+            return NULL;
+    }
+    return animations;
+}
+
+static LightList* native_scene_light(NativeArchiveBinding* binding,
+                                     uint32_t offset,
+                                     NativeArchiveError* error)
+{
+    LightList* light = native_scene_alloc(binding, sizeof(*light));
+    uint32_t target;
+    bool present;
+    if (light == NULL ||
+        !native_scene_reference(binding, offset, &target, &present, error))
+        return NULL;
+    if (present && NativeArchiveLight(binding->graph, target, &light->desc,
+                                      error) != NATIVE_ARCHIVE_OK)
+        return NULL;
+    if (!native_scene_reference(binding, offset + 4, &target, &present, error))
+        return NULL;
+    if (present) {
+        light->anims = native_scene_light_anims(binding, target, error);
+        if (light->anims == NULL) return NULL;
+    }
+    return light;
+}
+
+static LightList** native_scene_lights(NativeArchiveBinding* binding,
+                                       uint32_t offset,
+                                       NativeArchiveError* error)
+{
+    size_t count = 0;
+    size_t i;
+    LightList** lights;
+    for (i = 0; i < 256; ++i) {
+        uint32_t target;
+        bool present;
+        if (!native_scene_reference(binding, offset + (uint32_t) (i * 4u),
+                                    &target, &present, error))
+            return NULL;
+        if (!present) break;
+        ++count;
+    }
+    if (count == 0) return NULL;
+    lights = native_scene_alloc(binding, (count + 1) * sizeof(*lights));
+    if (lights == NULL) return NULL;
+    for (i = 0; i < count; ++i) {
+        uint32_t target;
+        bool present;
+        if (!native_scene_reference(binding, offset + (uint32_t) (i * 4u),
+                                    &target, &present, error) || !present)
+            return NULL;
+        lights[i] = native_scene_light(binding, target, error);
+        if (lights[i] == NULL) return NULL;
+    }
+    return lights;
+}
+
 static SceneDesc* native_scene_root(NativeArchiveBinding* binding,
                                     uint32_t offset,
                                     NativeArchiveError* error)
 {
     SceneDesc* scene = native_scene_alloc(binding, sizeof(*scene));
-    uint32_t models_offset, cameras_offset;
-    bool models_present, cameras_present;
+    uint32_t models_offset, cameras_offset, lights_offset;
+    bool models_present, cameras_present, lights_present;
     size_t model_count;
     if (scene == NULL || !native_scene_reference(binding, offset, &models_offset,
                                                  &models_present, error) ||
@@ -413,6 +497,13 @@ static SceneDesc* native_scene_root(NativeArchiveBinding* binding,
     if (cameras_present) {
         scene->cameras = native_scene_cameras(binding, cameras_offset, error);
         if (scene->cameras == NULL) return NULL;
+    }
+    if (!native_scene_reference(binding, offset + 8, &lights_offset,
+                                &lights_present, error))
+        return NULL;
+    if (lights_present) {
+        scene->lights = native_scene_lights(binding, lights_offset, error);
+        if (scene->lights == NULL) return NULL;
     }
     return scene;
 }
@@ -448,8 +539,12 @@ void* HSD_ArchiveNativePublicAddress(HSD_Archive* archive, const char* symbol)
         NativeArchiveDataRange(binding->archive, offset, 1)) {
         return (void*) (binding->archive->data + offset);
     }
-    if (strcmp(symbol, "ScNtcCommon_scene_data") == 0) {
+    if (native_name_ends_with(symbol, "_scene_data")) {
         root = native_scene_root(binding, offset, &error);
+        if (root != NULL) return root;
+    }
+    if (native_name_ends_with(symbol, "_scene_lights")) {
+        root = native_scene_lights(binding, offset, &error);
         if (root != NULL) return root;
     }
     if (native_name_ends_with(symbol, "_animjoint") ||
@@ -476,8 +571,12 @@ void* HSD_ArchiveNativePublicAddress(HSD_Archive* archive, const char* symbol)
         if (NativeArchiveJoint(binding->graph, offset, (HSD_Joint**) &root,
                                &error) == NATIVE_ARCHIVE_OK)
             return root;
-    } else if (native_name_ends_with(symbol, "_wobj") ||
-               native_name_ends_with(symbol, "_light")) {
+    } else if (native_name_ends_with(symbol, "_light")) {
+        if (NativeArchiveLight(binding->graph, offset,
+                               (HSD_LightDesc**) &root, &error) ==
+            NATIVE_ARCHIVE_OK)
+            return root;
+    } else if (native_name_ends_with(symbol, "_wobj")) {
         if (NativeArchiveWObj(binding->graph, offset, (HSD_WObjDesc**) &root,
                               &error) == NATIVE_ARCHIVE_OK)
             return root;

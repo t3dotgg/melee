@@ -4,6 +4,7 @@
 #include <sysdolphin/baselib/cobj.h>
 #include <sysdolphin/baselib/dobj.h>
 #include <sysdolphin/baselib/jobj.h>
+#include <sysdolphin/baselib/lobj.h>
 #include <sysdolphin/baselib/mobj.h>
 #include <sysdolphin/baselib/pobj.h>
 #include <sysdolphin/baselib/robj.h>
@@ -50,6 +51,11 @@ typedef enum Schema {
     SCHEMA_CANIM,
     SCHEMA_WOBJANIM,
     SCHEMA_ROBJANIM,
+    SCHEMA_LIGHT,
+    SCHEMA_LIGHTANIM,
+    SCHEMA_LIGHTPOINT,
+    SCHEMA_LIGHTSPOT,
+    SCHEMA_LIGHTATTN,
     SCHEMA_VECTOR,
     SCHEMA_MATRIX,
     SCHEMA_STRING,
@@ -367,6 +373,26 @@ static void* add_node(NativeArchiveGraph* graph, uint32_t offset,
     case SCHEMA_ROBJANIM:
         disk_size = 8;
         host_size = sizeof(HSD_RObjAnimJoint);
+        break;
+    case SCHEMA_LIGHT:
+        disk_size = 28;
+        host_size = sizeof(HSD_LightDesc);
+        break;
+    case SCHEMA_LIGHTANIM:
+        disk_size = 16;
+        host_size = sizeof(HSD_LightAnim);
+        break;
+    case SCHEMA_LIGHTPOINT:
+        disk_size = 12;
+        host_size = sizeof(HSD_LightPointDesc);
+        break;
+    case SCHEMA_LIGHTSPOT:
+        disk_size = 20;
+        host_size = sizeof(HSD_LightSpotDesc);
+        break;
+    case SCHEMA_LIGHTATTN:
+        disk_size = 24;
+        host_size = sizeof(HSD_LightAttn);
         break;
     case SCHEMA_VECTOR:
         disk_size = 12;
@@ -984,6 +1010,82 @@ static bool convert_node(NativeArchiveGraph* graph, Node* node)
         animation->aobjdesc = link_node(graph, offset + 4, SCHEMA_AOBJ, 0);
         break;
     }
+    case SCHEMA_LIGHT: {
+        HSD_LightDesc* light = node->value;
+        uint16_t flags = (uint16_t) (((uint16_t) bytes[8] << 8) | bytes[9]);
+        uint16_t attnflags =
+            (uint16_t) (((uint16_t) bytes[10] << 8) | bytes[11]);
+        light->class_name = link_node(graph, offset, SCHEMA_STRING, 0);
+        light->next = link_node(graph, offset + 4, SCHEMA_LIGHT, 0);
+        light->flags = flags;
+        light->attnflags = attnflags;
+        memcpy(&light->color, bytes + 12, sizeof(light->color));
+        light->position = link_node(graph, offset + 16, SCHEMA_WOBJ, 0);
+        light->interest = link_node(graph, offset + 20, SCHEMA_WOBJ, 0);
+        switch (flags & LOBJ_TYPE_MASK) {
+        case LOBJ_POINT:
+            light->u.p = link_node(graph, offset + 24,
+                                   attnflags & LOBJ_LIGHT_ATTN
+                                       ? SCHEMA_LIGHTATTN
+                                       : SCHEMA_LIGHTPOINT,
+                                   0);
+            break;
+        case LOBJ_SPOT:
+            light->u.p = link_node(graph, offset + 24,
+                                   attnflags != 0 ? SCHEMA_LIGHTATTN
+                                                  : SCHEMA_LIGHTSPOT,
+                                   0);
+            break;
+        case LOBJ_AMBIENT:
+        case LOBJ_INFINITE:
+            /* These light types do not read the union during LObjLoad. Keep
+             * validating the relocation while leaving the host union empty. */
+            {
+                uint32_t target;
+                bool present;
+                if (!read_reference(graph, offset + 24, &target, &present))
+                    return false;
+            }
+            break;
+        }
+        break;
+    }
+    case SCHEMA_LIGHTANIM: {
+        HSD_LightAnim* animation = node->value;
+        animation->next = link_node(graph, offset, SCHEMA_LIGHTANIM, 0);
+        animation->aobjdesc = link_node(graph, offset + 4, SCHEMA_AOBJ, 0);
+        animation->position_anim =
+            link_node(graph, offset + 8, SCHEMA_WOBJANIM, 0);
+        animation->interest_anim =
+            link_node(graph, offset + 12, SCHEMA_WOBJANIM, 0);
+        break;
+    }
+    case SCHEMA_LIGHTPOINT: {
+        HSD_LightPointDesc* point = node->value;
+        point->ref_br = read_float(bytes);
+        point->ref_dist = read_float(bytes + 4);
+        point->dist_func = NativeArchiveBE32(bytes + 8);
+        break;
+    }
+    case SCHEMA_LIGHTSPOT: {
+        HSD_LightSpotDesc* spot = node->value;
+        spot->cutoff = read_float(bytes);
+        spot->spot_func = NativeArchiveBE32(bytes + 4);
+        spot->ref_br = read_float(bytes + 8);
+        spot->ref_dist = read_float(bytes + 12);
+        spot->dist_func = NativeArchiveBE32(bytes + 16);
+        break;
+    }
+    case SCHEMA_LIGHTATTN: {
+        HSD_LightAttn* attenuation = node->value;
+        attenuation->a0 = read_float(bytes);
+        attenuation->a1 = read_float(bytes + 4);
+        attenuation->a2 = read_float(bytes + 8);
+        attenuation->k0 = read_float(bytes + 12);
+        attenuation->k1 = read_float(bytes + 16);
+        attenuation->k2 = read_float(bytes + 20);
+        break;
+    }
     case SCHEMA_VECTOR: {
         Vec3* vector = node->value;
         *vector = read_vec(bytes);
@@ -1258,6 +1360,8 @@ ROOT_READER(NativeArchiveAObj, HSD_AObjDesc, SCHEMA_AOBJ)
 ROOT_READER(NativeArchiveWObj, HSD_WObjDesc, SCHEMA_WOBJ)
 ROOT_READER(NativeArchiveCObj, HSD_CObjDesc, SCHEMA_COBJ)
 ROOT_READER(NativeArchiveCameraAnimation, HSD_CameraAnim, SCHEMA_CANIM)
+ROOT_READER(NativeArchiveLight, HSD_LightDesc, SCHEMA_LIGHT)
+ROOT_READER(NativeArchiveLightAnimation, HSD_LightAnim, SCHEMA_LIGHTANIM)
 
 static NativeArchiveStatus find_named_root(NativeArchiveGraph* graph,
                                            const char* name, uint32_t* offset,
@@ -1298,4 +1402,8 @@ NAMED_ROOT_READER(NativeArchiveAnimationByName, HSD_AnimJoint,
 NAMED_ROOT_READER(NativeArchiveAObjByName, HSD_AObjDesc, NativeArchiveAObj)
 NAMED_ROOT_READER(NativeArchiveWObjByName, HSD_WObjDesc, NativeArchiveWObj)
 NAMED_ROOT_READER(NativeArchiveCObjByName, HSD_CObjDesc, NativeArchiveCObj)
+NAMED_ROOT_READER(NativeArchiveLightByName, HSD_LightDesc,
+                  NativeArchiveLight)
+NAMED_ROOT_READER(NativeArchiveLightAnimationByName, HSD_LightAnim,
+                  NativeArchiveLightAnimation)
 NAMED_ROOT_READER(NativeArchiveFigaTreeByName, FigaTree, NativeArchiveFigaTree)
