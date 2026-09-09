@@ -59,6 +59,37 @@ namespace melee::native {
         void advance(double) override {}
     };
 
+    // Windows' legacy waveOut API is intentionally loaded at runtime.  It is
+    // available on every supported desktop Windows install, but keeping the
+    // DLL optional lets headless and Wine builds use the deterministic null
+    // backend without linking to winmm.lib.  The backend synthesizes a short
+    // PCM tone for each voice until decoded game sample providers are wired in.
+    // Voice lifetime, priority, pan and pitch remain owned by NativeAudioMixer.
+    class NativeWindowsAudioBackend final : public NativeAudioBackend {
+    public:
+        NativeWindowsAudioBackend();
+        ~NativeWindowsAudioBackend() override;
+
+        NativeWindowsAudioBackend(const NativeWindowsAudioBackend&) = delete;
+        NativeWindowsAudioBackend& operator=(const NativeWindowsAudioBackend&) = delete;
+
+        void start(const AudioVoice& voice) override;
+        void stop(AudioVoiceId id, AudioCompletionReason reason) override;
+        void advance(double elapsed_seconds) override;
+
+        [[nodiscard]] bool available() const noexcept;
+
+    private:
+        struct State;
+        std::unique_ptr<State> state_;
+    };
+
+    // Selects the hardware backend when it can be initialized.  The returned
+    // object is always usable; on systems without an audio endpoint it is a
+    // NullAudioBackend instead.
+    [[nodiscard]] std::shared_ptr<NativeAudioBackend>
+    make_platform_audio_backend();
+
     struct AudioMixerConfig {
         std::size_t max_voices = 32;
     };

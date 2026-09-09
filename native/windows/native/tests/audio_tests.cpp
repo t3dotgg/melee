@@ -128,5 +128,27 @@ int main()
     }
     assert(threw);
 
+    // Platform selection is always usable. On Windows with an audio endpoint
+    // this exercises the dynamically loaded winmm backend; headless machines
+    // must gracefully select the null backend instead.
+    auto platform_backend = make_platform_audio_backend();
+    assert(platform_backend != nullptr);
+    auto windows_backend = std::dynamic_pointer_cast<NativeWindowsAudioBackend>(
+        platform_backend);
+    if (windows_backend != nullptr && windows_backend->available()) {
+        const AudioVoice hardware_voice{
+            .id = 0xA710,
+            .request = AudioVoiceRequest{ .sample_id = 99,
+                                          .duration_seconds = 0.01,
+                                          .volume = 0.1F,
+                                          .pan = 0.25F,
+                                          .pitch = 1.0F },
+            .remaining_seconds = 0.01 };
+        windows_backend->start(hardware_voice);
+        windows_backend->advance(0.01);
+        windows_backend->stop(hardware_voice.id,
+                              AudioCompletionReason::Finished);
+    }
+
     std::cout << "native audio tests passed\n";
 }
