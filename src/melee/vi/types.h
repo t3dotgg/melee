@@ -10,7 +10,11 @@ struct ViCharaDesc {
     /* 0x1 */ u8 p1_costume_index;
     /* 0x2 */ u8 p2_char_index;
     /* 0x3 */ u8 p2_costume_index;
+#ifdef MELEE_NATIVE
+    /* 0x4 */ const u8* spawn_count;
+#else
     /* 0x4 */ int spawn_count;
+#endif
     /* 0x8 */ int unk;
 };
 

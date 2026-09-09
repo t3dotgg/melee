@@ -1175,7 +1175,11 @@ struct grGreens_BlockVars {
     Item_GObj* x10;
     HSD_JObj* x14;
     int x18;
+#ifdef MELEE_NATIVE
+    HSD_GObj* x1C;
+#else
     int x1C;
+#endif
 };
 ASSERT_SIZE(struct grGreens_BlockVars, 0x20);
 
