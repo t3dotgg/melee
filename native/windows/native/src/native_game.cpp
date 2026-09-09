@@ -48,7 +48,8 @@ NativeTrainingGame::NativeTrainingGame()
 void NativeTrainingGame::update(const NativeInput& input, double dt_seconds)
 {
     const FighterInput player_one{input.stick_x, input.attack, input.special, input.jump};
-    match_.update(player_one, {}, dt_seconds);
+    const FighterInput player_two{input.stick_x2, input.attack2, input.special2, input.jump2};
+    match_.update(player_one, player_two, dt_seconds);
     if (input.attack || input.special) {
         (void)audio_.play(AudioVoiceRequest{input.attack ? 1U : 2U, 0.08, 0.18F, 0.0F,
                                             1.0F, input.attack ? 4U : 3U});

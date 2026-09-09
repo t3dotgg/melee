@@ -26,19 +26,29 @@ class XInputSource final : public melee::native::NativeInputSource {
 public:
     melee::native::NativeInput poll() override
     {
-        melee::native::XInputState raw{};
-        if (!device_.read(0, raw)) return {};
-        const auto state = mapper_.update(raw);
-        return {state.stick_x, state.stick_y,
-                state.held(melee::native::PadButton::Attack),
-                state.held(melee::native::PadButton::Special),
-                state.held(melee::native::PadButton::Jump),
-                state.held(melee::native::PadButton::Start)};
+        const auto convert = [this](std::uint32_t index, melee::native::XboxPadMapper& mapper) {
+            melee::native::XInputState raw{};
+            if (!device_.read(index, raw)) return melee::native::PadState{};
+            return mapper.update(raw);
+        };
+        const auto first = convert(0, mapper_);
+        const auto second = convert(1, mapper_two_);
+        return {first.stick_x, first.stick_y,
+                first.held(melee::native::PadButton::Attack),
+                first.held(melee::native::PadButton::Special),
+                first.held(melee::native::PadButton::Jump),
+                first.held(melee::native::PadButton::Start),
+                second.stick_x, second.stick_y,
+                second.held(melee::native::PadButton::Attack),
+                second.held(melee::native::PadButton::Special),
+                second.held(melee::native::PadButton::Jump),
+                second.held(melee::native::PadButton::Start)};
     }
 
 private:
     melee::native::WindowsXInputDevice device_;
     melee::native::XboxPadMapper mapper_;
+    melee::native::XboxPadMapper mapper_two_;
 };
 
 class D3D12Renderer final : public melee::native::NativeRenderer {

@@ -18,6 +18,14 @@ struct NativeInput {
     bool special = false;
     bool jump = false;
     bool start = false;
+    // Optional second pad, used by NativeTrainingGame. Appending these fields
+    // keeps existing one-pad aggregate initializers source-compatible.
+    float stick_x2 = 0.0F;
+    float stick_y2 = 0.0F;
+    bool attack2 = false;
+    bool special2 = false;
+    bool jump2 = false;
+    bool start2 = false;
 };
 
 struct NativeFrameState {
