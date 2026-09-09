@@ -841,7 +841,7 @@ void mnNameNew_GlyphVariantInput(HSD_GObj* gobj)
             table++;
             count++;
         }
-        total = (0, count * 2);
+        total = count * 2;
         old_sel = mn_804A04F0.confirmed_selection;
         if (buttons & 1) {
             if ((mn_804A04F0.confirmed_selection % 2) != 0) {
@@ -1891,7 +1891,7 @@ void mnNameNew_8023E32C(s32 arg0)
     mnNameNew_8023B0F8(gobj, user_data->x1);
 }
 
-void mnNameNew_EnterFromMnName(UNK_T arg0)
+void mnNameNew_EnterFromMnName(s32 name_count)
 {
     char unused[8];
     char* text = mnNameNew_CurrentNameText;
@@ -1907,7 +1907,7 @@ void mnNameNew_EnterFromMnName(UNK_T arg0)
     text[3] = *mnNameNew_NullCharacter;
     text[6] = *mnNameNew_NullCharacter;
     text[9] = *mnNameNew_NullCharacter;
-    mnNameNew_8023E32C((s32) arg0);
+    mnNameNew_8023E32C(name_count);
 }
 
 void mnNameNew_EnterFromMnCharSel(HSD_Archive* arg0, s32 arg1)

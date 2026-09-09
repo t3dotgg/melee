@@ -176,6 +176,7 @@ typedef struct UnkMultimanData UnkMultimanData;
 typedef struct VsApproachData VsApproachData;
 
 typedef bool (*GmRouteCallback)(int);
+typedef void (*GmEventPlayerInitCallback)(s32 slot, u8 remaining_count);
 
 /// Player slot indices.
 /// @remarks @c Gm_Player_NumMax is named by an assert in #pl_8004049C.

@@ -418,7 +418,7 @@ ASSERT_SIZE(struct gmm_x0, 0x8518);
 
 /// @todo ::MatchEnd
 struct lbl_8046B6A0_24C_t {
-    UNK_T x0;
+    u32 x0; ///< timer
     u8 x4; ///< MatchOutcome
     u8 x5; ///< match mode
     u8 is_teams;
@@ -623,7 +623,7 @@ struct gmMainLib_8046B0F0_t {
 
 typedef struct gm_803DF94C_t {
     void (*x0)(HSD_GObj*);
-    void (*x4)(int);
+    GmEventPlayerInitCallback x4;
 } gm_803DF94C_t;
 
 struct MatchTeamData {
@@ -831,7 +831,7 @@ struct TmData {
     u8 x32;
     u8 x33;
     u8 pad_x34[0x37 - 0x34];
-#if defined(MUST_MATCH) || defined(LINT)
+#if defined(MUST_MATCH) || defined(LINT) || defined(MELEE_NATIVE)
 #pragma pack(push, 1)
 #endif
     struct TmUnkMenuData {
@@ -852,7 +852,7 @@ struct TmData {
         u8 xF;
         u8 pad_X10[0x12 - 0x10];
     } x37[64];
-#if defined(MUST_MATCH) || defined(LINT)
+#if defined(MUST_MATCH) || defined(LINT) || defined(MELEE_NATIVE)
 #pragma pack(pop)
 #endif
     u8 pad_x4B7[0x4B8 - 0x4B7];
@@ -1233,7 +1233,7 @@ struct lbl_8046B488_t {
     /* 0x1B2 */ u8 x1B2;
     /* 0x1AE */ s8 x1B3[0x1B8 - 0x1B3];
     /* 0x1B8 */ GmRouteCallback x1B8;
-    /* 0x1BC */ char pad_1BC[0x1C0 - 0x1BC];
+    /* 0x1BC */ GmEventPlayerInitCallback event_player_init_cb;
     /* 0x1C0 */ s8 x1C0[0x1B];
     /* 0x1DB */ char pad_1DB[0x1E0 - 0x1DB];
 }; /* size = 0x1E0 */

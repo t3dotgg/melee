@@ -576,9 +576,20 @@ void mnSnap_80253E90(s32 idx)
     }
 }
 
+#ifdef MELEE_NATIVE
+static void mnSnap_AnimateSlot(mnSnap_State* snap, s32 slot, s32 active_slot)
+{
+    HSD_JObj* anim = slot == 0 ? snap->slot_a_anim : snap->slot_b_anim;
+    f32 frame = snap->card_status[slot] != 0
+                    ? (active_slot == slot ? 1.0F : 0.0F)
+                    : 2.0F;
+    HSD_JObjReqAnimAll(anim, frame);
+    HSD_JObjAnimAll(anim);
+}
+#endif
+
 /// Animates the memory card slot selector highlights.
-/// The walk advances through card_status, while byte_off selects the slot
-/// animation pointers from the interleaved slot fields.
+/// The PowerPC path walks card_status and the interleaved slot fields.
 void mnSnap_80253F60(void)
 {
     s32 byte_off;
@@ -587,6 +598,9 @@ void mnSnap_80253F60(void)
 
     for (i = 0; i < 2; i++) {
         byte_off = (i * 2 + 1) * 4;
+#ifdef MELEE_NATIVE
+        mnSnap_AnimateSlot(&mnSnap_804A0A10, i, mnSnap_804A0A10.active_slot);
+#else
         if (walk[0x94] != 0) {
             f32 t;
             if (mnSnap_804A0A10.active_slot == i) {
@@ -604,6 +618,7 @@ void mnSnap_80253F60(void)
         HSD_JObjAnimAll(
             *(HSD_JObj**) ((u32) &mnSnap_804A0A10 + byte_off + 0x98));
         walk++;
+#endif
     }
 }
 
@@ -725,6 +740,9 @@ static inline void mnSnap_RefreshSlotSelection(mnSnap_State* snap,
         i = 0;
         byte_off = 4;
         for (; i < 2; i++, byte_off += 8) {
+#ifdef MELEE_NATIVE
+            mnSnap_AnimateSlot(snap, i, *p50);
+#else
             if (snap->card_status[i] != 0) {
                 f32 t;
                 if (*p50 == i) {
@@ -739,6 +757,7 @@ static inline void mnSnap_RefreshSlotSelection(mnSnap_State* snap,
                     *(HSD_JObj**) ((u32) snap + byte_off + 0x98), 2.0F);
             }
             HSD_JObjAnimAll(*(HSD_JObj**) ((u32) snap + byte_off + 0x98));
+#endif
         }
     }
 
@@ -834,8 +853,14 @@ static UNINITIALIZED_RETURN(s32) mnSnap_8025441C(u64 buttons)
     if (buttons & 0x200) {
         if (mnSnap_804A0A10.dlg_type == 0) {
             *result = 2;
+#ifdef MELEE_NATIVE
+        } else if ((mnSnap_804A0A10.btn_idx == 0 ? mnSnap_804A0A10.left_btn
+                                                : mnSnap_804A0A10.right_btn) ==
+                   mnSnap_804A0A10.no_jobj)
+#else
         } else if ((&mnSnap_804A0A10.left_btn)[mnSnap_804A0A10.btn_idx] ==
                    mnSnap_804A0A10.no_jobj)
+#endif
         {
             *result = 2;
         } else {
@@ -910,6 +935,9 @@ static inline void mnSnap_AnimateCardSlots(const s32* active_slot)
     i = 0;
     byte_off = 4;
     do {
+#ifdef MELEE_NATIVE
+        mnSnap_AnimateSlot(&mnSnap_804A0A10, i, *active_slot);
+#else
         if (mnSnap_804A0A10.card_status[i] != 0) {
             if (*active_slot == i) {
                 t = 1.0F;
@@ -928,6 +956,7 @@ static inline void mnSnap_AnimateCardSlots(const s32* active_slot)
         }
         HSD_JObjAnimAll(
             *((HSD_JObj**) ((((u32) (&mnSnap_804A0A10)) + byte_off) + 0x98)));
+#endif
         i++;
         byte_off += 8;
     } while (i < 2);
@@ -987,6 +1016,9 @@ static inline void mnSnap_RefreshSlotAnimations(int i, s32* byte_off,
 {
     f32 t;
     for (; i < 2; i++, (*byte_off) += 8) {
+#ifdef MELEE_NATIVE
+        mnSnap_AnimateSlot(&mnSnap_804A0A10, i, *active_slot);
+#else
         if (mnSnap_804A0A10.card_status[i] != 0) {
             if (*active_slot == i) {
                 t = 1.0F;
@@ -1006,6 +1038,7 @@ static inline void mnSnap_RefreshSlotAnimations(int i, s32* byte_off,
         HSD_JObjAnimAll(M2C_FIELD((u32) &mnSnap_804A0A10 + (*byte_off),
                                   HSD_JObj**,
                                   offsetof(mnSnap_State, slot_a_jobj)));
+#endif
     }
 }
 
@@ -1239,6 +1272,10 @@ void fn_802545C4(void)
             cursor.index = 0;
             byte_off = 4;
             for (; cursor.index < 2; cursor.index++, byte_off += 8) {
+#ifdef MELEE_NATIVE
+                mnSnap_AnimateSlot(&mnSnap_804A0A10, cursor.index,
+                                   *active_slot);
+#else
                 if (mnSnap_804A0A10.card_status[cursor.index] != 0) {
                     if (*active_slot == cursor.index) {
                         t = 1.0F;
@@ -1260,6 +1297,7 @@ void fn_802545C4(void)
                 HSD_JObjAnimAll(
                     *((HSD_JObj**) ((((u32) (&mnSnap_804A0A10)) + byte_off) +
                                     0x98)));
+#endif
             }
 
             slot = *active_slot;

@@ -163,11 +163,11 @@ struct gm_804D6900_t {
 /* 1BE39C */ static void gm_801BE39C(HSD_GObj*);
 /* 1BE618 */ static void gm_801BE618(HSD_GObj*);
 /* 1BE638 */ static void gm_801BE638(HSD_GObj*);
-/* 1BEA10 */ static void gm_801BEA10(int);
-/* 1BEA4C */ static void gm_801BEA4C(int);
-/* 1BEA88 */ static void gm_801BEA88(int, int);
-/* 1BEAF0 */ static void gm_801BEAF0(int);
-/* 1BEB2C */ static void gm_801BEB2C(int);
+/* 1BEA10 */ static void gm_801BEA10(int, u8);
+/* 1BEA4C */ static void gm_801BEA4C(int, u8);
+/* 1BEA88 */ static void gm_801BEA88(int, u8);
+/* 1BEAF0 */ static void gm_801BEAF0(int, u8);
+/* 1BEB2C */ static void gm_801BEB2C(int, u8);
 /* 497758 */ static CSSData css_data;
 /* 4978A0 */ static StartMeleeData vs_enter_data;
 /* 4979D8 */ static MatchExitInfo vs_exit_data[2];
@@ -593,7 +593,7 @@ void onEnterVs(GameModeState* arg0)
             gm_8016A434();
         }
         if (event_info[level]->x4 != NULL) {
-            gm_8016A404((s32) event_info[level]->x4);
+            gm_8016A404(event_info[level]->x4);
         }
         if (levels[level]->evbonus->x15 != 0) {
             gm_8016A424(levels[level]->evbonus->x15);
@@ -1127,10 +1127,9 @@ static gm_803DF94C_t gm_804D43D0 = { gm_801BD46C, NULL };
 static gm_803DF94C_t gm_804D43D8 = { gm_801BD658, gm_801BEA4C };
 static gm_803DF94C_t gm_804D43E0 = { gm_801BC754, NULL };
 
-/// @todo Fix this callback signature
 static gm_803DF94C_t gm_804D43E8 = {
     gm_801BC754,
-    (void (*)(int))(void*) gm_801BEA88,
+    gm_801BEA88,
 };
 
 static gm_803DF94C_t gm_804D43F0 = { gm_801BD7FC, NULL };
@@ -2531,35 +2530,35 @@ void gm_801BE638(HSD_GObj* gobj)
     }
 }
 
-void gm_801BEA10(int arg0)
+void gm_801BEA10(int arg0, u8 remaining_count)
 {
     Player_SetPlayerAndEntityCpuType(
         arg0,
         (*gm_804D6900)[gmMainLib_804D3EE0->vs.unk_530.unk_535]->evbonus->x16);
 }
 
-void gm_801BEA4C(int arg0)
+void gm_801BEA4C(int arg0, u8 remaining_count)
 {
-    gm_801BEA10(arg0);
+    gm_801BEA10(arg0, 0);
 }
 
-void gm_801BEA88(int arg0, int arg1)
+void gm_801BEA88(int arg0, u8 arg1)
 {
     PAD_STACK(0x10);
-    gm_801BEA10(arg0);
+    gm_801BEA10(arg0, 0);
     if (arg1 == 0) {
         Player_SetModelScale(arg0, 2.0F);
     }
 }
 
-void gm_801BEAF0(int arg0)
+void gm_801BEAF0(int arg0, u8 remaining_count)
 {
-    gm_801BEA10(arg0);
+    gm_801BEA10(arg0, 0);
 }
 
-void gm_801BEB2C(int arg0)
+void gm_801BEB2C(int arg0, u8 remaining_count)
 {
-    gm_801BEA10(arg0);
+    gm_801BEA10(arg0, 0);
 }
 
 void gm_801BEB68(int arg0)

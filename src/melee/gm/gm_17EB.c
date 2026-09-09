@@ -162,9 +162,8 @@ bool fn_8017EDDC(void)
 #pragma push
 #pragma dont_inline on
 #endif
-void fn_8017EE40(int arg0_int)
+void fn_8017EE40(MatchEnd* arg0)
 {
-    MatchEnd* arg0 = (MatchEnd*) arg0_int;
     struct StartMeleeRules* rules;
     UnkAllstarData* allstar;
     gmm_x0_528_t* main_data;

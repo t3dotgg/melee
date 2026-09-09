@@ -1356,7 +1356,7 @@ void mnDiagram_InputProc(HSD_GObj* gobj)
             gmMainLib_GetGameRules()->xD = d->is_name_mode;
             HSD_GObjFree(gobj);
             if (input & MenuInput_LTrigger) {
-                mnDiagram3_Init(0L);
+                mnDiagram3_Init();
                 return;
             }
             mnDiagram2_Init();

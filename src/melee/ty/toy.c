@@ -241,11 +241,20 @@ bool un_80304780(void)
     { 7, 65 }, { 6, 66 }, { 5, 67 }, { 4, 68 }, { 3, 69 },
     { 2, 70 }, { 0, 73 }, { 1, 88 }, { 8, 83 },
 };
+#ifdef MELEE_NATIVE
+Toy26B8 Toy_native_state;
+#define _Toy_804A26B8 Toy_native_state
+STATIC_ASSERT(offsetof(Toy26B8, mode_data) == 0x194);
+STATIC_ASSERT(offsetof(Toy26B8, anim) == 0x3F0);
+#else
 /* 4A26B8 */ static struct _Toy_804A26B8_t _Toy_804A26B8;
+#endif
 /* 4A26C4 */ static char _Toy_devtext_buf_804A26C4[0x8C];
 /* 4A2750 */ static char _Toy_devtext_buf_804A2750[0xFC];
+#ifndef MELEE_NATIVE
 /* 4A284C */ u16 Toy_804A284C[302];
 /* 4A2AA8 */ ToyAnimState Toy_804A2AA8;
+#endif
 /* 4D5A40 */ static GXColor _Toy_color_E2E2E2FF = { 0xE2, 0xE2, 0xE2, 0xFF };
 /* 4D5A44 */ static GXColor _Toy_color_FF8020FF = { 0xFF, 0x80, 0x20, 0xFF };
 
@@ -2405,8 +2414,8 @@ void _Toy_803075E8(s32 arg0)
         Toy_sbss_804D6ED8->x8->x28->x4->x4->x40 = 9;
     }
 
-    ptr = (char**) (data + arg0 * 4);
-    if (*(ptr += 0x69) != NULL) {
+    ptr = &_Toy_803FDEBC[arg0];
+    if (*ptr != NULL) {
         joint = HSD_ArchiveGetPublicAddress(td->archive, *ptr);
         if (joint != NULL) {
             td->gobj = GObj_Create(4, 7, 0);
@@ -2415,12 +2424,13 @@ void _Toy_803075E8(s32 arg0)
             HSD_GObjObject_80390A70(td->gobj, kind, jobj);
             GObj_SetupGXLink(td->gobj, HSD_GObj_JObjCallback, 0x33, 0);
 
-            arg0 = (u32) data + arg0 * 0xC;
-            ptr = ((ToyPanelLabelData*) arg0)->ptrs;
-            joint = HSD_ArchiveGetPublicAddress(td->archive, ptr[0x290 / 4]);
-            data = HSD_ArchiveGetPublicAddress(td->archive, ptr[0x294 / 4]);
+            joint = HSD_ArchiveGetPublicAddress(
+                td->archive, _Toy_803FDFA8[arg0].animjoint);
+            data = HSD_ArchiveGetPublicAddress(
+                td->archive, _Toy_803FDFA8[arg0].matanim_joint);
             shapanim =
-                HSD_ArchiveGetPublicAddress(td->archive, ptr[0x298 / 4]);
+                HSD_ArchiveGetPublicAddress(
+                    td->archive, _Toy_803FDFA8[arg0].shapeanim_joint);
 
             if (joint != NULL || data != NULL || shapanim != NULL) {
                 HSD_JObjAddAnimAll(jobj, (HSD_AnimJoint*) joint,
@@ -2581,19 +2591,17 @@ HSD_JObj* _Toy_80307BA0(HSD_JObj* parent_jobj, s16 arg1)
 
 void Toy_80307E84(HSD_GObj* gobj)
 {
-    s32* base;
     ToyAnimState* state;
     s8 idx;
     s8 x0F_val;
     HSD_JObj* jobj0;
     HSD_JObj* jobj1;
 
-    base = (s32*) &_Toy_804A26B8;
-    state = (ToyAnimState*) ((u8*) base + 0x3F0);
-    idx = M2C_FIELD(base, s8*, 0x3FE);
-    x0F_val = M2C_FIELD(base, s8*, 0x3FF);
-    jobj0 = (HSD_JObj*) base[idx + (0x3F4 / 4)];
-    jobj1 = (HSD_JObj*) base[(idx ^ 1) + (0x3F4 / 4)];
+    state = &Toy_804A2AA8;
+    idx = state->x0E;
+    x0F_val = state->x0F;
+    jobj0 = state->jobj[idx];
+    jobj1 = state->jobj[idx ^ 1];
 
     if (x0F_val <= 0) {
         if (state->x10 == 1) {
@@ -2724,24 +2732,24 @@ char* Toy_8030813C(int trophy_id)
     return ptr;
 }
 
-void Toy_80308250(u8* arg0, s16 arg1, s32 arg2)
+void Toy_80308250(ToyListEntry* entry, s16 arg1, s32 arg2)
 {
     void* sym;
     char* ptr;
     ptr = Toy_8030813C(arg1);
 
-    if (*(HSD_Archive**) (arg0 + 0x14) != NULL) {
-        lbArchive_80016EFC(*(HSD_Archive**) (arg0 + 0x14));
-        *(HSD_Archive**) (arg0 + 0x14) = NULL;
+    if (entry->archive != NULL) {
+        lbArchive_80016EFC(entry->archive);
+        entry->archive = NULL;
     }
 
-    *(char**) (arg0 + 0x8) = ptr + 4;
-    *(char**) (arg0 + 0xC) = ptr + 0x24;
-    *(u16*) (arg0 + 0x10) = arg1;
+    entry->archive_name = ptr + 4;
+    entry->symbol_name = ptr + 0x24;
+    entry->trophy_id = arg1;
 
     if (arg2 == 0) {
-        *(HSD_Archive**) (arg0 + 0x14) = lbArchive_LoadSymbols(
-            *(char**) (arg0 + 0x8), &sym, *(char**) (arg0 + 0xC), 0);
+        entry->archive = lbArchive_LoadSymbols(
+            entry->archive_name, &sym, entry->symbol_name, 0);
     }
 }
 
@@ -2926,7 +2934,7 @@ void _Toy_803084A0(s32 arg0)
 
 HSD_GObj* Toy_803087F4(void* arg0)
 {
-    ToyEntryData* entry = arg0;
+    ToyListEntry* entry = arg0;
     ToyAnimState* anim;
     HSD_JObj* parent_jobj;
     HSD_JObj* trophy_jobj;
@@ -2941,20 +2949,21 @@ HSD_GObj* Toy_803087F4(void* arg0)
 
     anim = &Toy_804A2AA8;
 
-    if (entry->x14 == NULL) {
-        trophy_id = entry->x10;
+    if (entry->archive == NULL) {
+        trophy_id = entry->trophy_id;
         model_name = Toy_8030813C(trophy_id);
-        if (entry->x14 != NULL) {
-            lbArchive_80016EFC(entry->x14);
-            entry->x14 = NULL;
+        if (entry->archive != NULL) {
+            lbArchive_80016EFC(entry->archive);
+            entry->archive = NULL;
         }
-        entry->x8 = model_name + 4;
-        entry->xC = model_name + 0x24;
-        entry->x10 = trophy_id;
-        entry->x14 = lbArchive_LoadSymbols(entry->x8, &spC, entry->xC, 0);
+        entry->archive_name = model_name + 4;
+        entry->symbol_name = model_name + 0x24;
+        entry->trophy_id = trophy_id;
+        entry->archive = lbArchive_LoadSymbols(entry->archive_name, &spC,
+                                               entry->symbol_name, 0);
     }
 
-    joint = HSD_ArchiveGetPublicAddress(entry->x14, entry->xC);
+    joint = HSD_ArchiveGetPublicAddress(entry->archive, entry->symbol_name);
     if (joint == NULL) {
         goto assert_fail;
     }
@@ -2967,7 +2976,7 @@ HSD_GObj* Toy_803087F4(void* arg0)
     }
 
     anim->gobj = GObj_Create(6, 7, 0);
-    anim->xC = entry->x10;
+    anim->xC = entry->trophy_id;
 
     parent_jobj = HSD_JObjAlloc();
     _Toy_80307BA0(parent_jobj, anim->xC);
@@ -5944,7 +5953,7 @@ void Toy_80310660(s32 arg0)
             do {
                 if (loopPtr->x14 != NULL) {
                     lbArchive_80016EFC(loopPtr->x14);
-                    loopPtr->x14 = (void*) arg;
+                    loopPtr->x14 = NULL;
                 }
                 count += 1;
                 loopPtr += 1;
@@ -5964,10 +5973,10 @@ void Toy_80310660(s32 arg0)
         if (ty30->x58 != NULL) {
             lbArchive_80016EFC(ty30->x58);
             arg = 0;
-            ty30->x58 = (void*) arg;
+            ty30->x58 = NULL;
             if (ty30->x0C != NULL) {
                 HSD_GObjFree(ty30->x0C);
-                ty30->x0C = (void*) arg;
+                ty30->x0C = NULL;
             }
         }
 

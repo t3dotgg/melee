@@ -2777,7 +2777,7 @@ struct fn_80165AC0_loser_bits {
     u8 lo : 4;
 };
 
-s32 fn_80165AC0(MatchEnd* arg0)
+MatchEnd* fn_80165AC0(MatchEnd* arg0)
 {
     s32 i;
     s32 j;
@@ -2811,7 +2811,7 @@ s32 fn_80165AC0(MatchEnd* arg0)
         }
     }
     arg0->n_winners = count;
-    return (s32) arg0;
+    return arg0;
 }
 
 MatchEnd* fn_80165D60(MatchEnd* arg0)
@@ -2880,7 +2880,7 @@ void fn_80165E7C(MatchEnd* arg0)
     }
 }
 
-s32 fn_80165FA4(MatchEnd* arg0)
+MatchEnd* fn_80165FA4(MatchEnd* arg0)
 {
     s32 i;
     s32 max_loser;
@@ -2914,10 +2914,10 @@ s32 fn_80165FA4(MatchEnd* arg0)
         }
     }
     arg0->n_team_winners = count;
-    return (s32) arg0;
+    return arg0;
 }
 
-s32 fn_801661E0(MatchEnd* arg0)
+MatchEnd* fn_801661E0(MatchEnd* arg0)
 {
     s32 i;
     s32 j;
@@ -2939,7 +2939,7 @@ s32 fn_801661E0(MatchEnd* arg0)
         }
     }
 
-    return (s32) arg0;
+    return arg0;
 }
 
 void gm_80166378(lbl_8046B6A0_24C_t* arg0_raw)
@@ -3088,7 +3088,7 @@ float fn_80166A8C(register Vec3* src, register Vec3* dst)
 }
 
 // Probably some code to setup or end a 4 player match?
-s32 gm_80166A98(MatchEnd* arg0, u8 arg1, s8 arg2, u8 arg3, s8 arg4, u8 arg5,
+MatchEnd* gm_80166A98(MatchEnd* arg0, u8 arg1, s8 arg2, u8 arg3, s8 arg4, u8 arg5,
                 s8 arg6, u8 arg7, u8 arg_sp8, u8 arg_spC)
 {
     s32 score0;

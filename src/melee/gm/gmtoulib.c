@@ -32,6 +32,10 @@
 #include <sysdolphin/baselib/gobjobject.h>
 #include <sysdolphin/baselib/gobjplink.h>
 #include <sysdolphin/baselib/gobjproc.h>
+#ifdef MELEE_NATIVE
+#include <sysdolphin/baselib/gobjuserdata.h>
+#include <sysdolphin/baselib/memory.h>
+#endif
 #include <sysdolphin/baselib/hsd_3915.h>
 #include <sysdolphin/baselib/jobj.h>
 #include <sysdolphin/baselib/mobj.h>
@@ -124,8 +128,22 @@ void fn_8018A514(int count, float val)
     (void) lbl_80473AB8;
     region = count < 9 ? 0 : count >= 14 ? 2 : 1;
 
+#ifdef MELEE_NATIVE
+    switch (region) {
+    case 0:
+        src = lbl_804771B8.box2;
+        break;
+    case 1:
+        src = lbl_804771B8.box3;
+        break;
+    default:
+        src = lbl_804771B8.box4;
+        break;
+    }
+#else
     srcs = (BracketSrcEntry**) &lbl_804771B8;
     src = srcs[region];
+#endif
 
     if (count < 9) {
         for (i = 0; i < count; i++) {
@@ -1687,10 +1705,18 @@ void fn_8018E618(int arg0, f32 farg0, int arg1)
 
     cam = lbl_803B7CA8;
 
+#ifdef MELEE_NATIVE
+    while ((tmp = ((HSD_GObj**) HSD_GObj_Entities)[0x1B]) != NULL) {
+#else
     while ((tmp = M2C_FIELD(HSD_GObj_Entities, HSD_GObj**, 0x6C)) != NULL) {
+#endif
         HSD_GObjFree(tmp);
     }
+#ifdef MELEE_NATIVE
+    while ((tmp = ((HSD_GObj**) HSD_GObj_Entities)[0x14]) != NULL) {
+#else
     while ((tmp = M2C_FIELD(HSD_GObj_Entities, HSD_GObj**, 0x50)) != NULL) {
+#endif
         HSD_GObjFree(tmp);
     }
 
@@ -1711,6 +1737,10 @@ void fn_8018E618(int arg0, f32 farg0, int arg1)
             struct lbl_803D9DD0_t cobj_data;
         } CObjData;
         HSD_CObj* cobj = HSD_CObjLoadDesc((HSD_CObjDesc*) &cam);
+#ifdef MELEE_NATIVE
+        lbl_803D9DD0.cobj = cobj;
+        HSD_GObjObject_80390A70(gobj, HSD_GObj_CameraKind, cobj);
+#else
         CObjData* cobj_data = (CObjData*) &lbl_803D9DAC;
         cobj_data->cobj_data.cobj = cobj;
         {
@@ -1718,10 +1748,15 @@ void fn_8018E618(int arg0, f32 farg0, int arg1)
             u8* kind_ptr = &HSD_GObj_CameraKind;
             HSD_GObjObject_80390A70(gobj, *kind_ptr, *cobj_ptr);
         }
+#endif
     }
     GObj_SetupGXLinkMax(gobj, HSD_GObj_803910D8, 1);
+#ifdef MELEE_NATIVE
+    gobj->gxlink_prios = 0x10;
+#else
     ((u32*) &gobj->gxlink_prios)[1] = 0x10;
     ((u32*) &gobj->gxlink_prios)[0] = 0;
+#endif
 
     gmTournament_InitBracket(arg0, farg0, arg1);
 }
@@ -1731,6 +1766,64 @@ void fn_8018E618(int arg0, f32 farg0, int arg1)
 
 void fn_8018E85C(DynamicModelDesc* model, s32 flag)
 {
+#ifdef MELEE_NATIVE
+TmData* td = gm_GetTournamentData();
+    s32 bracket_idx = 0;
+    s32 outer_idx;
+    s32 inner_idx;
+
+    for (outer_idx = 0; outer_idx < 64; outer_idx++) {
+        BracketEntry* entry = &lbl_80473AB8[outer_idx];
+        if (entry->x0 == 0) {
+            continue;
+        }
+        for (inner_idx = 0; inner_idx < 4; inner_idx++) {
+            BracketEntrySlot* slot = &entry->slots[inner_idx];
+            HSD_GObj* gobj;
+            HSD_JObj* jobj;
+            f32 scale;
+            if (slot->x30 == 0) {
+                continue;
+            }
+            if (flag != 0) {
+                s32 j;
+                for (j = 0; j < 64; j++) {
+                    if (td->x37[j].xD == bracket_idx) {
+                        break;
+                    }
+                }
+                HSD_ASSERT(__LINE__, j < 64);
+                slot->x50 = j;
+                slot->x4D = td->x37[j].x3;
+                slot->x4E = td->x37[j].x0;
+                slot->x4F = td->x37[j].x7;
+                slot->x51 = td->x37[j].x1;
+                slot->x52 = td->x37[j].x2;
+                slot->x54 = td->x37[j].x9;
+                bracket_idx++;
+            }
+
+            gobj = GObj_Create(0xE, 0x1B, 0);
+            slot->x2C = gobj;
+            jobj = HSD_JObjLoadJoint(model->joint);
+            HSD_GObjObject_80390A70(gobj, HSD_GObj_JObjKind, jobj);
+            GObj_SetupGXLink(gobj, HSD_GObj_JObjCallback, 4, 2);
+            gm_8016895C(jobj, model, 0);
+            HSD_JObjReqAnimAll(jobj, slot->x4D + slot->x4F * 0x1E);
+            HSD_JObjAnimAll(jobj);
+
+            scale = outer_idx == fn_8018F74C() ? 10.0f : 7.0f;
+            scale *= 0.0083f * (f32) (0x40 - td->x2E) + 1.0f;
+            HSD_JObjSetScaleX(jobj, scale);
+            HSD_JObjSetScaleY(jobj, scale);
+            if (td->cur_option < 0x1F) {
+                fn_8018AA74(jobj, outer_idx, inner_idx);
+            } else {
+                fn_8018FDC4(jobj, slot->x44, -(f32) slot->x48, 666.0f);
+            }
+        }
+    }
+#else
     u8* sub;
     TmData* td;
     HSD_JObj* jobj;
@@ -1814,6 +1907,7 @@ void fn_8018E85C(DynamicModelDesc* model, s32 flag)
         }
     next_entry:;
     }
+#endif
 }
 
 #ifdef MUST_MATCH
@@ -2123,6 +2217,28 @@ int fn_8018F4A0(void)
 #endif
 s32 fn_8018F508(s32* out_index)
 {
+#ifdef MELEE_NATIVE
+s32 count = 0;
+    s32 i;
+    s32 bracket_idx = fn_8018F74C();
+    BracketEntry* entry;
+    if (bracket_idx >= 64) {
+        return -1;
+    }
+    entry = &lbl_80473AB8[bracket_idx];
+    if (entry->x0 == 0) {
+        return -1;
+    }
+    for (i = 0; i < 4; i++) {
+        if (entry->slots[i].x4E != 3) {
+            if (out_index != NULL) {
+                *out_index = i;
+            }
+            count++;
+        }
+    }
+    return count;
+#else
     s32 count;
     u8* base_ptr;
     u8* slot_ptr;
@@ -2147,6 +2263,7 @@ s32 fn_8018F508(s32* out_index)
     }
 
     return count;
+#endif
 }
 #ifdef MUST_MATCH
 #pragma pop
@@ -2176,7 +2293,12 @@ char* fn_8018F5F0(void)
 #endif
 u32 fn_8018F62C(HSD_GObj* gobj)
 {
+#ifdef MELEE_NATIVE
+    const u32* menu_index = gobj->user_data;
+    return menu_index != NULL ? *menu_index : 0;
+#else
     return (u32) gobj->user_data;
+#endif
 }
 #ifdef MUST_MATCH
 #pragma dont_inline off
@@ -2366,6 +2488,42 @@ static inline int fn_8018FA24_inline0(int char_kind)
 
 void fn_8018FA24(void)
 {
+#ifdef MELEE_NATIVE
+TmData* td = &gm_804771C4;
+    s32 bracket_idx = fn_8018F74C();
+    BracketEntry* entry;
+    s32 player_idx;
+    s32 player_count = 0;
+    HSD_ASSERT(__LINE__, bracket_idx < 64);
+    entry = &lbl_80473AB8[bracket_idx];
+    for (player_idx = 0; player_idx < 4; player_idx++) {
+        BracketEntrySlot* slot = &entry->slots[player_idx];
+        struct UnkSelections* selection = &td->x4B8[player_idx];
+        /* These two bytes precede each selection in the original data. */
+        if (player_idx == 0) {
+            td->x37[63].pad_X10[1] = slot->x30;
+            td->pad_x4B7[0] = slot->x50;
+        } else {
+            td->x4B8[player_idx - 1].pad_x4[0] = slot->x30;
+            td->x4B8[player_idx - 1].pad_x4[1] = slot->x50;
+        }
+        selection->x6 = td->x37[slot->x50].x9;
+        selection->x4 = slot->x51;
+        selection->x5 = slot->x52;
+        selection->x1 = slot->x4D;
+        Player_SetPlayerCharacter(player_idx,
+                                  fn_8018FA24_inline0(selection->x1));
+        selection->x0 = slot->x4E;
+        if (selection->x0 != 3) {
+            player_count++;
+        }
+        Player_SetSlottype(player_idx, selection->x0);
+        selection->x3 = slot->x4F;
+        Player_SetCostumeId(player_idx, selection->x3);
+        selection->x4 = slot->x51;
+    }
+    td->x30 = player_count;
+#else
     u8* ptr;
     u8* dst;
     u8* tmdata;
@@ -2410,15 +2568,26 @@ void fn_8018FA24(void)
     }
 
     tmdata[0x30] = player_count;
+#endif
 }
 
 #ifdef MUST_MATCH
 #pragma push
 #pragma auto_inline off
 #endif
-void fn_8018FBD8(void* arg0, s32 arg1)
+void fn_8018FBD8(HSD_GObj* gobj, s32 menu_index)
 {
-    ((HSD_GObj*) arg0)->user_data = (void*) arg1;
+#ifdef MELEE_NATIVE
+    u32* data = gobj->user_data;
+    if (data == NULL) {
+        data = HSD_MemAlloc(sizeof(*data));
+        HSD_ASSERT(__LINE__, data != NULL);
+        GObj_InitUserData(gobj, 0, HSD_Free, data);
+    }
+    *data = menu_index;
+#else
+    gobj->user_data = (void*) menu_index;
+#endif
 }
 #ifdef MUST_MATCH
 #pragma pop
@@ -2427,6 +2596,20 @@ void fn_8018FBD8(void* arg0, s32 arg1)
 void fn_8018FBE0(s32 arg0, s32 arg1, s32 arg2, s32 arg3, s32 arg4, s32 arg5,
                  s32 arg6)
 {
+#ifdef MELEE_NATIVE
+TmData* td = &gm_804771C4;
+    s32 i;
+    td->cur_option = arg0;
+    td->x1C = arg1;
+    td->x20 = arg2;
+    for (i = 0; i < 64; i++) {
+        td->x37[i].x2 = arg3;
+        td->x37[i].x1 = arg4;
+        td->x37[i].xD = i;
+        td->x37[i].x9 = arg5;
+        td->x37[i].x0 = arg6;
+    }
+#else
     s32 i;
 
     ((TmData*) &((BracketData*) lbl_80473AB8)->srcs[3])->cur_option = arg0;
@@ -2445,6 +2628,7 @@ void fn_8018FBE0(s32 arg0, s32 arg1, s32 arg2, s32 arg3, s32 arg4, s32 arg5,
         ((TmData*) &((BracketData*) lbl_80473AB8)->srcs[3])->x37[i].x0 =
             (u8) arg6;
     }
+#endif
 }
 
 #ifdef MUST_MATCH
@@ -2541,9 +2725,9 @@ void fn_8019027C(UNK_T lights)
 #pragma push
 #pragma auto_inline off
 #endif
-void fn_801902F0(int sis_param)
+void fn_801902F0(HSD_GObj* sis_param)
 {
-    s32 value;
+    HSD_GObj* value;
     PAD_STACK(8);
 
     value = sis_param;
@@ -2552,7 +2736,7 @@ void fn_801902F0(int sis_param)
         value = 0;
     }
     lbl_804D663C =
-        HSD_SisLib_803A611C(0, (HSD_GObj*) value, 9, 0x12, 0, 3, 0, 0x13);
+        HSD_SisLib_803A611C(0, value, 9, 0x12, 0, 3, 0, 0x13);
 }
 #ifdef MUST_MATCH
 #pragma pop

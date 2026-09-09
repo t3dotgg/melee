@@ -233,14 +233,14 @@ gmCameraUnkFuncTable gmCamera_VsCamStateTable[9] = {
 static inline void gmCamera_801A26C0_FreeTexts(gmCameraUnkStruct* unk)
 {
     s32 i;
-    s32 zero;
+    HSD_Text* zero;
 
     if (unk->x48[0] != NULL) {
         i = 0;
-        zero = i;
+        zero = NULL;
         for (; i < 3; i++) {
             HSD_SisLib_803A5CC4(unk->x48[i]);
-            unk->x48[i] = (HSD_Text*) zero;
+            unk->x48[i] = zero;
         }
     }
 }

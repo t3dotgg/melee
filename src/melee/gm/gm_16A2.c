@@ -20,14 +20,6 @@ struct gm_8016A22C_header {
     /* 0x0A2 */ u8 xA2[0x124 - 0xA2];
 };
 
-typedef void (*GmEventPlayerInitCallback)(s32 slot, u8 remaining_count);
-
-struct lbl_8046B488_event_player_init_cb_t {
-    char pad_0[0x1BC];
-    GmEventPlayerInitCallback event_player_init_cb;
-};
-ASSERT_SIZE(struct lbl_8046B488_event_player_init_cb_t, 0x1C0);
-
 struct lbl_8046B488_t* gm_1601_GetUnkData(void)
 {
     return &lbl_8046B488;
@@ -586,14 +578,6 @@ void gm_8016A21C(StartMeleeRules* arg0)
     arg0->x54 = (void*) gm_1601_GetUnkData();
 }
 
-static inline GmEventPlayerInitCallback*
-gm_8016A404_event_player_init_cb(struct lbl_8046B488_t* gp)
-{
-    struct lbl_8046B488_event_player_init_cb_t* state =
-        (struct lbl_8046B488_event_player_init_cb_t*) gp;
-    return &state->event_player_init_cb;
-}
-
 static inline struct gm_8016A22C_header*
 gm_8016A22C_header(struct lbl_8046B488_t* gp)
 {
@@ -674,10 +658,9 @@ void gm_8016A22C(s8 k0, s8 k1, s8 k2, u8 a3, u8 a4, u8 a5, int mode, int a7,
     fn_80169A84(gp->xE, gp->x124, gp->x20);
 }
 
-void gm_8016A404(s32 arg0)
+void gm_8016A404(GmEventPlayerInitCallback callback)
 {
-    *gm_8016A404_event_player_init_cb(&lbl_8046B488) =
-        (GmEventPlayerInitCallback) arg0;
+    lbl_8046B488.event_player_init_cb = callback;
 }
 
 void gm_8016A414(f32 arg8)
@@ -859,11 +842,9 @@ void fn_8016A4C8(void)
                     Player_SetUnk4D(spawn_slot, tmp);
                     Player_SetFlagsAEBit1(spawn_slot, 1);
                 }
-                if (((struct lbl_8046B488_event_player_init_cb_t*) gp)
-                        ->event_player_init_cb != NULL)
+                if (gp->event_player_init_cb != NULL)
                 {
-                    ((struct lbl_8046B488_event_player_init_cb_t*) gp)
-                        ->event_player_init_cb(spawn_slot, lbl_8046B488.x7);
+                    gp->event_player_init_cb(spawn_slot, lbl_8046B488.x7);
                 }
                 Player_SetStructFunc(spawn_slot, fn_8016A488);
                 Player_80031AD0(spawn_slot);

@@ -106,7 +106,9 @@ static inline TrainingItemEntry* TrainingItemTable_Get(void)
 /* 473814 */ CssSubStruct gm_80473814;
 
 STATIC_ASSERT(sizeof(lbl_80473700) == 0x114);
+#ifndef MELEE_NATIVE
 STATIC_ASSERT(sizeof(gm_80473814) == 0x204);
+#endif
 
 int gm_80188454(int idx)
 {

@@ -320,7 +320,7 @@ void mnDiagram2_HandleInput(HSD_GObj* gobj)
             mnDiagram_Init(0, 0);
             return;
         }
-        mnDiagram3_Init(NULL);
+        mnDiagram3_Init();
         return;
     }
 
