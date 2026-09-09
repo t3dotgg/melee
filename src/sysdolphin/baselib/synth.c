@@ -33,9 +33,6 @@ static int HSD_Synth_804D6028[2] = { 0 };
 static float HSD_Synth_804D6030 = 1.0f;
 
 #ifdef MELEE_NATIVE
-/* Bytes left in the packed SSM stream data while it is expanded. */
-static size_t native_sfx_stream_remaining;
-static u32 native_sfx_stream_index;
 static void* native_sfx_alloc_base;
 #endif
 
@@ -48,6 +45,118 @@ struct SfxLoadStreamNode {
     /* 0x14 */ s32 x14;
 };
 
+#ifdef MELEE_NATIVE
+/* SSM voice records use a 64-byte block. Keep the host link and metadata
+ * separate from that block so LP64 pointer expansion cannot change the voice
+ * offsets used by the AX API. */
+struct NativeSfxVoice {
+    AXPBADDR x10;
+    AXPBADPCM x20;
+    AXPBADPCMLOOP x48;
+    u16 pad;
+};
+
+struct NativeSfxEntryNode {
+    struct NativeSfxEntryNode* next;
+    s32 unk4;
+    s32 unk8;
+    s32 unkC;
+    struct NativeSfxEntryNode* alloc_next;
+    u8 voice_data[];
+};
+
+_Static_assert(sizeof(struct NativeSfxVoice) == 0x40,
+               "native SFX voice must retain its 0x40-byte stride");
+
+static inline u16 native_sfx_read_be16(const u8* p)
+{
+    return (u16) (((u16) p[0] << 8) | p[1]);
+}
+
+static inline u32 native_sfx_read_be32(const u8* p)
+{
+    return ((u32) p[0] << 24) | ((u32) p[1] << 16) |
+           ((u32) p[2] << 8) | p[3];
+}
+
+static inline void native_sfx_write_be32(u8* p, u32 value)
+{
+    p[0] = (u8) (value >> 24);
+    p[1] = (u8) (value >> 16);
+    p[2] = (u8) (value >> 8);
+    p[3] = (u8) value;
+}
+
+static inline void native_sfx_decode_voice(struct NativeSfxVoice* dst,
+                                           const u8* src, int bank_offset)
+{
+    u32 address;
+    int i;
+
+    dst->x10.loopFlag = native_sfx_read_be16(src + 0x00);
+    dst->x10.format = native_sfx_read_be16(src + 0x02);
+    dst->x10.loopAddressHi = native_sfx_read_be16(src + 0x04);
+    dst->x10.loopAddressLo = native_sfx_read_be16(src + 0x06);
+    dst->x10.endAddressHi = native_sfx_read_be16(src + 0x08);
+    dst->x10.endAddressLo = native_sfx_read_be16(src + 0x0A);
+    dst->x10.currentAddressHi = native_sfx_read_be16(src + 0x0C);
+    dst->x10.currentAddressLo = native_sfx_read_be16(src + 0x0E);
+
+    address = ((u32) dst->x10.loopAddressHi << 16) |
+              dst->x10.loopAddressLo;
+    address += (u32) bank_offset * 2;
+    dst->x10.loopAddressHi = (u16) (address >> 16);
+    dst->x10.loopAddressLo = (u16) address;
+    address = ((u32) dst->x10.endAddressHi << 16) |
+              dst->x10.endAddressLo;
+    address += (u32) bank_offset * 2;
+    dst->x10.endAddressHi = (u16) (address >> 16);
+    dst->x10.endAddressLo = (u16) address;
+    address = ((u32) dst->x10.currentAddressHi << 16) |
+              dst->x10.currentAddressLo;
+    address += (u32) bank_offset * 2;
+    dst->x10.currentAddressHi = (u16) (address >> 16);
+    dst->x10.currentAddressLo = (u16) address;
+
+    for (i = 0; i < 8; ++i) {
+        dst->x20.a[i][0] = native_sfx_read_be16(src + 0x10 + i * 4);
+        dst->x20.a[i][1] = native_sfx_read_be16(src + 0x12 + i * 4);
+    }
+    dst->x20.gain = native_sfx_read_be16(src + 0x30);
+    dst->x20.pred_scale = native_sfx_read_be16(src + 0x32);
+    dst->x20.yn1 = native_sfx_read_be16(src + 0x34);
+    dst->x20.yn2 = native_sfx_read_be16(src + 0x36);
+    dst->x48.loop_pred_scale = native_sfx_read_be16(src + 0x38);
+    dst->x48.loop_yn1 = native_sfx_read_be16(src + 0x3A);
+    dst->x48.loop_yn2 = native_sfx_read_be16(src + 0x3C);
+    dst->pad = native_sfx_read_be16(src + 0x3E);
+}
+
+static inline u32 native_sfx_adjust_address(u16* hi, u16* lo, int delta)
+{
+    u32 address = ((u32) *hi << 16) | *lo;
+    address = (u32) ((s64) address + delta);
+    *hi = (u16) (address >> 16);
+    *lo = (u16) address;
+    return address;
+}
+
+static void native_sfx_rebase_entry(struct NativeSfxEntryNode* entry,
+                                    int delta)
+{
+    for (int i = 0; i < entry->unk8; ++i) {
+        struct NativeSfxVoice* voice =
+            (struct NativeSfxVoice*) (entry->voice_data + i * 0x40);
+        native_sfx_adjust_address(&voice->x10.loopAddressHi,
+                                  &voice->x10.loopAddressLo, delta);
+        native_sfx_adjust_address(&voice->x10.endAddressHi,
+                                  &voice->x10.endAddressLo, delta);
+        native_sfx_adjust_address(&voice->x10.currentAddressHi,
+                                  &voice->x10.currentAddressLo, delta);
+    }
+}
+#endif
+
 static inline s32 SfxLoadStreamDataSize(s32 size)
 {
     return size + 8;
@@ -56,6 +165,122 @@ static inline s32 SfxLoadStreamDataSize(s32 size)
 static void HSD_SynthSFXSampleLoadCallback(int result, intptr_t length, void* addr,
                                            bool cancelflag)
 {
+#ifdef MELEE_NATIVE
+    if (HSD_Synth_804D7738 == 0) {
+        s32 j;
+        s32 header_size = (s32) hsd_SynthSFXLoadBuf[0];
+        u32 data_bytes = (u32) (header_size - 0x10);
+        size_t alloc_size =
+            hsd_SynthSFXLoadBuf[2] * 8 + sizeof(struct SfxLoadStreamNode);
+        u32 total = OSRoundUp32B(alloc_size + (size_t) header_size);
+        u32 dnw;
+        int bankID = HSD_Synth_804C2A60[0].bankID;
+        struct NativeSfxBankNode** pp = &HSD_Synth_804C2AE0[bankID];
+        struct NativeSfxBankNode* native_node;
+        u8* cursor;
+        size_t remaining;
+        s32 count = (s32) hsd_SynthSFXLoadBuf[2];
+        s32 base = (s32) hsd_SynthSFXLoadBuf[3];
+
+        /* The first request supplied header_size - 0x10 bytes. Join those
+         * bytes with the four words read into hsd_SynthSFXLoadBuf so the
+         * record cursor has the same layout as the GameCube stream. */
+        for (j = (s32) (data_bytes >> 2) - 1; j >= 0; --j) {
+            ((u32*) HSD_Synth_804D7730)[j + ((total - data_bytes) >> 2)] =
+                ((u32*) HSD_Synth_804D7730)[j];
+        }
+        dnw = total - (u32) header_size;
+        for (j = 0; j < 4; ++j) {
+            native_sfx_write_be32(
+                (u8*) HSD_Synth_804D7730 + dnw + (u32) j * 4,
+                hsd_SynthSFXLoadBuf[4U + (u32) j]);
+        }
+        cursor = (u8*) HSD_Synth_804D7730 + (dnw & ~3U);
+        remaining = (size_t) header_size;
+
+        while (*pp != NULL) {
+            pp = &(*pp)->next;
+        }
+        native_node = HSD_AudioMalloc(sizeof(*native_node));
+        native_node->next = NULL;
+        native_node->x4 = HSD_Synth_804C2A60[0].entrynum;
+        native_node->x8 = base;
+        native_node->xC = count;
+        native_node->x10 = hsd_SynthSFXBank[bankID];
+        native_node->x14 = hsd_SynthSFXLoadBuf[1];
+        native_node->entries = NULL;
+        *pp = native_node;
+
+        for (s32 i = 0; i < count; ++i) {
+            u32 voice_count;
+            u32 parameter;
+            size_t voice_bytes;
+            size_t record_bytes;
+            struct NativeSfxEntryNode* entry;
+            void** bucket;
+            int id;
+
+            if (remaining < 8) {
+                HSD_ASSERTREPORT(0x75, 0,
+                                 "truncated native SFX stream record\n");
+                break;
+            }
+            voice_count = native_sfx_read_be32(cursor);
+            parameter = native_sfx_read_be32(cursor + 4);
+            voice_bytes = (size_t) voice_count * 0x40;
+            record_bytes = voice_bytes + 8;
+            if (record_bytes > remaining) {
+                HSD_ASSERTREPORT(0x75, 0,
+                                 "truncated native SFX stream payload\n");
+                break;
+            }
+            entry = HSD_AudioMalloc(sizeof(*entry) + voice_bytes);
+            entry->unk4 = base + i;
+            entry->unk8 = (s32) voice_count;
+            entry->unkC = (s32) parameter;
+            entry->alloc_next = native_node->entries;
+            native_node->entries = entry;
+            id = entry->unk4 & 0x1F;
+            bucket = &HSD_Synth_804C29E0[id];
+            entry->next = *bucket;
+            *bucket = entry;
+            for (u32 voice = 0; voice < voice_count; ++voice) {
+                native_sfx_decode_voice(
+                    (struct NativeSfxVoice*) (entry->voice_data + voice * 0x40),
+                    cursor + 8 + voice * 0x40,
+                    hsd_SynthSFXBank[bankID]);
+            }
+            cursor += record_bytes;
+            remaining -= record_bytes;
+        }
+
+        hsd_SynthSFXBank[bankID] += hsd_SynthSFXLoadBuf[1];
+        HSD_AudioFree(native_sfx_alloc_base);
+        native_sfx_alloc_base = NULL;
+        HSD_Synth_804D7730 = NULL;
+        if (HSD_Synth_804C2A60[0].x8 != NULL) {
+            HSD_Synth_804C2A60[0].x8(HSD_Synth_804C2A60[0].entrynum,
+                                     HSD_Synth_804C2A60[0].xC);
+        }
+    } else {
+        if (native_sfx_alloc_base != NULL) {
+            HSD_AudioFree(native_sfx_alloc_base);
+            native_sfx_alloc_base = NULL;
+        }
+        HSD_Synth_804D7730 = NULL;
+        HSD_Synth_804D7738 = 0;
+    }
+    {
+        BOOL intr = OSDisableInterrupts();
+        s32 i;
+        HSD_Synth_804D772C -= 1;
+        for (i = 0; i < HSD_Synth_804D772C; ++i) {
+            HSD_Synth_804C2A60[i] = HSD_Synth_804C2A60[i + 1];
+        }
+        HSD_SynthSFXLoadNewProc();
+        OSRestoreInterrupts(intr);
+    }
+#else
     BOOL intr;
     s32 i;
 
@@ -66,14 +291,10 @@ static void HSD_SynthSFXSampleLoadCallback(int result, intptr_t length, void* ad
         size_t alloc_size;
         u32 total;
         u32 dnw;
-        int bankID;
-#ifdef MELEE_NATIVE
-        struct NativeSfxBankNode** pp;
-#else
         AXVPB** pp;
-#endif
         s32 count;
         s32 base;
+        int bankID;
 
         alloc_size =
             hsd_SynthSFXLoadBuf[2] * 8 + sizeof(struct SfxLoadStreamNode);
@@ -88,28 +309,8 @@ static void HSD_SynthSFXSampleLoadCallback(int result, intptr_t length, void* ad
                 hsd_SynthSFXLoadBuf[4U + i];
         }
         HSD_Synth_804D7734 = (u32*) ((u8*) HSD_Synth_804D7730 + (dnw & ~3));
-#ifdef MELEE_NATIVE
-        native_sfx_stream_remaining = (size_t) header_size;
-        native_sfx_stream_index = 0;
-#endif
 
         bankID = HSD_Synth_804C2A60[0].bankID;
-#ifdef MELEE_NATIVE
-        pp = &HSD_Synth_804C2AE0[bankID];
-        while (*pp != NULL) {
-            pp = &(*pp)->next;
-        }
-        struct NativeSfxBankNode* native_node = HSD_AudioMalloc(sizeof(*native_node));
-        native_node->next = NULL;
-        native_node->x4 = HSD_Synth_804C2A60[0].entrynum;
-        native_node->x10 = hsd_SynthSFXBank[bankID];
-        native_node->x14 = hsd_SynthSFXLoadBuf[1];
-        count = hsd_SynthSFXLoadBuf[2];
-        base = hsd_SynthSFXLoadBuf[3];
-        native_node->x8 = base;
-        native_node->xC = count;
-        *pp = native_node;
-#else
         while (*pp != NULL) {
             pp = &(*pp)->next;
         }
@@ -122,7 +323,6 @@ static void HSD_SynthSFXSampleLoadCallback(int result, intptr_t length, void* ad
         base = hsd_SynthSFXLoadBuf[3];
         HSD_Synth_804D7730->x8 = base;
         HSD_Synth_804D7730->xC = count;
-#endif
         HSD_Synth_804D7730 = HSD_Synth_804D7730 + 1;
         for (i = 0; i < count; i++) {
             s32 n;
@@ -132,34 +332,9 @@ static void HSD_SynthSFXSampleLoadCallback(int result, intptr_t length, void* ad
             void** bucket;
 
             n = *HSD_Synth_804D7734;
-#ifdef MELEE_NATIVE
-            /* SSM records after the four words copied above stay big endian. */
-            if (native_sfx_stream_index != 0) {
-                n = __builtin_bswap32(n);
-                *HSD_Synth_804D7734 = (u32) n;
-            }
-#endif
             (void) n;
             nbytes = SfxLoadStreamDataSize(n << 6);
-#ifdef MELEE_NATIVE
-            /* A corrupt count must not turn the compacting copy into an
-             * unbounded read. Valid SSM records always fit in this region. */
-            if ((size_t) nbytes > native_sfx_stream_remaining) {
-                HSD_ASSERTREPORT(0x75, 0,
-                                 "invalid native SFX stream record size\n");
-                nbytes = (s32) native_sfx_stream_remaining;
-                n = nbytes >= 8 ? (u32) ((nbytes - 8) >> 6) : 0;
-            }
-            native_sfx_stream_remaining -= (size_t) nbytes;
-            native_sfx_stream_index += 1;
-#endif
-#ifdef MELEE_NATIVE
-            /* The stream payload is compacted in place and can overlap. */
-            memmove((u8*) HSD_Synth_804D7730 + 8, HSD_Synth_804D7734,
-                    nbytes);
-#else
             memcpy((u8*) HSD_Synth_804D7730 + 8, HSD_Synth_804D7734, nbytes);
-#endif
             for (k = 0; k < n; k++) {
                 u8* e = (u8*) HSD_Synth_804D7730 + k * 0x40;
                 if (e + 0x10 != NULL) {
@@ -189,16 +364,9 @@ static void HSD_SynthSFXSampleLoadCallback(int result, intptr_t length, void* ad
         }
         hsd_SynthSFXBank[bankID] += hsd_SynthSFXLoadBuf[1];
     } else {
-#ifdef MELEE_NATIVE
-        if (native_sfx_alloc_base != NULL) {
-            HSD_AudioFree(native_sfx_alloc_base);
-            native_sfx_alloc_base = NULL;
-        }
-#else
         if (HSD_Synth_804D7730 != NULL) {
             HSD_AudioFree(HSD_Synth_804D7730);
         }
-#endif
         HSD_Synth_804D7738 = 0;
     }
     intr = OSDisableInterrupts();
@@ -208,6 +376,7 @@ static void HSD_SynthSFXSampleLoadCallback(int result, intptr_t length, void* ad
     }
     HSD_SynthSFXLoadNewProc();
     OSRestoreInterrupts(intr);
+#endif
 }
 
 static void HSD_SynthSFXHeaderLoadCallback(int result, intptr_t length, void* addr,
@@ -379,6 +548,17 @@ static inline void HSD_SynthSFXUnloadBank_inline(
         HSD_Synth_80388DC8(node->x8 + i);
     }
 }
+
+static inline void HSD_SynthSFXFreeEntries(struct NativeSfxBankNode* node)
+{
+    struct NativeSfxEntryNode* entry = node->entries;
+    while (entry != NULL) {
+        struct NativeSfxEntryNode* next = entry->alloc_next;
+        HSD_AudioFree(entry);
+        entry = next;
+    }
+    node->entries = NULL;
+}
 #else
 static inline void HSD_SynthSFXUnloadBank_inline(AXVPB* vpb)
 {
@@ -397,6 +577,7 @@ void HSD_SynthSFXUnloadBank(int bank_id)
     while (*head != NULL) {
         struct NativeSfxBankNode* cur = *head;
         HSD_SynthSFXUnloadBank_inline(cur);
+        HSD_SynthSFXFreeEntries(cur);
         *head = cur->next;
         HSD_AudioFree(cur);
     }
@@ -444,6 +625,7 @@ void HSD_Synth_80388E08(int sfx_id)
             struct NativeSfxBankNode* cur = *pcur;
             if (cur->x4 == sfx_id) {
                 HSD_SynthSFXUnloadBank_inline(cur);
+                HSD_SynthSFXFreeEntries(cur);
                 *pcur = cur->next;
                 HSD_AudioFree(cur);
                 return;
@@ -520,6 +702,14 @@ static void order_data_1(void)
 
 void HSD_SynthSFXGroupDataReaddress(AXVPB* arg0, void* callback)
 {
+#ifdef MELEE_NATIVE
+    /* Native SFX entries have host links and decoded AX records. They do not
+     * use the PPC AXVPB overlay or its packed relocation stream. BankDeflag
+     * rebases those decoded records directly. */
+    (void) arg0;
+    (void) callback;
+    return;
+#else
     u8* q;
     int i;
     int count;
@@ -552,6 +742,7 @@ void HSD_SynthSFXGroupDataReaddress(AXVPB* arg0, void* callback)
         i++;
     }
     arg0->callback = (void (*)(void*)) callback;
+#endif
 }
 
 void HSD_SynthSFXBankDeflag(int bank_id)
@@ -562,6 +753,11 @@ void HSD_SynthSFXBankDeflag(int bank_id)
     HSD_SynthSFXStopRange(bank_id);
     for (node = HSD_Synth_804C2AE0[bank_id]; node != NULL;
          node = node->next) {
+        int delta = ((int) offset - node->x10) * 2;
+        for (struct NativeSfxEntryNode* entry = node->entries; entry != NULL;
+             entry = entry->alloc_next) {
+            native_sfx_rebase_entry(entry, delta);
+        }
         node->x10 = (int) offset;
         offset += node->x14;
     }
@@ -671,6 +867,7 @@ void dropcallback(void* dropped)
     OSRestoreInterrupts(enabled);
 }
 
+#ifndef MELEE_NATIVE
 struct foo {
     void* next;
     int unk4; // sound ID
@@ -680,11 +877,17 @@ struct foo {
     AXPBADPCM x20;
     AXPBADPCMLOOP x48;
 };
+#endif
 
 /** @remarks The per-voice blocks of an SFX entry are 0x40 apart, which is
  *  less than the AX structures they carry.
  */
+#ifdef MELEE_NATIVE
+#define SFX_VOICE(i) \
+    ((struct NativeSfxVoice*) (sfx_entry->voice_data + (i) * 0x40))
+#else
 #define SFX_VOICE(i) ((struct foo*) ((u8*) sfx_entry + (i) * 0x40))
+#endif
 
 static AXPBMIX lbl_80407FB4 = { 0 };
 
@@ -701,7 +904,11 @@ int HSD_Synth_80389334(int sfx_id, u8 vol, u8 vol2, u8 pan, int priority,
     float vol2_norm;
     int voice_idx;
     u32 node_idx;
+#ifdef MELEE_NATIVE
+    struct NativeSfxEntryNode* sfx_entry;
+#else
     struct foo* sfx_entry;
+#endif
     struct HSD_SynthSFXNode* sfx_node;
     int saved_interrupts;
 
