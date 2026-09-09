@@ -429,6 +429,75 @@ static void test_animation_graph(void)
     NativeArchiveClose(archive);
 }
 
+static void test_texture_animation_graph(void)
+{
+    Fixture fixture = fixture_new(144);
+    NativeArchive* archive;
+    NativeArchiveGraph* graph;
+    NativeArchiveError error = { 0 };
+    HSD_MatAnimJoint* root = NULL;
+
+    /* mat joint 0, material animation 12, texture animation 28, tables 52/60,
+     * image descriptor 68, TLUT descriptor 92, image bytes 108, TLUT bytes 124. */
+    reference(&fixture, 8, 12);
+    reference(&fixture, 12, 12);
+    reference(&fixture, 20, 28);
+    reference(&fixture, 28, 28);
+    reference(&fixture, 40, 52);
+    reference(&fixture, 44, 60);
+    word(&fixture, 32, GX_TEXMAP1);
+    word(&fixture, 48, 1 | (1u << 16));
+    reference(&fixture, 52, 68);
+    reference(&fixture, 60, 92);
+    reference(&fixture, 68, 108);
+    word(&fixture, 72, 0x00040004);
+    word(&fixture, 76, GX_TF_RGBA8);
+    word(&fixture, 80, 0);
+    word(&fixture, 84, 0x3f800000);
+    word(&fixture, 88, 0x3f800000);
+    reference(&fixture, 92, 124);
+    word(&fixture, 96, GX_TL_RGB565);
+    word(&fixture, 100, 7);
+    word(&fixture, 104, 0x00020000);
+    fixture.bytes[HEADER_SIZE + 108] = 1;
+    fixture.bytes[HEADER_SIZE + 109] = 2;
+    fixture.bytes[HEADER_SIZE + 124] = 3;
+    fixture.bytes[HEADER_SIZE + 125] = 4;
+
+    archive = open_fixture(&fixture);
+    graph = open_graph(archive);
+    CHECK(NativeArchiveMatAnimJoint(graph, 0, &root, &error) == NATIVE_ARCHIVE_OK);
+    CHECK(root != NULL && root->matanim != NULL);
+    CHECK(root->matanim->texanim != NULL);
+    CHECK(root->matanim->texanim->id == GX_TEXMAP1);
+    CHECK(root->matanim->texanim->next == root->matanim->texanim);
+    CHECK(root->matanim->texanim->n_imagetbl == 1);
+    CHECK(root->matanim->texanim->n_tluttbl == 1);
+    CHECK(root->matanim->texanim->imagetbl[0] != NULL);
+    CHECK(root->matanim->texanim->imagetbl[0]->width == 4);
+    CHECK(((uint8_t*) root->matanim->texanim->imagetbl[0]->image_ptr)[0] == 1);
+    CHECK(root->matanim->texanim->tluttbl[0] != NULL);
+    CHECK(root->matanim->texanim->tluttbl[0]->n_entries == 2);
+    CHECK(((uint8_t*) root->matanim->texanim->tluttbl[0]->lut)[0] == 3);
+    CHECK(root->matanim->texanim->imagetbl[1] == NULL);
+    NativeArchiveGraphClose(graph);
+    NativeArchiveClose(archive);
+
+    /* A non-null render animation has no native descriptor consumer yet. */
+    fixture = fixture_new(32);
+    reference(&fixture, 8, 12);
+    reference(&fixture, 12, 12);
+    reference(&fixture, 24, 20);
+    archive = open_fixture(&fixture);
+    graph = open_graph(archive);
+    root = (HSD_MatAnimJoint*) (uintptr_t) 1;
+    CHECK(NativeArchiveMatAnimJoint(graph, 0, &root, &error) ==
+          NATIVE_ARCHIVE_UNSUPPORTED);
+    CHECK(root == NULL);
+    NativeArchiveGraphClose(graph);
+    NativeArchiveClose(archive);
+}
+
 static void test_wobj(void)
 {
     Fixture fixture = fixture_new(32);
@@ -931,6 +1000,7 @@ int main(void)
     test_joint_graph();
     test_joint_display_descriptor_graph();
     test_animation_graph();
+    test_texture_animation_graph();
     test_wobj();
     test_cobj();
     test_truncation_and_counts();

@@ -34,6 +34,9 @@ typedef enum Schema {
     SCHEMA_TLUT,
     SCHEMA_TEXLOD,
     SCHEMA_TOBJTEV,
+    SCHEMA_IMAGETBL,
+    SCHEMA_TLUTTBL,
+    SCHEMA_TEXANIM,
     SCHEMA_MATANIMJOINT,
     SCHEMA_MATANIM,
     SCHEMA_ANIMATION,
@@ -230,7 +233,9 @@ static void* add_node(NativeArchiveGraph* graph, uint32_t offset,
     for (node = graph->buckets[bucket]; node != NULL; node = node->hash_next) {
         if (node->offset == offset) {
             if (node->schema != schema ||
-                (schema == SCHEMA_BYTES && node->length != length)) {
+                (schema == SCHEMA_BYTES && node->length != length) ||
+                ((schema == SCHEMA_IMAGETBL || schema == SCHEMA_TLUTTBL) &&
+                 node->length / 4 != length)) {
                 graph_fail(graph, NATIVE_ARCHIVE_TYPE_CONFLICT, offset,
                            "archive offset has conflicting descriptor types");
                 return NULL;
@@ -291,6 +296,20 @@ static void* add_node(NativeArchiveGraph* graph, uint32_t offset,
     case SCHEMA_TOBJTEV:
         disk_size = 32;
         host_size = sizeof(HSD_TObjTevDesc);
+        break;
+    case SCHEMA_IMAGETBL:
+    case SCHEMA_TLUTTBL:
+        if (length > SIZE_MAX / 4 || length > (SIZE_MAX / sizeof(void*)) - 1) {
+            graph_fail(graph, NATIVE_ARCHIVE_BOUNDS, offset,
+                       "texture animation table size overflows");
+            return NULL;
+        }
+        disk_size = length * 4;
+        host_size = (length + 1) * sizeof(void*);
+        break;
+    case SCHEMA_TEXANIM:
+        disk_size = 24;
+        host_size = sizeof(HSD_TexAnim);
         break;
     case SCHEMA_MATANIMJOINT:
         disk_size = 12;
@@ -746,8 +765,53 @@ static bool convert_node(NativeArchiveGraph* graph, Node* node)
         HSD_MatAnim* animation = node->value;
         animation->next = link_node(graph, offset, SCHEMA_MATANIM, 0);
         animation->aobjdesc = link_node(graph, offset + 4, SCHEMA_AOBJ, 0);
-        /* Texture and render animation descriptors are optional. Their
-         * schemas are not needed by the title material animation roots. */
+        animation->texanim = link_node(graph, offset + 8, SCHEMA_TEXANIM, 0);
+        if (!unsupported_link(graph, offset + 12,
+                              "material render animation schema is not implemented")) {
+            return false;
+        }
+        break;
+    }
+    case SCHEMA_TEXANIM: {
+        HSD_TexAnim* animation = node->value;
+        uint32_t table_offset;
+        bool table_present;
+        uint16_t image_count = (uint16_t) ((bytes[20] << 8) | bytes[21]);
+        uint16_t tlut_count = (uint16_t) ((bytes[22] << 8) | bytes[23]);
+        animation->id = NativeArchiveBE32(bytes + 4);
+        animation->aobjdesc = link_node(graph, offset + 8, SCHEMA_AOBJ, 0);
+        animation->n_imagetbl = image_count;
+        animation->n_tluttbl = tlut_count;
+        if (!read_reference(graph, offset + 12, &table_offset, &table_present)) return false;
+        if (image_count == 0 && table_present) {
+            graph_fail(graph, NATIVE_ARCHIVE_INVALID, offset + 12,
+                       "texture animation image table is present with zero count");
+            return false;
+        }
+        animation->imagetbl = table_present
+            ? add_node(graph, table_offset, SCHEMA_IMAGETBL, image_count) : NULL;
+        if (!read_reference(graph, offset + 16, &table_offset, &table_present)) return false;
+        if (tlut_count == 0 && table_present) {
+            graph_fail(graph, NATIVE_ARCHIVE_INVALID, offset + 16,
+                       "texture animation TLUT table is present with zero count");
+            return false;
+        }
+        animation->tluttbl = table_present
+            ? add_node(graph, table_offset, SCHEMA_TLUTTBL, tlut_count) : NULL;
+        animation->next = link_node(graph, offset, SCHEMA_TEXANIM, 0);
+        break;
+    }
+    case SCHEMA_IMAGETBL:
+    case SCHEMA_TLUTTBL: {
+        size_t count = node->length / 4;
+        void** table = node->value;
+        size_t i;
+        for (i = 0; i < count; ++i) {
+            Schema target_schema = node->schema == SCHEMA_IMAGETBL ? SCHEMA_IMAGE : SCHEMA_TLUT;
+            table[i] = link_node(graph, offset + (uint32_t) (i * 4),
+                                 target_schema, 0);
+        }
+        table[count] = NULL;
         break;
     }
     case SCHEMA_ANIMATION: {
