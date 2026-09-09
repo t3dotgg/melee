@@ -23,7 +23,13 @@ typedef struct {
     u8 b7 : 1, b6 : 1, b5 : 1, b4 : 1, b3 : 1, b2 : 1, b1 : 1, b0 : 1;
 } u8_bits;
 
+#ifdef MELEE_NATIVE
+/* The native Unk1PData widens callback pointers, so this storage is larger
+ * than the original 0x78-byte blob. */
+static UnkAllstarData lbl_80472CB0;
+#else
 static u8 lbl_80472CB0[0x78];
+#endif
 
 AllstarStageEntry lbl_803D85F0[55] = {
     { 4, 0, 0x3c, 0xaf, { 0, 0, 9 } },
@@ -85,7 +91,11 @@ AllstarStageEntry lbl_803D85F0[55] = {
 
 UnkAllstarData* gm_GetAllStarData(void)
 {
+#ifdef MELEE_NATIVE
+    return &lbl_80472CB0;
+#else
     return (UnkAllstarData*) lbl_80472CB0;
+#endif
 }
 
 u8 gm_8017EB3C(u8 difficulty, u8 stage_slot)
@@ -171,7 +181,7 @@ void fn_8017EE40(MatchEnd* arg0)
     int i;
 
     rules = gm_GetStartMeleeRules();
-    allstar = (UnkAllstarData*) lbl_80472CB0;
+    allstar = gm_GetAllStarData();
 
     if (fn_8017E318() > 0) {
         ((u8_bits*) &arg0->_x448[2])->b3 = 1;
