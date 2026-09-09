@@ -77,18 +77,12 @@ TimingStepResult NativeGameLoop::advance(double elapsed_seconds)
         current_snapshot_ = game_.render_snapshot();
     });
     if (result.render_frames != 0 && renderer_.running()) {
-        for (std::uint32_t i = 0; i < result.render_frames && renderer_.running(); ++i) {
-            // A fixed tick produces two display samples. Their local alpha
-            // spans the interval so the first sample is halfway between the
-            // old and new rules state and the second reaches the new state.
-            const float alpha = result.render_frames == 1
-                                    ? static_cast<float>(result.interpolation_alpha)
-                                    : static_cast<float>(i + 1) /
-                                          static_cast<float>(result.render_frames);
-            renderer_.render(game_.state(),
-                             interpolate(previous_snapshot_, current_snapshot_, alpha));
-            ++presented_frames_;
-        }
+        // Present at the current wall-clock position, one tick behind rules.
+        // If the host stalled, earlier display slots have already passed;
+        // replaying them would queue stale frames and make positions regress.
+        renderer_.render(game_.state(), interpolate(previous_snapshot_, current_snapshot_,
+                            static_cast<float>(result.interpolation_alpha)));
+        ++presented_frames_;
     }
     return result;
 }

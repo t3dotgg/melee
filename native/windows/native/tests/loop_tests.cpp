@@ -54,9 +54,9 @@ int main()
     NativeGameLoop loop(game, input, renderer);
     const auto first = loop.advance(1.0 / 60.0);
     assert(first.simulation_steps == 1 && first.render_frames == 2);
-    assert(renderer.count == 2);
+    assert(renderer.count == 1);
     const auto second = loop.advance(1.0 / 120.0);
-    assert(second.simulation_steps == 0 && renderer.count == 3);
+    assert(second.simulation_steps == 0 && renderer.count == 2);
     assert(renderer.last.objects.size() == 1);
     // Mid-tick presentation changes position without running rules again.
     assert(std::abs(renderer.last.objects[0].transform.x - (1.0F / 120.0F)) < 1e-6F);
@@ -64,11 +64,23 @@ int main()
     loop.advance(1.0 / 120.0);
     assert(game.state().frame == 2);
     assert(std::abs(renderer.last.objects[0].transform.x - (1.0F / 60.0F)) < 1e-6F);
-    // Catch-up runs the rules for each tick and submits one frame per display
-    // slot, preserving the 120 Hz presentation contract.
+    // Catch-up runs each rules tick and coalesces missed display slots.
     const auto before = renderer.count;
     const auto stalled = loop.advance(0.1);
     assert(stalled.simulation_steps == 6 && stalled.render_frames == 12);
-    assert(renderer.count == before + 12);
+    assert(renderer.count == before + 1);
+
+    TestGame paced_game;
+    TestRenderer paced_renderer;
+    NativeGameLoop paced_loop(paced_game, input, paced_renderer);
+    float previous_x = 0.0F;
+    for (int i = 0; i < 120; ++i) {
+        paced_loop.advance(1.0 / 120.0);
+        const auto x = paced_renderer.last.objects[0].transform.x;
+        assert(x >= previous_x);
+        previous_x = x;
+    }
+    assert(paced_game.state().frame == 60);
+    assert(paced_renderer.count == 120 && paced_loop.presented_frames() == 120);
     std::cout << "native game loop interpolation tests passed\n";
 }

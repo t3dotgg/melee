@@ -67,9 +67,9 @@ private:
 
 // A NativeGame adapter around the two-fighter training rules.  It gives the
 // executable a real game path while retaining NativeDemoGame for deterministic
-// API tests and compatibility with existing hosts.  Player two is idle until
-// a multi-pad input source is added; its state and collision events are still
-// simulated and rendered through the same snapshot contract.
+// API tests and compatibility with existing hosts. Both player slots receive
+// independent pad state through the native input boundary and are simulated
+// and rendered through the same snapshot contract.
 class NativeTrainingGame final : public NativeGame {
 public:
     NativeTrainingGame();
