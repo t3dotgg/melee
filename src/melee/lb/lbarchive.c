@@ -905,21 +905,6 @@ void* HSD_ArchiveNativePublicAddress(HSD_Archive* archive, const char* symbol)
         NativeArchiveFind(binding->archive, symbol, &offset, &error) !=
             NATIVE_ARCHIVE_OK)
     {
-        if (binding != NULL) {
-            OSReport("native lookup miss %s public_count=%zu\n", symbol,
-                     NativeArchivePublicCount(binding->archive));
-            for (size_t i = 0;
-                 i < NativeArchivePublicCount(binding->archive) && i < 5; i++)
-            {
-                NativeArchiveSymbol item;
-                if (NativeArchivePublic(binding->archive, i, &item, NULL) ==
-                    NATIVE_ARCHIVE_OK)
-                {
-                    OSReport("  public[%zu]=%s off=%u\n", i, item.name,
-                             item.offset);
-                }
-            }
-        }
         return NULL;
     }
     if (strcmp(symbol, "lbAudioLoadData") == 0) {
