@@ -21,6 +21,7 @@ add_library(melee_native_core STATIC
     src/native_snapshot.cpp
     src/native_fighter.cpp
     src/native_scene.cpp
+    src/native_audio.cpp
 )
 target_include_directories(melee_native_core PUBLIC include)
 target_compile_options(melee_native_core PRIVATE
@@ -69,4 +70,8 @@ add_test(NAME native_fighter COMMAND melee_native_fighter_tests)
 add_executable(melee_native_scene_tests tests/scene_tests.cpp)
 target_link_libraries(melee_native_scene_tests PRIVATE melee_native_core)
 add_test(NAME native_scene COMMAND melee_native_scene_tests)
+
+add_executable(melee_native_audio_tests tests/audio_tests.cpp)
+target_link_libraries(melee_native_audio_tests PRIVATE melee_native_core)
+add_test(NAME native_audio COMMAND melee_native_audio_tests)
 
