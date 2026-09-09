@@ -46,7 +46,7 @@ static inline s32 SfxLoadStreamDataSize(s32 size)
     return size + 8;
 }
 
-static void HSD_SynthSFXSampleLoadCallback(int result, int length, void* addr,
+static void HSD_SynthSFXSampleLoadCallback(int result, intptr_t length, void* addr,
                                            bool cancelflag)
 {
     BOOL intr;
@@ -148,7 +148,7 @@ static void HSD_SynthSFXSampleLoadCallback(int result, int length, void* addr,
     OSRestoreInterrupts(intr);
 }
 
-static void HSD_SynthSFXHeaderLoadCallback(int result, int length, void* addr,
+static void HSD_SynthSFXHeaderLoadCallback(int result, intptr_t length, void* addr,
                                            bool cancelflag)
 {
     s32 header_size;
@@ -170,7 +170,7 @@ static void HSD_SynthSFXHeaderLoadCallback(int result, int length, void* addr,
         HSD_Synth_804D7730 =
             HSD_AudioMalloc(OSRoundUp32B(alloc_size + header_size));
         HSD_Synth_804D6028[1] = HSD_DevComRequest(
-            HSD_Synth_804C2A60[0].entrynum, 0x20, (u32) HSD_Synth_804D7730,
+            HSD_Synth_804C2A60[0].entrynum, 0x20, (u32) (uintptr_t) HSD_Synth_804D7730,
             OSRoundUp32B(header_size - 0x10), 0x21, 1, NULL, NULL);
         HSD_Synth_804D6028[0] = HSD_DevComRequest(
             HSD_Synth_804C2A60[0].entrynum, OSRoundUp32B(header_size + 0x10),
@@ -296,7 +296,7 @@ static inline void HSD_SynthSFXUnloadBank_inline(AXVPB* vpb)
 {
     int i;
     for (i = 0; i < vpb->priority; i++) {
-        HSD_Synth_80388DC8((int) vpb->next1 + i);
+        HSD_Synth_80388DC8((int) (uintptr_t) vpb->next1 + i);
     }
 }
 
@@ -340,7 +340,7 @@ void HSD_Synth_80388E08(int sfx_id)
         while (*pcur != NULL) {
             cur = *pcur;
             /// @todo AXVPB prev must be a signed int type, not a pointer
-            if ((int) cur->prev == sfx_id) {
+            if ((int) (uintptr_t) cur->prev == sfx_id) {
                 HSD_SynthSFXUnloadBank_inline(cur);
                 *pcur = cur->next;
                 HSD_AudioFree(cur);
@@ -351,7 +351,7 @@ void HSD_Synth_80388E08(int sfx_id)
     }
 }
 
-static void HSD_SynthSFXGroupDataReaddressCallback(void* result, int length,
+static void HSD_SynthSFXGroupDataReaddressCallback(void* result, intptr_t length,
                                                    void* addr, int cancelflag)
 {
     HSD_ASSERT(0x182, sfxGroupDataReaddressCounter > 0);
@@ -1182,7 +1182,7 @@ void HSD_SynthCallback(void)
     OSRestoreInterrupts(enabled);
 }
 
-void HSD_SynthResetStreamCounters(int result, int length, void* buf, bool b)
+void HSD_SynthResetStreamCounters(int result, intptr_t length, void* buf, bool b)
 {
     HSD_Synth_804D776C = HSD_Synth_804D7768;
     HSD_Synth_804D7778 = 0;
@@ -1220,7 +1220,7 @@ static inline void HSD_Synth_8038ADD0_inline(u32 pos)
                     HSD_Synth_804D7764, src,
                     (uintptr_t) &lbl_804C4540[HSD_Synth_804D7768], 0x20, 0x21,
                     0, (HSD_DevComCallback) (Event) HSD_Synth_8038AD74,
-                    (struct HSD_SynthStreamHeader*) (src + 0x20));
+                    (struct HSD_SynthStreamHeader*) (uintptr_t) (src + 0x20));
             }
         }
         OSRestoreInterrupts(intr);
@@ -1346,7 +1346,7 @@ void HSD_SynthPStreamFirstHakoHeaderCallback(void)
                       (HSD_DevComCallback) HSD_Synth_8038B120, 0);
 }
 
-void HSD_SynthPStreamHeaderCallback(int arg0, int arg1, void* arg2,
+void HSD_SynthPStreamHeaderCallback(int arg0, intptr_t arg1, void* arg2,
                                     bool cancelflag)
 {
     u32* entry = arg2;

@@ -16,6 +16,13 @@
 #include <dolphin/os.h>
 #include <dolphin/types.h>
 
+#ifdef MELEE_NATIVE
+static void HSD_SisLib_RenderNative(HSD_GObj* gobj, int code)
+{
+    HSD_SisLib_803A84BC(gobj, (intptr_t) code);
+}
+#endif
+
 static HSD_WObjDesc HSD_SisLib_8040C490 = {
     NULL,
     { 0, 0, 1 },
@@ -265,7 +272,13 @@ HSD_Text* HSD_SisLib_803A5ACC(int font_idx, s32 context_id, f32 pos_x,
             cam_entry = cam_entry->x0;
         }
         gobj = GObj_Create(cam_entry->x8, cam_entry->xC, cam_entry->xD);
-        GObj_SetupGXLink(gobj, HSD_SisLib_803A84BC, cam_entry->xE,
+        GObj_SetupGXLink(gobj,
+#ifdef MELEE_NATIVE
+                         HSD_SisLib_RenderNative,
+#else
+                         HSD_SisLib_803A84BC,
+#endif
+                         cam_entry->xE,
                          cam_entry->xF);
     }
     while (list_cur != NULL) {
