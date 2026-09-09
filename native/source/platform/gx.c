@@ -411,6 +411,9 @@ static bool gx_dl_vertex(const u8 **cursor, const u8 *end, GXVtxFmt format)
     GXSWVtxAttrState *states = gx_vtx_state[format];
     f32 values[3] = { 0.0f, 0.0f, 0.0f };
     GXColor color = gx_current_color;
+    GXColor color1 = gx_current_color;
+    bool have_color0 = false;
+    bool have_color1 = false;
     bool have_position = false;
     /* Attributes 21 through 24 are array setup tokens, not vertex stream
      * fields. NBT is normalized to the NRM slot by gx_state_attr(). */
@@ -422,6 +425,11 @@ static bool gx_dl_vertex(const u8 **cursor, const u8 *end, GXVtxFmt format)
         } else if (attr == GX_VA_CLR0) {
             if (!gx_dl_attr(cursor, end, attr, &states[attr], NULL, &color))
                 return false;
+            have_color0 = states[attr].desc != GX_NONE;
+        } else if (attr == GX_VA_CLR1) {
+            if (!gx_dl_attr(cursor, end, attr, &states[attr], NULL, &color1))
+                return false;
+            have_color1 = states[attr].desc != GX_NONE;
         } else if (!gx_dl_attr(cursor, end, attr, &states[attr], NULL, NULL)) {
             return false;
         }
@@ -429,6 +437,7 @@ static bool gx_dl_vertex(const u8 **cursor, const u8 *end, GXVtxFmt format)
             gx_position(values[0], values[1], values[2]);
         }
     }
+    if (!have_color0 && have_color1) color = color1;
     if (have_position) gx_current_color = color;
     return true;
 }
