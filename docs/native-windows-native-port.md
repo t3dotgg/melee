@@ -191,4 +191,5 @@ game traces.
 The HSD scene bridge now walks the documented Joint/DObj/MObj descriptor
 links through relocation entries and decodes materials without host pointer
 casts. Running it on extracted `TyFox.dat` at public root offset 41,768 found
-30 material descriptors; malformed or unrelocated pointers are rejected.
+30 material descriptors and 7 joint nodes; malformed or unrelocated pointers
+are rejected.
