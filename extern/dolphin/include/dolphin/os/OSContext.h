@@ -150,6 +150,11 @@ typedef struct OSContext
     /*0x1A2*/ u16 state;
     /*0x1A4*/ u32 gqr[8];
     /*0x1C4*/ f64 psf[32];
+#ifdef MELEE_NATIVE
+    /* Host addresses are separate from the optional PowerPC register dump. */
+    uptr native_pc;
+    uptr native_stack;
+#endif
 } OSContext;
 
 uptr OSGetStackPointer(void);

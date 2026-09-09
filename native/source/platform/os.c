@@ -91,9 +91,9 @@ BOOL OSRestoreInterrupts(BOOL level)
 
 void OSInitContext(OSContext* context, uptr pc, uptr newsp)
 {
-    (void) pc;
-    (void) newsp;
     memset(context, 0, sizeof(*context));
+    context->native_pc = pc;
+    context->native_stack = newsp;
     context->state = OS_CONTEXT_STATE_FPSAVED;
 }
 
