@@ -403,6 +403,13 @@ typedef struct itHeiho_ItemVars {
     f32 x78;
 } itHeiho_ItemVars;
 
+#ifdef MELEE_NATIVE
+typedef struct itHeihoAttributes {
+    s32* common;
+    f32 values[6];
+} itHeihoAttributes;
+#endif
+
 typedef struct itFlipper_ItemVars {
     s32 xDD4_flightTimer; // frames until settling (when thrown)
     bool xDD8_isSettled;
@@ -462,7 +469,11 @@ typedef struct itWhispyApple_ItemVars {
 } itWhispyApple_ItemVars;
 
 typedef struct itWhispyAppleAttributes {
+#ifdef MELEE_NATIVE
+    s32* common;
+#else
     u8 x0[0x4];
+#endif
     s32 x4;
     s32 x8;
     u8 xC[0x8];
@@ -584,7 +595,11 @@ typedef struct itTincle_ItemVars {
 } itTincle_ItemVars;
 
 typedef struct itTincleAttributes {
+#ifdef MELEE_NATIVE
+    /* 0x00 */ s32* common;
+#else
     /* 0x00 */ f32 x0;
+#endif
     /* 0x04 */ s32 x4;
     /* 0x08 */ s32 x8;
     /* 0x0C */ f32 xC;

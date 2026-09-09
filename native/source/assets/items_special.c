@@ -36,6 +36,7 @@ static NativeArchiveStatus words(NativeItemArchive* items, uint32_t offset,
     const NativeArchive* source = NativeItemArchiveSource(items);
     uint8_t* bytes = output;
     size_t i;
+    TRY_READ(NativeArchiveRead(source, offset, output, size, error));
     for (i = 0; i < source->reloc_count; ++i) {
         uint32_t field = source->relocations[i];
         if (field >= offset && (size_t) field - offset < size) {
@@ -44,8 +45,15 @@ static NativeArchiveStatus words(NativeItemArchive* items, uint32_t offset,
                                      "reference found in item scalar fields");
         }
     }
-    TRY_READ(NativeArchiveRead(source, offset, output, size, error));
     for (i = 0; i < size; i += 4) {
+        size_t word = ((size_t) offset + i) / 4;
+        if (source->external_fields != NULL &&
+            (source->external_fields[word / 8] & (1U << (word % 8))) != 0)
+        {
+            return NativeArchiveFail(
+                error, NATIVE_ARCHIVE_TYPE_CONFLICT, 32U + offset + i,
+                "external reference found in item scalar fields");
+        }
         uint32_t value = NativeArchiveBE32(bytes + i);
         memcpy(bytes + i, &value, sizeof(value));
     }
@@ -366,6 +374,24 @@ static NativeArchiveStatus whitebear(NativeItemArchive* items, uint32_t offset,
     return NATIVE_ARCHIVE_OK;
 }
 
+static NativeArchiveStatus likelike(NativeItemArchive* items, uint32_t offset,
+                                    void** output, NativeArchiveError* error)
+{
+    itLikelikeAttributes* value;
+    TRY_READ(bounds(items, offset, 0x88, error));
+    value = NativeItemArchiveAllocate(items, sizeof(*value), error);
+    if (value == NULL) {
+        return NATIVE_ARCHIVE_NO_MEMORY;
+    }
+    TRY_READ(
+        reference(items, offset, SPECIAL_MONSTER_COMMON, &value->x0, error));
+    TRY_READ(words(items, offset + 4, &value->x4, 0x38, error));
+    TRY_READ(raw(items, offset + 0x3c, &value->x3C, 3, error));
+    TRY_READ(words(items, offset + 0x40, value->x40, 0x48, error));
+    *output = value;
+    return NATIVE_ARCHIVE_OK;
+}
+
 static NativeArchiveStatus coinTiers(NativeItemArchive* items, uint32_t offset,
                                      void** output, NativeArchiveError* error)
 {
@@ -410,9 +436,9 @@ NativeArchiveStatus NativeItemSpecialRead(NativeItemArchive* items, int kind,
      * contain runtime-only tails, so sizeof is not a serialized size. */
     static const uint16_t common_sizes[] = {
         0x08, 0x20, 0x38, 0x08, 0x30, 0x54, 0x28, 0x20, 0x1c, 0x18, 0x18,
-        0x10, 0x30, 0x10, 0x40, 0x58, 0x10, 0x14, 0,    0x30, 0x28, 0x40,
+        0x10, 0x30, 0x10, 0x40, 0x58, 0x10, 0x14, 0,    0x18, 0x28, 0x40,
         0x10, 0x10, 0x04, 0x18, 0,    0,    0x0c, 0,    0x04, 0x04, 0x08,
-        0x08, 0xb4, 0x0c, 0x20, 0x1c, 0x80, 0x14, 0x08, 0x04, 0,
+        0x04, 0xb4, 0x0c, 0x20, 0x1c, 0x80, 0x14, 0x08, 0x04, 0,
     };
     static const uint16_t pokemon_sizes[] = {
         0x0c, 0x14, 0x1c, 0x20, 0x10, 0x30, 0x10, 0x10, 0x10, 0x28, 0x24, 0,
@@ -454,6 +480,7 @@ NativeArchiveStatus NativeItemSpecialRead(NativeItemArchive* items, int kind,
     }
     case It_Kind_Kuriboh:
     case It_Kind_Old_Kuri:
+    case It_Kind_Mato:
         return monsterWords(items, offset, 0x14, output, error);
     case It_Kind_Leadead:
         return leadead(items, offset, output, error);
@@ -465,13 +492,21 @@ NativeArchiveStatus NativeItemSpecialRead(NativeItemArchive* items, int kind,
     case It_Kind_Whitebea:
         return whitebear(items, offset, output, error);
     case It_Kind_Nokonoko:
-        return monsterWords(items, offset, 0xc, output, error);
+        return monsterWords(items, offset, 0x14, output, error);
     case It_Kind_Patapata:
         return monsterWords(items, offset, 0x40, output, error);
     case It_Kind_Kyasarin:
         return monsterWords(items, offset, 0x4c, output, error);
     case It_Kind_Kyasarin_Egg:
         return monsterWords(items, offset, 0x14, output, error);
+    case It_Kind_Arwing_Laser:
+        return monsterWords(items, offset, 0xc, output, error);
+    case It_Kind_Heiho:
+        return monsterWords(items, offset, 0x1c, output, error);
+    case It_Kind_Likelike:
+        return likelike(items, offset, output, error);
+    case It_Kind_Klap:
+        return monsterWords(items, offset, 4, output, error);
     case It_Kind_Unk4:
         return coinTiers(items, offset, output, error);
     case It_Kind_Coin:
@@ -479,15 +514,13 @@ NativeArchiveStatus NativeItemSpecialRead(NativeItemArchive* items, int kind,
         break;
     case It_Kind_ZGShell:
     case It_Kind_ZRShell:
-        size = 0x48;
-        break;
+        return monsterWords(items, offset, 0x48, output, error);
     case It_Kind_GreatFox_Laser:
         size = sizeof(itGreatFoxLaser_Attrs);
         break;
     case It_Kind_WhispyApple:
     case It_Kind_WhispyHealApple:
-        size = sizeof(itWhispyAppleAttributes);
-        break;
+        return monsterWords(items, offset, 0x1c, output, error);
     case It_Kind_Tincle: {
         itTincleAttributes* value;
         TRY_READ(bounds(items, offset, 0x58, error));
@@ -495,7 +528,9 @@ NativeArchiveStatus NativeItemSpecialRead(NativeItemArchive* items, int kind,
         if (value == NULL) {
             return NATIVE_ARCHIVE_NO_MEMORY;
         }
-        TRY_READ(words(items, offset, value, 0x54, error));
+        TRY_READ(reference(items, offset, SPECIAL_MONSTER_COMMON,
+                           &value->common, error));
+        TRY_READ(words(items, offset + 4, &value->x4, 0x50, error));
         TRY_READ(raw(items, offset + 0x54, &value->x54, 2, error));
         *output = value;
         return NATIVE_ARCHIVE_OK;
@@ -504,10 +539,6 @@ NativeArchiveStatus NativeItemSpecialRead(NativeItemArchive* items, int kind,
         /* Flatzone has five tools, each with seven scalar motion fields. */
         size = 0x10 + 5 * 0x1c;
         break;
-    case It_Kind_Heiho:
-        return NativeArchiveFail(error, NATIVE_ARCHIVE_UNSUPPORTED,
-                                 32U + offset,
-                                 "Heiho attributes need a shared host layout");
     default:
         if (kind >= It_Kind_Capsule && kind <= It_Kind_EvYoshiEgg) {
             size = common_sizes[kind];
