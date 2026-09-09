@@ -36,6 +36,11 @@ static GXBool gx_skip_raster;
 static u8 gx_stream_vertex[512];
 static size_t gx_stream_used, gx_stream_vertex_size;
 
+static GXBool gx_trace_enabled;
+static u64 gx_trace_draws, gx_trace_vertices, gx_trace_fragments,
+    gx_trace_copies;
+static void gx_trace_frame(void);
+
 static GXBool gx_should_skip_raster(void)
 {
     const char* value = getenv("MELEE_SKIP_RENDER");
@@ -388,13 +393,13 @@ static GXColor gx_texture_nearest(const GXSWTexture* texture, f32 s, f32 t)
         palette[0] = gx_tex_rgb565(first);
         palette[1] = gx_tex_rgb565(second);
         if (first > second) {
-            palette[2].r = (u8) ((2 * palette[0].r + palette[1].r) / 3);
-            palette[2].g = (u8) ((2 * palette[0].g + palette[1].g) / 3);
-            palette[2].b = (u8) ((2 * palette[0].b + palette[1].b) / 3);
+            palette[2].r = (u8) ((5 * palette[0].r + 3 * palette[1].r) / 8);
+            palette[2].g = (u8) ((5 * palette[0].g + 3 * palette[1].g) / 8);
+            palette[2].b = (u8) ((5 * palette[0].b + 3 * palette[1].b) / 8);
             palette[2].a = 255;
-            palette[3].r = (u8) ((palette[0].r + 2 * palette[1].r) / 3);
-            palette[3].g = (u8) ((palette[0].g + 2 * palette[1].g) / 3);
-            palette[3].b = (u8) ((palette[0].b + 2 * palette[1].b) / 3);
+            palette[3].r = (u8) ((3 * palette[0].r + 5 * palette[1].r) / 8);
+            palette[3].g = (u8) ((3 * palette[0].g + 5 * palette[1].g) / 8);
+            palette[3].b = (u8) ((3 * palette[0].b + 5 * palette[1].b) / 8);
             palette[3].a = 255;
         } else {
             palette[2].r = (u8) ((palette[0].r + palette[1].r) / 2);
@@ -459,6 +464,8 @@ static GXColor gx_texture_sample(const GXSWTexture* texture, f32 s, f32 t)
 
 static void gx_rasterize(void)
 {
+    gx_trace_draws++;
+    gx_trace_vertices += gx_vertex_count;
     if (gx_skip_raster || gx_vertex_count == 0) {
         return;
     }
@@ -517,6 +524,30 @@ static void gx_rasterize(void)
             }
         }
     }
+}
+
+static void gx_trace_frame(void)
+{
+    if (!gx_trace_enabled) {
+        return;
+    }
+    gx_trace_copies++;
+    if (gx_trace_copies > 5 && gx_trace_copies % 60 != 0) {
+        return;
+    }
+    u32 colored = 0;
+    for (size_t i = 0; i < (size_t) gx_efb_width * gx_efb_height; i++) {
+        if (gx_efb[i].r || gx_efb[i].g || gx_efb[i].b) {
+            colored++;
+        }
+    }
+    fprintf(stderr,
+            "[native-gx] copy=%llu draws=%llu vertices=%llu fragments=%llu "
+            "colored=%u\n",
+            (unsigned long long) gx_trace_copies,
+            (unsigned long long) gx_trace_draws,
+            (unsigned long long) gx_trace_vertices,
+            (unsigned long long) gx_trace_fragments, colored);
 }
 
 static bool gx_dl_read_u8(const u8** cursor, const u8* end, u8* value)
@@ -932,22 +963,75 @@ static bool gx_dl_skip_state_command(u8 command, const u8** cursor,
     *cursor += payload_size;
     return true;
 }
-GXRenderModeObj GXNtsc480Int = { .fbWidth = 640,
-                                 .efbHeight = 480,
-                                 .xfbHeight = 480,
-                                 .viWidth = 640,
-                                 .viHeight = 480 };
-GXRenderModeObj GXNtsc480IntDf = { .fbWidth = 640,
-                                   .efbHeight = 480,
-                                   .xfbHeight = 480,
-                                   .viWidth = 640,
-                                   .viHeight = 480 };
-GXRenderModeObj GXNtsc480Prog = { .viTVmode = 2,
-                                  .fbWidth = 640,
-                                  .efbHeight = 480,
-                                  .xfbHeight = 480,
-                                  .viWidth = 640,
-                                  .viHeight = 480 };
+GXRenderModeObj GXNtsc480Int = {
+    .viTVmode = 0,
+    .fbWidth = 640,
+    .efbHeight = 480,
+    .xfbHeight = 480,
+    .viXOrigin = 40,
+    .viWidth = 640,
+    .viHeight = 480,
+    .xFBmode = 1,
+    .sample_pattern = { { 6, 6 },
+                        { 6, 6 },
+                        { 6, 6 },
+                        { 6, 6 },
+                        { 6, 6 },
+                        { 6, 6 },
+                        { 6, 6 },
+                        { 6, 6 },
+                        { 6, 6 },
+                        { 6, 6 },
+                        { 6, 6 },
+                        { 6, 6 } },
+    .vfilter = { 0, 0, 21, 22, 21, 0, 0 },
+};
+GXRenderModeObj GXNtsc480IntDf = {
+    .viTVmode = 0,
+    .fbWidth = 640,
+    .efbHeight = 480,
+    .xfbHeight = 480,
+    .viXOrigin = 40,
+    .viWidth = 640,
+    .viHeight = 480,
+    .xFBmode = 1,
+    .sample_pattern = { { 6, 6 },
+                        { 6, 6 },
+                        { 6, 6 },
+                        { 6, 6 },
+                        { 6, 6 },
+                        { 6, 6 },
+                        { 6, 6 },
+                        { 6, 6 },
+                        { 6, 6 },
+                        { 6, 6 },
+                        { 6, 6 },
+                        { 6, 6 } },
+    .vfilter = { 8, 8, 10, 12, 10, 8, 8 },
+};
+GXRenderModeObj GXNtsc480Prog = {
+    .viTVmode = 2,
+    .fbWidth = 640,
+    .efbHeight = 480,
+    .xfbHeight = 480,
+    .viXOrigin = 40,
+    .viWidth = 640,
+    .viHeight = 480,
+    .xFBmode = 0,
+    .sample_pattern = { { 6, 6 },
+                        { 6, 6 },
+                        { 6, 6 },
+                        { 6, 6 },
+                        { 6, 6 },
+                        { 6, 6 },
+                        { 6, 6 },
+                        { 6, 6 },
+                        { 6, 6 },
+                        { 6, 6 },
+                        { 6, 6 },
+                        { 6, 6 } },
+    .vfilter = { 0, 0, 21, 22, 21, 0, 0 },
+};
 GXFifoObj* GXInit(void* buffer, u32 size)
 {
     (void) buffer;
@@ -960,6 +1044,10 @@ GXFifoObj* GXInit(void* buffer, u32 size)
     gx_depth = NULL;
     gx_ensure_efb();
     gx_skip_raster = gx_should_skip_raster();
+    const char* trace = getenv("MELEE_GX_TRACE");
+    gx_trace_enabled = trace != NULL && trace[0] != '0' && trace[0] != '\0';
+    gx_trace_draws = gx_trace_vertices = gx_trace_fragments = gx_trace_copies =
+        0;
     memset(gx_projection, 0, sizeof gx_projection);
     memset(gx_scissor, 0, sizeof gx_scissor);
     memset(gx_vtx_state, 0, sizeof gx_vtx_state);
@@ -1094,9 +1182,10 @@ static void gx_stream_float(f32 value)
 GX_WRITE1(GXParam, u8, 1)
 GX_WRITE1(GXParam, u16, 2)
 GX_WRITE1(GXParam, u32, 4)
-GX_WRITE1(GXParam, s8, 1) GX_WRITE1(GXParam, s16, 2) GX_WRITE1(GXParam, s32, 4)
-    GX_FLOAT1(GXParam)
-        GX_FLOAT3(GXParam) void GXParam4f32(f32 x, f32 y, f32 z, f32 w)
+GX_WRITE1(GXParam, s8, 1)
+GX_WRITE1(GXParam, s16, 2)
+GX_WRITE1(GXParam, s32, 4) GX_FLOAT1(GXParam)
+    GX_FLOAT3(GXParam) void GXParam4f32(f32 x, f32 y, f32 z, f32 w)
 {
     GXParam3f32(x, y, z);
     gx_stream_float(w);
@@ -1104,14 +1193,15 @@ GX_WRITE1(GXParam, s8, 1) GX_WRITE1(GXParam, s16, 2) GX_WRITE1(GXParam, s32, 4)
 GX_FLOAT2(GXPosition)
 GX_FLOAT3(GXPosition)
 GX_WRITE2(GXPosition, u8, 1)
-GX_WRITE3(GXPosition, u8, 1) GX_WRITE2(GXPosition, s8, 1)
-    GX_WRITE3(GXPosition, s8, 1) GX_WRITE2(GXPosition, u16, 2)
-        GX_WRITE3(GXPosition, u16, 2) GX_WRITE2(GXPosition, s16, 2)
-            GX_WRITE3(GXPosition, s16, 2) GX_FLOAT3(GXNormal)
-                GX_WRITE3(GXNormal, s8, 1) GX_WRITE3(GXNormal, s16, 2)
-                    GX_WRITE1(GXColor, u16, 2) GX_WRITE1(GXColor, u32, 4)
-                        GX_WRITE3(GXColor, u8, 1) void GXColor4u8(u8 r, u8 g,
-                                                                  u8 b, u8 a)
+GX_WRITE3(GXPosition, u8, 1)
+GX_WRITE2(GXPosition, s8, 1)
+GX_WRITE3(GXPosition, s8, 1) GX_WRITE2(GXPosition, u16, 2)
+    GX_WRITE3(GXPosition, u16, 2) GX_WRITE2(GXPosition, s16, 2)
+        GX_WRITE3(GXPosition, s16, 2) GX_FLOAT3(GXNormal)
+            GX_WRITE3(GXNormal, s8, 1) GX_WRITE3(GXNormal, s16, 2)
+                GX_WRITE1(GXColor, u16, 2) GX_WRITE1(GXColor, u32, 4)
+                    GX_WRITE3(GXColor, u8, 1) void GXColor4u8(u8 r, u8 g, u8 b,
+                                                              u8 a)
 {
     GXColor3u8(r, g, b);
     gx_stream_write(a, 1);
@@ -1119,10 +1209,11 @@ GX_WRITE3(GXPosition, u8, 1) GX_WRITE2(GXPosition, s8, 1)
 GX_FLOAT1(GXTexCoord)
 GX_FLOAT2(GXTexCoord)
 GX_WRITE1(GXTexCoord, u8, 1)
-GX_WRITE2(GXTexCoord, u8, 1) GX_WRITE1(GXTexCoord, s8, 1)
-    GX_WRITE2(GXTexCoord, s8, 1) GX_WRITE1(GXTexCoord, u16, 2)
-        GX_WRITE2(GXTexCoord, u16, 2) GX_WRITE1(GXTexCoord, s16, 2)
-            GX_WRITE2(GXTexCoord, s16, 2) GX_WRITE1(GXMatrixIndex, u8, 1)
+GX_WRITE2(GXTexCoord, u8, 1)
+GX_WRITE1(GXTexCoord, s8, 1)
+GX_WRITE2(GXTexCoord, s8, 1) GX_WRITE1(GXTexCoord, u16, 2)
+    GX_WRITE2(GXTexCoord, u16, 2) GX_WRITE1(GXTexCoord, s16, 2)
+        GX_WRITE2(GXTexCoord, s16, 2) GX_WRITE1(GXMatrixIndex, u8, 1)
 #define GX_INDEX(name)                                                        \
     void name##1x8(u8 x)                                                      \
     {                                                                         \
@@ -1132,8 +1223,8 @@ GX_WRITE2(GXTexCoord, u8, 1) GX_WRITE1(GXTexCoord, s8, 1)
     {                                                                         \
         gx_stream_write(x, 2);                                                \
     }
-                GX_INDEX(GXPosition) GX_INDEX(GXNormal) GX_INDEX(GXColor)
-                    GX_INDEX(GXTexCoord)
+            GX_INDEX(GXPosition) GX_INDEX(GXNormal) GX_INDEX(GXColor)
+                GX_INDEX(GXTexCoord)
 #undef GX_INDEX
 #undef GX_WRITE1
 #undef GX_WRITE2
@@ -1142,9 +1233,8 @@ GX_WRITE2(GXTexCoord, u8, 1) GX_WRITE1(GXTexCoord, s8, 1)
 #undef GX_FLOAT2
 #undef GX_FLOAT3
 
-                        u32
-    GXGetTexBufferSize(u16 width, u16 height, u32 format, u8 mipmap,
-                       u8 max_lod)
+                    u32 GXGetTexBufferSize(u16 width, u16 height, u32 format,
+                                           u8 mipmap, u8 max_lod)
 {
     u32 x_shift;
     u32 y_shift;

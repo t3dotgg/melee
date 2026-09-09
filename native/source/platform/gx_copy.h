@@ -248,6 +248,7 @@ void GXSetDispCopyGamma(GXGamma gamma)
 void GXCopyDisp(void* dest, GXBool clear)
 {
     gx_ensure_efb();
+    gx_trace_frame();
     unsigned width = gx_copy_disp_src.width;
     if (width > gx_copy_disp_width) {
         width = gx_copy_disp_width;

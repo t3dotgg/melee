@@ -6,6 +6,7 @@
 #include "gx_fog_cases.h"
 #include "gx_raster_cases.h"
 #include "gx_tev_cases.h"
+#include "gx_texture_cases.h"
 #include "gx_transform_cases.h"
 #include <dolphin/gx.h>
 
@@ -168,6 +169,7 @@ int main(void)
     memset(xfb, 0, sizeof xfb);
     GXCopyDisp(xfb, GX_FALSE);
     assert(xfb[(32 * 64 + 32) * 2] > 0xc0);
+    test_gx_texture_cases();
     test_gx_fog_cases();
     test_gx_raster_cases();
     test_gx_copy_cases();

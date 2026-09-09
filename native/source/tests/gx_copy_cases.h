@@ -9,6 +9,25 @@ static void test_gx_copy_cases(void)
     u8 display[16 * 8 * 2];
     u32 color, depth;
     GXInit(NULL, 0);
+    /* Exercise the render-mode filters used by real display copies. A
+     * zero-filled mode object would turn this white framebuffer black. */
+    for (u16 y = 0; y < 8; y++) {
+        for (u16 x = 0; x < 16; x++) {
+            GXPokeARGB(x, y, 0xffffffff);
+        }
+    }
+    GXSetDispCopySrc(0, 0, 16, 8);
+    GXSetDispCopyDst(16, 8);
+    GXRenderModeObj* modes[] = { &GXNtsc480Int, &GXNtsc480IntDf,
+                                 &GXNtsc480Prog };
+    for (u32 i = 0; i < 3; i++) {
+        GXSetCopyFilter(GX_FALSE, modes[i]->sample_pattern, GX_TRUE,
+                        modes[i]->vfilter);
+        GXCopyDisp(display, GX_FALSE);
+        assert(display[(3 * 16 + 2) * 2] == 255);
+        assert(display[(3 * 16 + 2) * 2 + 1] == 255);
+    }
+    GXInit(NULL, 0);
     GXPokeAlphaRead(GX_READ_NONE);
     GXPokeARGB(2, 3, 0x80402010);
     GXPokeZ(2, 3, 0x123456);

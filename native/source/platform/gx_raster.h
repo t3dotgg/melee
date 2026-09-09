@@ -214,6 +214,7 @@ static void gx_plot(s32 x, s32 y, const GXSWVertex* vertex)
     }
     color = gx_fog_apply(color, depth, x);
     gx_efb[index] = gx_blend_pixel(color, gx_efb[index]);
+    gx_trace_fragments++;
 }
 
 static u8 gx_interpolate_byte(u8 a, u8 b, u8 c, f32 wa, f32 wb, f32 wc)
