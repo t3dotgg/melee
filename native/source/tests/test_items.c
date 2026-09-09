@@ -3,6 +3,7 @@
 #include <string.h>
 
 #include "../assets/items.h"
+#include "../assets/items_special.h"
 #include <melee/gr/types.h>
 #include <melee/it/it_3F14.h>
 #include <melee/it/types.h>
@@ -277,6 +278,44 @@ static void test_variable_state_count(void)
     NativeArchiveClose(archive);
 }
 
+static void test_special_variants(void)
+{
+    Fixture fixture = fixture_new();
+    NativeArchive* archive = NULL;
+    NativeArchiveGraph* graph = NULL;
+    NativeArchiveError error = { 0 };
+    /* ItCo.usd points directly to a six-word proximity mine record and a
+     * one-word cloak record. ItCo.dat places extra variants beside them. */
+    word(&fixture, 0xb28, 0x3fc00000);
+    word(&fixture, 0xb3c, 0x40800000);
+    word(&fixture, 0xe04, 900);
+    word(&fixture, 0xc24, 8);
+    fixture_finish(&fixture);
+    CHECK(NativeArchiveOpen(fixture.file, fixture.size, &archive, &error) ==
+          NATIVE_ARCHIVE_OK);
+    CHECK(NativeArchiveGraphOpen(archive, &graph, &error) ==
+          NATIVE_ARCHIVE_OK);
+    NativeItemArchive* items = NativeItemArchiveOpen(archive, graph);
+    void* output = NULL;
+    CHECK(NativeItemSpecialRead(items, It_Kind_MSBomb, 0xb28, &output,
+                                &error) == NATIVE_ARCHIVE_OK);
+    CHECK(((float*) output)[0] == 1.5f && ((float*) output)[5] == 4.0f);
+    CHECK(NativeItemSpecialRead(items, It_Kind_Spycloak, 0xe04, &output,
+                                &error) == NATIVE_ARCHIVE_OK);
+    CHECK(*(int*) output == 900);
+    /* The Warp Star caller has seven candidate slots on its stack. */
+    CHECK(NativeItemSpecialRead(items, It_Kind_WStar, 0xc00, &output,
+                                &error) == NATIVE_ARCHIVE_INVALID);
+    CHECK(output == NULL);
+    /* A relocated field cannot stand in for a numeric item attribute. */
+    CHECK(NativeItemSpecialRead(items, It_Kind_Capsule, 0xd60, &output,
+                                &error) == NATIVE_ARCHIVE_TYPE_CONFLICT);
+    CHECK(output == NULL);
+    NativeItemArchiveClose(items);
+    NativeArchiveGraphClose(graph);
+    NativeArchiveClose(archive);
+}
+
 static void test_local_archive(const char* path)
 {
     FILE* file = fopen(path, "rb");
@@ -326,6 +365,7 @@ int main(int argc, char** argv)
     test_public_data();
     test_invalid_hurtbone_count();
     test_variable_state_count();
+    test_special_variants();
     for (int i = 1; i < argc; i++) {
         test_local_archive(argv[i]);
     }
