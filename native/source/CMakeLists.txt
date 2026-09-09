@@ -129,6 +129,10 @@ target_link_libraries(test_item_spawn PRIVATE melee_host_options)
 target_link_options(test_item_spawn PRIVATE -Wl,-dead_strip)
 add_test(NAME item_spawn COMMAND test_item_spawn)
 
+add_executable(test_event_archive tests/test_event_archive.c assets/events.c assets/archive.c platform/report.c)
+target_link_libraries(test_event_archive PRIVATE melee_host_options)
+add_test(NAME event_archive COMMAND test_event_archive)
+
 add_executable(test_effects tests/test_effects.c)
 target_sources(test_effects PRIVATE "${MELEE_ROOT}/src/melee/ef/eflib.c")
 target_link_libraries(test_effects PRIVATE melee_host_options)
