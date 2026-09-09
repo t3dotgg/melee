@@ -151,10 +151,9 @@ static void* native_thread_main(void* argument)
 {
     NativeThreadSlot* slot = argument;
     native_current_thread = slot->thread;
-    void* result = slot->entry(slot->argument);
-    slot->thread->val = result;
-    slot->thread->state = OS_THREAD_STATE_MORIBUND;
-    return result;
+    /* The caller can allocate OSThread on its stack. Do not touch it after
+     * the entry point returns, because that stack may already be gone. */
+    return slot->entry(slot->argument);
 }
 
 void OSInitThreadQueue(OSThreadQueue* queue)
