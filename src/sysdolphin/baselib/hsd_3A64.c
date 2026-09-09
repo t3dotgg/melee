@@ -247,7 +247,11 @@ int HSD_SisLib_803A6B98(HSD_Text* text, float x, float y, const char* fmt, ...)
     encoded[0] = 0;
     if (fmt) {
         va_start(args, fmt);
+#ifdef MELEE_NATIVE
+        vsnprintf((char*) buffer, sizeof buffer, fmt, args);
+#else
         vsnprintf((char*) buffer, -1, fmt, args);
+#endif
         va_end(args);
         encoded_len = HSD_SisLib_803A67EC(encoded, buffer);
     }
@@ -381,7 +385,11 @@ s32 HSD_SisLib_803A70A0(HSD_Text* text, s32 entry_idx, char* fmt, ...)
         playhead = entry + 0xE;
         if (fmt != NULL) {
             va_start(args, fmt);
+#ifdef MELEE_NATIVE
+            vsnprintf((char*) buffer, sizeof buffer, fmt, args);
+#else
             vsnprintf((char*) buffer, -1, fmt, args);
+#endif
             va_end(args);
             new_size = HSD_SisLib_803A67EC(encoded, buffer);
         } else {
