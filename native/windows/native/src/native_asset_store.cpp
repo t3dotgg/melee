@@ -59,6 +59,12 @@ bool NativeAssetStore::cancel(RequestId request_id)
     const auto it = cancellation_.find(request_id);
     if (it == cancellation_.end()) return false;
     it->second->store(true, std::memory_order_release);
+    const auto completed = completed_.find(request_id);
+    if (completed != completed_.end()) {
+        completed->second.result.status = AssetStatus::Cancelled;
+        completed->second.result.data.clear();
+        completed->second.result.error.clear();
+    }
     return true;
 }
 

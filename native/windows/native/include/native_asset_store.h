@@ -4,6 +4,7 @@
 #include "native_filesystem.h"
 
 #include <atomic>
+#include <cstddef>
 #include <condition_variable>
 #include <cstdint>
 #include <deque>
