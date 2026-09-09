@@ -134,10 +134,10 @@ struct ToyGlobalsS_ {
 };
 
 struct TyFiguponED4 {
-    /* 0x00 */ u32 x0;
-    /* 0x04 */ u32 x4;
-    /* 0x08 */ u8 pad_08[0x4];
-    /* 0x0C */ u32 xC;
+    /* 0x00 */ HSD_GObj* x0;
+    /* 0x04 */ HSD_GObj* x4;
+    /* 0x08 */ HSD_GObj* x8;
+    /* 0x0C */ HSD_Archive* xC;
 };
 
 struct TyDisplayData {
@@ -163,7 +163,16 @@ struct ToyListEntry {
 
 struct Toy26B8 {
     /* 0x000 */ Vec3 x0;
+#ifdef MELEE_NATIVE
+    /* The native build stores the mode flags and animation state together. */
+    u8 pad_00C[0x194 - 0x00C];
+    union {
+        u16 mode_data[302];
+        struct {
+            s8 x194;
+#else
     /* 0x00C */ u8 pad_00C[0x195 - 0x00C];
+#endif
     /* 0x195 */ s8 x195;
     /* 0x196 */ s8 x196;
     /* 0x197 */ u8 x197;
@@ -176,6 +185,10 @@ struct Toy26B8 {
     /* 0x3EA */ s16 selectedTrophyId;
     /* 0x3EC */ s16 trophy_count;
     /* 0x3EE */ u8 pad_3EE[0x3F0 - 0x3EE];
+#ifdef MELEE_NATIVE
+        };
+    };
+#endif
     /* 0x3F0 */ union {
         ToyAnimState anim;
         void* x3F0;
@@ -201,7 +214,7 @@ struct TyFiguponData {
     /* 0x04 */ HSD_GObj* x4;
     /* 0x08 */ HSD_GObj* x8;
     /* 0x0C */ u8 pad_0C[0x4];
-    /* 0x10 */ s32 x10;
+    /* 0x10 */ HSD_GObjProc* x10;
     /* 0x14 */ HSD_Text* x14;
     /* 0x18 */ HSD_Text* x18;
     /* 0x1C */ u8 pad_1C[0x4];
@@ -329,9 +342,9 @@ struct DigitInit {
 };
 
 struct TyLightData {
-    /* 0x00 */ u8 pad[4];
+    /* 0x00 */ HSD_GObj* x00;
     /* 0x04 */ HSD_GObj* gobj;
-    /* 0x08 */ u8 pad8[4];
+    /* 0x08 */ HSD_GObj* x08;
     /* 0x0C */ HSD_Archive* archive;
 };
 
@@ -402,7 +415,9 @@ struct TyLightGObj_ {
 struct TyLightArray_ {
     void* x0;
     TyLightGObj_* x4;
-    u8 pad08[0x14 - 0x08];
+    HSD_GObj* x08;
+    HSD_Archive* archive;
+    s32 x10;
     f32 x14;
     f32 x18;
     s32 x1C;
@@ -464,7 +479,7 @@ struct ToyCameraControl {
     /*  +0 */ HSD_GObj* x00;
     /*  +4 */ HSD_GObj* x04;
     /*  +8 */ HSD_GObj* x08;
-    /*  +C */ u8 pad[0x4];
+    /*  +C */ HSD_Archive* archive;
     /* +10 */ s32 x10;
     /* +14 */ f32 x14;
     /* +18 */ f32 x18;
@@ -569,13 +584,13 @@ struct ToyED8Data {
     /* 0x54 */ u32 x54;
     UNK_T x58;
 };
-STATIC_ASSERT(offsetof(struct ToyED8Data, x0) == 0x0);
-STATIC_ASSERT(offsetof(struct ToyED8Data, gobj) == 0x4);
-STATIC_ASSERT(offsetof(struct ToyED8Data, xC) == 0xC);
-STATIC_ASSERT(offsetof(struct ToyED8Data, jobjs) == 0x18);
-STATIC_ASSERT(offsetof(struct ToyED8Data, x30) == 0x30);
-STATIC_ASSERT(offsetof(struct ToyED8Data, archive) == 0x50);
-STATIC_ASSERT(offsetof(struct ToyED8Data, x54) == 0x54);
+ASSERT_OFFSET(struct ToyED8Data, x0, 0x0);
+ASSERT_OFFSET(struct ToyED8Data, gobj, 0x4);
+ASSERT_OFFSET(struct ToyED8Data, xC, 0xC);
+ASSERT_OFFSET(struct ToyED8Data, jobjs, 0x18);
+ASSERT_OFFSET(struct ToyED8Data, x30, 0x30);
+ASSERT_OFFSET(struct ToyED8Data, archive, 0x50);
+ASSERT_OFFSET(struct ToyED8Data, x54, 0x54);
 ASSERT_SIZE(struct ToyED8Data, 0x5C);
 struct TyArchiveData {
     HSD_GObj* gobj;

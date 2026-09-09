@@ -155,7 +155,11 @@ void efLib_Init(void)
 {
     HSD_GObj* gobj;
     int i;
+#ifdef MELEE_NATIVE
+    HSD_ObjAllocInit(&efLib_AllocData, sizeof(EF_Effect), _Alignof(EF_Effect));
+#else
     HSD_ObjAllocInit(&efLib_AllocData, sizeof(EF_Effect), 4U);
+#endif
 
     efLib_EffectCount = 0;
 
@@ -523,7 +527,11 @@ EF_Effect* efLib_Create(int gfx_id, HSD_GObj* parent_gobj)
                 {
                     s32 temp_r5_2 = efLib_AnimCount;
                     efLib_AnimCount++;
+#ifdef MELEE_NATIVE
+                    efLib_AnimQueue[temp_r5_2] = jobj;
+#else
                     ((HSD_JObj**) efLib_AnimQueue)[temp_r5_2] = jobj;
+#endif
                     if (efLib_AnimCount >= 32) {
                         HSD_ASSERTREPORT(224, 0, "Over Anime Call\n");
                     }
@@ -1351,7 +1359,11 @@ void efLib_Cb_ftKp_SpecialHi(EF_Effect* effect)
     } else {
         HSD_JObjSetFlagsAll(jobj_2, JOBJ_HIDDEN);
     }
+#ifdef MELEE_NATIVE
+    if ((fighter->cmd_vars[2] & 1) && fighter->mv.co.common.x10 != NULL) {
+#else
     if ((fighter->cmd_vars[2] & 1) && ((s32) fighter->mv.co.common.x10 != 0)) {
+#endif
         rotate_z = -atan2f(fighter->coll_data.floor.normal.x,
                            fighter->coll_data.floor.normal.y);
         HSD_JObjSetRotationZ(jobj_1, rotate_z);
@@ -1392,16 +1404,16 @@ void efLib_SetTevKonstColor(HSD_JObj* jobj, s32 count, u32 konst, u32 tev0)
     tobj->tev->tev0.b = tev0 & 0xFF;
 }
 
-// JObj animation queue!
+// Effect joints wait here until the spawn handler applies their animations.
+// The matching build keeps both globals as EF_ParamEntry arrays because the
+// original code addresses the parameter table through the animation queue.
+// Native code uses separate arrays with their actual element types.
 
-// Effect JObjs are appended during efLib_Create, then HSD_JObjAnimAll is
-// called on each at end-of-frame. Currently you have to cast to HSD_JObj**
-// while keeping its type as EF_ParamEntry[0x10] for matching purposes...
-// (compiler bases the efLib_ParamTable address off this array for some reason
-// (???), so both must be the same type x_X ... if you can figure out a way
-// around this pls fix ty).
-
+#ifdef MELEE_NATIVE
+HSD_JObj* efLib_AnimQueue[0x20];
+#else
 /* 458EE0 */ EF_ParamEntry efLib_AnimQueue[0x10];
+#endif
 
 // Stores gobj effect params (gfx_id, alpha)
 // Used by efLib_Cb_ApplyStoredAlpha to set TEV konst alpha.
@@ -1412,8 +1424,11 @@ void efLib_SetParamAlpha(HSD_GObj* gobj, u8 alpha)
 {
     s32 idx;
 
-    // WHY
+#ifdef MELEE_NATIVE
+    EF_ParamEntry* base = efLib_ParamTable;
+#else
     EF_ParamEntry* base = efLib_AnimQueue + 0x10;
+#endif
 
     for (idx = 0; idx < 8; idx++) {
         if (base[idx].gobj == gobj) {
@@ -1428,17 +1443,24 @@ void efLib_SetParamAlpha(HSD_GObj* gobj, u8 alpha)
     return;
 
 found:
-    // WHY
+#ifdef MELEE_NATIVE
+    base[idx].gobj = gobj;
+    base[idx].alpha = alpha;
+#else
     efLib_AnimQueue[idx + 0x10].gobj = gobj;
     efLib_AnimQueue[idx + 0x10].alpha = alpha;
+#endif
 }
 
 void efLib_SetParamGfxId(HSD_GObj* gobj, s32 gfx_id)
 {
     s32 idx;
 
-    // WHY
+#ifdef MELEE_NATIVE
+    EF_ParamEntry* base = efLib_ParamTable;
+#else
     EF_ParamEntry* base = efLib_AnimQueue + 0x10;
+#endif
 
     for (idx = 0; idx < 8; idx++) {
         if (base[idx].gobj == gobj) {
@@ -1453,9 +1475,13 @@ void efLib_SetParamGfxId(HSD_GObj* gobj, s32 gfx_id)
     return;
 
 found:
-    // WHY
+#ifdef MELEE_NATIVE
+    base[idx].gobj = gobj;
+    base[idx].gfx_id = gfx_id;
+#else
     efLib_AnimQueue[idx + 0x10].gobj = gobj;
     efLib_AnimQueue[idx + 0x10].gfx_id = gfx_id;
+#endif
 }
 
 void efLib_Cb_ApplyStoredAlpha(EF_Effect* effect)
