@@ -789,11 +789,11 @@ static void test_unsupported_animation_and_wobj(void)
     NativeArchive* archive = open_fixture(&fixture);
     NativeArchiveGraph* graph = open_graph(archive);
     NativeArchiveError error = { 0 };
-    HSD_AnimJoint* animation = (HSD_AnimJoint*) (uintptr_t) 1;
-    CHECK(NativeArchiveAnimation(graph, 0, &animation, &error) ==
-          NATIVE_ARCHIVE_UNSUPPORTED);
-    CHECK(animation == NULL);
-    CHECK(error.offset == HEADER_SIZE + 12);
+    HSD_AnimJoint* animation = NULL;
+    CHECK(NativeArchiveAnimation(graph, 0, &animation, &error) == NATIVE_ARCHIVE_OK);
+    CHECK(animation != NULL && animation->robj_anim != NULL);
+    CHECK(animation->robj_anim->next == NULL);
+    CHECK(animation->robj_anim->aobjdesc == NULL);
     NativeArchiveGraphClose(graph);
     NativeArchiveClose(archive);
     fixture = fixture_new(40);

@@ -854,14 +854,11 @@ static bool convert_node(NativeArchiveGraph* graph, Node* node)
     }
     case SCHEMA_ANIMATION: {
         HSD_AnimJoint* animation = node->value;
-        if (!unsupported_link(graph, offset + 12,
-                              "animation constraint schema is not implemented")) {
-            return false;
-        }
         animation->flags = NativeArchiveBE32(bytes + 16);
         animation->child = link_node(graph, offset, SCHEMA_ANIMATION, 0);
         animation->next = link_node(graph, offset + 4, SCHEMA_ANIMATION, 0);
         animation->aobjdesc = link_node(graph, offset + 8, SCHEMA_AOBJ, 0);
+        animation->robj_anim = link_node(graph, offset + 12, SCHEMA_ROBJANIM, 0);
         break;
     }
     case SCHEMA_AOBJ: {
