@@ -24,6 +24,10 @@ static NativeHeap* heaps;
 static int heap_count;
 static void* arena_lo;
 static void* arena_hi;
+/* OSSetArenaLo moves the allocation cursor. Heap bounds must continue to use
+ * the full arena, because the game creates heaps after moving that cursor. */
+static void* arena_base_lo;
+static void* arena_base_hi;
 volatile OSHeapHandle __OSCurrHeap = -1;
 
 static bool round_up_uintptr(uintptr_t value, size_t align, uintptr_t* result)
@@ -83,6 +87,8 @@ void* OSInitAlloc(void* start, void* end, int max_heaps)
     __OSCurrHeap = -1;
     arena_lo = (void*) low;
     arena_hi = (void*) high;
+    arena_base_lo = (void*) low;
+    arena_base_hi = (void*) high;
     return (void*) low;
 }
 
@@ -92,8 +98,8 @@ int OSCreateHeap(void* start, void* end)
     uintptr_t high = OSRoundDown32B(end);
     int handle = -1;
     int i;
-    if ((uintptr_t) start < (uintptr_t) arena_lo ||
-        (uintptr_t) end > (uintptr_t) arena_hi ||
+    if ((uintptr_t) start < (uintptr_t) arena_base_lo ||
+        (uintptr_t) end > (uintptr_t) arena_base_hi ||
         (uintptr_t) start > UINTPTR_MAX - 31) {
         return -1;
     }
