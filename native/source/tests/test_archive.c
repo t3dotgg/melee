@@ -834,6 +834,52 @@ static void test_external_chains(void)
     reject_file(&fixture, fixture.size);
 }
 
+static void test_envelope_graph(void)
+{
+    Fixture fixture = fixture_new(224);
+    reference(&fixture, 8, 64);
+    reference(&fixture, 16, 128);
+    reference(&fixture, 128 + 12, 144);
+    word(&fixture, 144 + 12, POBJ_ENVELOPE << 16);
+    reference(&fixture, 144 + 20, 168);
+    reference(&fixture, 168, 180);
+    reference(&fixture, 172, 180);
+    reference(&fixture, 180, 0);
+    word(&fixture, 184, 0x3e800000); /* 0.25 */
+    reference(&fixture, 188, 64);
+    word(&fixture, 192, 0x3f400000); /* 0.75 */
+    NativeArchive* archive = open_fixture(&fixture);
+    NativeArchiveGraph* graph = open_graph(archive);
+    NativeArchiveError error = { 0 };
+    HSD_Joint* joint = NULL;
+    CHECK(NativeArchiveJoint(graph, 0, &joint, &error) == NATIVE_ARCHIVE_OK);
+    HSD_EnvelopeDesc** table = joint->u.dobjdesc->pobjdesc->u.envelope_p;
+    CHECK(table != NULL && table[0] == table[1] && table[2] == NULL);
+    CHECK(table[0][0].joint == joint && table[0][0].weight == 0.25f);
+    CHECK(table[0][1].joint == joint->child && table[0][1].weight == 0.75f);
+    CHECK(table[0][2].joint == NULL);
+    check_host_pointer(&fixture, table);
+    check_host_pointer(&fixture, table[0]);
+    NativeArchiveGraphClose(graph);
+    NativeArchiveClose(archive);
+
+    /* An envelope list at the end of the data must include its terminator. */
+    fixture = fixture_new(180);
+    reference(&fixture, 16, 64);
+    reference(&fixture, 64 + 12, 80);
+    word(&fixture, 80 + 12, POBJ_ENVELOPE << 16);
+    reference(&fixture, 80 + 20, 104);
+    reference(&fixture, 104, 172);
+    reference(&fixture, 172, 0);
+    word(&fixture, 176, 0x3f800000);
+    archive = open_fixture(&fixture);
+    graph = open_graph(archive);
+    CHECK(NativeArchiveJoint(graph, 0, &joint, &error) == NATIVE_ARCHIVE_BOUNDS);
+    CHECK(joint == NULL && error.offset == HEADER_SIZE + 172);
+    NativeArchiveGraphClose(graph);
+    NativeArchiveClose(archive);
+}
+
 static void test_joint_constraints(void)
 {
     Fixture fixture = fixture_new(196);
@@ -1157,6 +1203,7 @@ int main(void)
     test_bad_relocations();
     test_bad_symbols();
     test_external_chains();
+    test_envelope_graph();
     test_joint_constraints();
     test_unsupported_joint_fields();
     test_unsupported_animation_and_wobj();

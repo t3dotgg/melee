@@ -30,6 +30,8 @@ typedef enum Schema {
     SCHEMA_MOBJ,
     SCHEMA_TOBJ,
     SCHEMA_POBJ,
+    SCHEMA_ENVELOPETBL,
+    SCHEMA_ENVELOPE,
     SCHEMA_VTXLIST,
     SCHEMA_MATERIAL,
     SCHEMA_PEDESC,
@@ -191,6 +193,32 @@ static bool vtxlist_length(NativeArchiveGraph* graph, uint32_t offset,
     return false;
 }
 
+/* Both envelope tables and weight lists end at a null joint reference.
+ * Consult relocations so a reference to the joint at offset zero stays valid. */
+static bool terminated_reference_length(NativeArchiveGraph* graph,
+                                        uint32_t offset, size_t stride,
+                                        size_t* length)
+{
+    size_t remaining = offset <= graph->archive->data_size
+                           ? graph->archive->data_size - offset
+                           : 0;
+    for (size_t at = 0; at <= remaining && stride <= remaining - at;
+         at += stride) {
+        uint32_t target;
+        bool present;
+        if (!read_reference(graph, offset + (uint32_t) at, &target, &present)) {
+            return false;
+        }
+        if (!present) {
+            *length = at + stride;
+            return true;
+        }
+    }
+    graph_fail(graph, NATIVE_ARCHIVE_BOUNDS, offset,
+               "descriptor array has no null terminator");
+    return false;
+}
+
 static bool grow_index(NativeArchiveGraph* graph)
 {
     size_t count = graph->bucket_count == 0 ? 64 : graph->bucket_count * 2;
@@ -279,6 +307,18 @@ static void* add_node(NativeArchiveGraph* graph, uint32_t offset,
     case SCHEMA_POBJ:
         disk_size = 24;
         host_size = sizeof(HSD_PObjDesc);
+        break;
+    case SCHEMA_ENVELOPETBL:
+        if (!terminated_reference_length(graph, offset, 4, &disk_size)) {
+            return NULL;
+        }
+        host_size = (disk_size / 4) * sizeof(HSD_EnvelopeDesc*);
+        break;
+    case SCHEMA_ENVELOPE:
+        if (!terminated_reference_length(graph, offset, 8, &disk_size)) {
+            return NULL;
+        }
+        host_size = (disk_size / 8) * sizeof(HSD_EnvelopeDesc);
         break;
     case SCHEMA_VTXLIST:
         if (length == 0 || length % 24 != 0) {
@@ -690,13 +730,30 @@ static bool convert_node(NativeArchiveGraph* graph, Node* node)
              * their joints and cameras. */
             break;
         case POBJ_ENVELOPE:
-            /* Envelope weights are optional for the native scene bootstrap.
-             * Leave the union empty until the envelope schema is available. */
+            pobj->u.envelope_p =
+                link_node(graph, offset + 20, SCHEMA_ENVELOPETBL, 0);
             break;
         default:
             graph_fail(graph, NATIVE_ARCHIVE_INVALID, offset + 12,
                        "polygon descriptor has invalid type flags");
             return false;
+        }
+        break;
+    }
+    case SCHEMA_ENVELOPETBL: {
+        HSD_EnvelopeDesc** table = node->value;
+        for (size_t i = 0; i + 1 < node->length / 4; ++i) {
+            table[i] = link_node(graph, offset + (uint32_t) i * 4,
+                                 SCHEMA_ENVELOPE, 0);
+        }
+        break;
+    }
+    case SCHEMA_ENVELOPE: {
+        HSD_EnvelopeDesc* weights = node->value;
+        for (size_t i = 0; i + 1 < node->length / 8; ++i) {
+            weights[i].joint = link_node(graph, offset + (uint32_t) i * 8,
+                                         SCHEMA_JOINT, 0);
+            weights[i].weight = read_float(bytes + i * 8 + 4);
         }
         break;
     }
