@@ -2,6 +2,9 @@
 
 #include <printf.h> // IWYU pragma: keep
 #include <stdio.h>
+#ifdef MELEE_NATIVE
+#include <stdlib.h>
+#endif
 
 #include "cobj.h"
 #include "gobj.h"
@@ -69,6 +72,24 @@ SIS* HSD_SisLib_804D1124[5];
 
 void* HSD_SisLib_Alloc(s32 size)
 {
+#ifdef MELEE_NATIVE
+    /* SIS metadata reuses its `next` field as a text cursor after allocation.
+     * The original 32-bit pool also uses that field for its used-list chain,
+     * which corrupts the list when host pointers are eight bytes. Keep SIS
+     * text allocations independent from that GameCube pool on the native
+     * target. */
+    void* allocation;
+    if (size <= 0) {
+        OSReport("Invalid SIS allocation size %d\n", size);
+        OSPanic(__FILE__, 60, "");
+    }
+    allocation = calloc(1, (size_t) size);
+    if (allocation == NULL) {
+        OSReport("SIS allocation failed (%d bytes)\n", size);
+        OSPanic(__FILE__, 0x56, "");
+    }
+    return allocation;
+#else
     SisBlock* best;
     SisBlock* alloc_tail;
     s32 remainder;
@@ -150,10 +171,15 @@ void* HSD_SisLib_Alloc(s32 size)
         used_head = best;
     }
     return best->data;
+#endif
 }
 
 void HSD_SisLib_Free(void* ptr)
 {
+#ifdef MELEE_NATIVE
+    free(ptr);
+    return;
+#else
     SisBlock* free_cur;
     SisBlock* free_tail;
     SisBlock* alloc_prev;
@@ -204,6 +230,7 @@ void HSD_SisLib_Free(void* ptr)
         used_head = alloc_cur->next;
     }
     alloc_cur->next = NULL;
+#endif
 }
 
 void HSD_SisLib_803A5A2C(void* ptr)

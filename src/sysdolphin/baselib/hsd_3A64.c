@@ -86,7 +86,13 @@ HSD_Text* HSD_SisLib_803A6754(int font_idx, int context_id)
 
     text = HSD_SisLib_803A5ACC(font_idx, context_id, 0.0F, 0.0F, 0.0F, 640.0F,
                                480.0F);
+#ifdef MELEE_NATIVE
+    /* sisLib_803A7664_t has two host pointers and two 32-bit fields. The
+     * original 0x10-byte allocation only fits its 32-bit layout. */
+    alloc = HSD_SisLib_Alloc(sizeof(sisLib_803A7664_t));
+#else
     alloc = HSD_SisLib_Alloc(0x10);
+#endif
     text->alloc_data = alloc;
     buffer = HSD_SisLib_Alloc(0x80);
     alloc->data = buffer;
