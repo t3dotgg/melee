@@ -19,6 +19,17 @@ ctest --test-dir build/native-shell --output-on-failure
 build/native-shell/melee_native_shell.exe --frames 120
 ```
 
+Pass `--training` to run the executable-facing two-fighter native rules slice;
+combine it with `--frames N` for a bounded smoke run:
+
+```powershell
+build/native-shell/melee_native_shell.exe --training --frames 120
+```
+
+The first Xbox pad drives player one. Player two is present in the simulation,
+collision pass, and render snapshot but remains idle until a multi-pad input
+source is wired in.
+
 `NativeGameMemory` stores bytes in host memory and provides explicit big-endian
 accessors for data that still needs that representation during migration.
 `NativeArchive` validates big-endian headers, bounds, names, and duplicate
