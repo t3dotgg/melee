@@ -393,8 +393,12 @@ void HSD_SisLib_803A5D30(void)
     while (curr != NULL) {
         HSD_Text* next = curr->next;
         if (curr->entity != NULL) {
-            HSD_GObjFree(curr->entity);
+            HSD_GObj* entity = curr->entity;
+            /* HSD_GObjFree invokes the user-data destructor. SIS uses
+             * that destructor to unlink and free `curr`, so clear the
+             * back pointer before the callback can release the text. */
             curr->entity = NULL;
+            HSD_GObjFree(entity);
         } else {
             HSD_SisLib_803A5A2C(curr);
         }
@@ -409,8 +413,12 @@ static inline void HSD_SisLib_803A5DA0_inline0(s32 font_idx)
         HSD_Text* next = curr->next;
         if (curr->font_idx == font_idx) {
             if (curr->entity != NULL) {
-                HSD_GObjFree(curr->entity);
+                HSD_GObj* entity = curr->entity;
+                /* HSD_GObjFree invokes the user-data destructor. SIS uses
+                 * that destructor to unlink and free `curr`, so clear the
+                 * back pointer before the callback can release the text. */
                 curr->entity = NULL;
+                HSD_GObjFree(entity);
             } else {
                 HSD_SisLib_803A5A2C(curr);
             }
