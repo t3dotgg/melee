@@ -500,7 +500,11 @@ void HSD_SisLib_803A84BC(HSD_GObj* gobj, intptr_t pass)
             }
             HSD_CObjGetViewingMtx(HSD_CObjGetCurrent(), (MtxPtr)&m);
         } else {
+#ifdef MELEE_NATIVE
+            Mtx44 projection_m;
+#else
             Mtx projection_m;
+#endif
 
             GXSetZMode(0U, 0U, 0U);
             GXSetViewport(0.0F, 0.0F, 640.0F, 480.0F, 0.0F, 1.0F);
