@@ -18,6 +18,7 @@
 #ifdef MELEE_NATIVE
 #include "../../../native/source/assets/archive_internal.h"
 #include "../../../native/source/assets/stage.h"
+#include "../../../native/source/assets/items.h"
 #include <sysdolphin/baselib/sislib.h>
 #endif
 
@@ -40,6 +41,7 @@ struct NativeArchiveBinding {
     NativeArchive* archive;
     NativeArchiveGraph* graph;
     NativeStageArchive* stage;
+    NativeItemArchive* items;
     NativeSisRoot* sis_roots;
     NativeSceneAllocation* scene_allocations;
     NativeArchiveBinding* next;
@@ -627,6 +629,13 @@ void* HSD_ArchiveNativePublicAddress(HSD_Archive* archive, const char* symbol)
         native_archive_error(symbol, &error);
         return NULL;
     }
+    NativeArchiveStatus item_status = NativeItemArchiveRead(
+        binding->items, symbol, offset, &root, &error);
+    if (item_status == NATIVE_ARCHIVE_OK) return root;
+    if (item_status != NATIVE_ARCHIVE_NOT_FOUND) {
+        native_archive_error(symbol, &error);
+        return NULL;
+    }
     if (strcmp(symbol, "map_ptcl") == 0 || strcmp(symbol, "map_texg") == 0) {
         /* The particle loader decodes these bank-relative byte streams. */
         if (NativeArchiveDataRange(binding->archive, offset, 12)) {
@@ -851,6 +860,7 @@ void HSD_ArchiveNativeRelease(HSD_Archive* archive)
         free(allocation);
         allocation = next;
     }
+    NativeItemArchiveClose(binding->items);
     NativeStageArchiveClose(binding->stage);
     NativeArchiveGraphClose(binding->graph);
     NativeArchiveClose(binding->archive);
@@ -904,6 +914,15 @@ void lbArchive_InitializeDAT(HSD_Archive* archive, void* data, size_t length)
     state->graph = graph;
     state->stage = NativeStageArchiveOpen(native, graph);
     if (state->stage == NULL) {
+        free(state);
+        NativeArchiveGraphClose(graph);
+        NativeArchiveClose(native);
+        HSD_ASSERT(73, 0);
+        return;
+    }
+    state->items = NativeItemArchiveOpen(native, graph);
+    if (state->items == NULL) {
+        NativeStageArchiveClose(state->stage);
         free(state);
         NativeArchiveGraphClose(graph);
         NativeArchiveClose(native);

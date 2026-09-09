@@ -80,6 +80,11 @@ add_executable(test_archive tests/test_archive.c assets/archive.c assets/descrip
 target_link_libraries(test_archive PRIVATE melee_host_options)
 add_test(NAME archive COMMAND test_archive)
 
+add_executable(test_items tests/test_items.c assets/items.c assets/items_special.c
+    assets/archive.c assets/descriptors.c platform/report.c)
+target_link_libraries(test_items PRIVATE melee_host_options)
+add_test(NAME items COMMAND test_items)
+
 add_executable(test_stage tests/test_stage.c assets/stage.c assets/archive.c
     assets/descriptors.c platform/report.c)
 target_link_libraries(test_stage PRIVATE melee_host_options)
