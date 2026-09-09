@@ -17,9 +17,10 @@
 
 #ifdef MELEE_NATIVE
 #include "../../../native/source/assets/archive_internal.h"
-#include "../../../native/source/assets/stage.h"
-#include "../../../native/source/assets/items.h"
 #include "../../../native/source/assets/effects.h"
+#include "../../../native/source/assets/items.h"
+#include "../../../native/source/assets/stage.h"
+#include "../../../native/source/command.h"
 #include <sysdolphin/baselib/sislib.h>
 #endif
 

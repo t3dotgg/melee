@@ -1,5 +1,8 @@
 
 #include <Runtime/platform.h>
+#ifdef MELEE_NATIVE
+#include <stdlib.h>
+#endif
 
 #include <sysdolphin/baselib/forward.h>
 
@@ -158,6 +161,14 @@ int main(void)
     HSD_InitComponent();
     GXSetMisc(1, 8);
     *seed_ptr = OSGetTick();
+#ifdef MELEE_NATIVE
+    /* The launcher validates this optional seed before starting the game. */
+    const char* native_seed = getenv("MELEE_RANDOM_SEED");
+    if (native_seed != NULL) {
+        *seed_ptr = (u32) strtoul(native_seed, NULL, 10);
+        OSReport("Native random seed %u\n", *seed_ptr);
+    }
+#endif
     lbAudioAx_8002838C();
     lb_80019AAC(&gmMain_8015FD24);
     HSD_VISetUserPostRetraceCallback(&gmMain_8015FDA0);

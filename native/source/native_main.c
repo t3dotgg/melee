@@ -5,12 +5,14 @@
  * the PowerPC CPU or load a translated executable.
  */
 
+#include <errno.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/stat.h>
 
 #include "platform/pad.h"
+#include <sys/stat.h>
 
 int MeleeMain(void);
 
@@ -18,10 +20,11 @@ static void print_usage(const char* program)
 {
     fprintf(stderr,
             "Usage: %s [--root DIRECTORY | --disc IMAGE]\n"
-            "       %s [--pad-script SCRIPT] [--pad-trace]\n"
+            "       %s [--pad-script SCRIPT] [--pad-trace] [--seed NUMBER]\n"
             "       %s PATH\n\n"
             "PATH is treated as an extracted game directory or disc image.\n"
-            "MELEE_GAME_ROOT and MELEE_DISC_IMAGE may also be set in the environment.\n",
+            "MELEE_GAME_ROOT and MELEE_DISC_IMAGE may also be set in the "
+            "environment.\n",
             program, program, program);
 }
 
@@ -58,6 +61,7 @@ int main(int argc, char** argv)
 {
     const char* positional = NULL;
     const char* pad_script = getenv("MELEE_PAD_SCRIPT");
+    const char* random_seed = getenv("MELEE_RANDOM_SEED");
     int pad_trace = getenv("MELEE_PAD_TRACE") != NULL;
     int path_was_set = 0;
 
@@ -74,6 +78,14 @@ int main(int argc, char** argv)
                 return 2;
             }
             pad_script = argv[++i];
+            continue;
+        }
+        if (strcmp(argument, "--seed") == 0) {
+            if (i + 1 >= argc) {
+                fprintf(stderr, "--seed requires a 32-bit unsigned number\n");
+                return 2;
+            }
+            random_seed = argv[++i];
             continue;
         }
         if (strcmp(argument, "--pad-trace") == 0) {
@@ -124,6 +136,24 @@ int main(int argc, char** argv)
         fprintf(stderr, "A game directory or disc image is required\n");
         print_usage(argv[0]);
         return 2;
+    }
+
+    if (random_seed != NULL) {
+        char* end;
+        char normalized[11];
+        errno = 0;
+        unsigned long long value = strtoull(random_seed, &end, 0);
+        if (random_seed[0] == '-' || random_seed == end || *end != '\0' ||
+            errno != 0 || value > UINT32_MAX)
+        {
+            fprintf(stderr, "Invalid random seed: %s\n", random_seed);
+            return 2;
+        }
+        snprintf(normalized, sizeof(normalized), "%u", (unsigned int) value);
+        if (setenv("MELEE_RANDOM_SEED", normalized, 1) != 0) {
+            perror("MELEE_RANDOM_SEED");
+            return 2;
+        }
     }
 
     if (pad_script != NULL && !NativePADSetScript(pad_script)) {
