@@ -778,6 +778,73 @@ static void* castle_parameters(NativeStageArchive* stage, uint32_t offset)
     return result;
 }
 
+typedef struct NativeKongoParameters {
+    f32 unk0, unk4, unk8, unkC, unk10, unk14, unk18, unk1C;
+    f32 unk20, unk24, unk28, unk2C, unk30, unk34, unk38, unk3C, unk40;
+    s16 unk44, unk46, unk48, unk4A, unk4C, unk4E, unk50, unk52;
+    f32 unk54, unk58, unk5C, unk60;
+    s32 unk64, unk68;
+    f32 unk6C, unk70, unk74, unk78, unk7C, unk80;
+    void* unk84;
+    f32 unk88, unk8C, unk90, unk94, unk98, unk9C, unkA0, unkA4, unkA8,
+        unkAC, unkB0, unkB4, unkB8;
+} NativeKongoParameters;
+_Static_assert(sizeof(NativeKongoParameters) == 0xC8,
+               "native kongo parameter layout");
+
+static void* kongo_parameters(NativeStageArchive* stage, uint32_t offset)
+{
+    NativeKongoParameters* result;
+    const u8* data;
+    uint32_t target;
+    bool present;
+    if (!range(stage, offset, 0xBC)) {
+        return NULL;
+    }
+    result = allocate(stage, 1, sizeof(*result));
+    if (result == NULL) {
+        return NULL;
+    }
+    data = stage->archive->data + offset;
+    for (size_t i = 0; i < 17; ++i) {
+        u32 value = NativeArchiveBE32(data + i * 4);
+        memcpy((u8*) result + i * 4, &value, 4);
+    }
+    for (size_t i = 0; i < 8; ++i) {
+        ((s16*) result)[0x44 / 2 + i] = (s16) read16(data + 0x44 + i * 2);
+    }
+    for (size_t i = 0; i < 4; ++i) {
+        u32 value = NativeArchiveBE32(data + 0x54 + i * 4);
+        memcpy((u8*) result + offsetof(NativeKongoParameters, unk54) + i * 4,
+               &value, 4);
+    }
+    for (size_t i = 0; i < 2; ++i) {
+        u32 value = NativeArchiveBE32(data + 0x64 + i * 4);
+        memcpy((u8*) result + offsetof(NativeKongoParameters, unk64) + i * 4,
+               &value, 4);
+    }
+    for (size_t i = 0; i < 6; ++i) {
+        u32 value = NativeArchiveBE32(data + 0x6C + i * 4);
+        memcpy((u8*) result + offsetof(NativeKongoParameters, unk6C) + i * 4,
+               &value, 4);
+    }
+    if (!reference(stage, offset + 0x84, &target, &present)) {
+        return NULL;
+    }
+    if (present) {
+        if (!range(stage, target, 4)) {
+            return NULL;
+        }
+        result->unk84 = (void*) (stage->archive->data + target);
+    }
+    for (size_t i = 0; i < 13; ++i) {
+        u32 value = NativeArchiveBE32(data + 0x88 + i * 4);
+        memcpy((u8*) result + offsetof(NativeKongoParameters, unk88) + i * 4,
+               &value, 4);
+    }
+    return result;
+}
+
 static void* stage_parameters(NativeStageArchive* stage, uint32_t offset)
 {
     uint32_t ground_offset;
@@ -826,6 +893,8 @@ static void* stage_parameters(NativeStageArchive* stage, uint32_t offset)
         return zebes_parameters(stage, offset);
     case St_Kind_Castle:
         return castle_parameters(stage, offset);
+    case St_Kind_Kongo:
+        return kongo_parameters(stage, offset);
     case St_Kind_Izumi:
         return scalar_array(stage, offset, 21, 4);
     case St_Kind_Story:
