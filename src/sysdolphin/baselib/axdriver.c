@@ -849,7 +849,7 @@ void AXDriver_8038DA70(const char* path, void (*callback)(void))
     size_t file_size;
     size_t offset_native;
     u32 count_native;
-    const u8* data;
+    u8* data;
     u32* bank_offsets;
     u32* command_offsets;
     u32* sample_offsets;
@@ -884,7 +884,7 @@ void AXDriver_8038DA70(const char* path, void (*callback)(void))
     }
     DVDClose(&fileInfo);
 
-    data = (const u8*) AXDriver_804D7798;
+    data = (u8*) AXDriver_804D7798;
     file_size = AXDriver_804D779C;
     offset_native = 0;
     if (!ax_read_be32_at(data, file_size, &offset_native, &count_native) ||
@@ -939,10 +939,30 @@ void AXDriver_8038DA70(const char* path, void (*callback)(void))
     AXDriver_804D77BC = command_streams;
     for (u32 n = 0; n < count_native; n++) {
         u32 sample_offset = ax_read_be32((const u8*) &sample_offsets[n]);
-        if (sample_offset >= file_size) {
+        if (sample_offset >= file_size || (sample_offset & 3) != 0 ||
+            (n != 0 && sample_offset <=
+                              ax_read_be32((const u8*) &sample_offsets[n - 1]))) {
             free(command_streams);
             AXDriver_804D77BC = NULL;
             return;
+        }
+        /* SEM command streams are big-endian words. The command interpreter
+         * reads host u32 values, so decode each stream in place before
+         * exposing its pointer. Offsets are sorted and each stream ends at
+         * the next offset, or at EOF for the final stream. */
+        u32 next_offset = n + 1 < count_native
+                              ? ax_read_be32((const u8*) &sample_offsets[n + 1])
+                              : (u32) file_size;
+        if (next_offset < sample_offset || next_offset > file_size ||
+            ((next_offset - sample_offset) & 3) != 0) {
+            free(command_streams);
+            AXDriver_804D77BC = NULL;
+            return;
+        }
+        for (u32 stream_offset = sample_offset; stream_offset < next_offset;
+             stream_offset += sizeof(u32)) {
+            u32 command = ax_read_be32(data + stream_offset);
+            memcpy(data + stream_offset, &command, sizeof(command));
         }
         command_streams[n] = (u32*) (data + sample_offset);
     }
