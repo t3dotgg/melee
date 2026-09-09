@@ -172,6 +172,11 @@ chain with optional tearing, owns render-target resources, records command
 lists, compiles a small native color pipeline, uploads proxy vertex/index
 buffers, issues indexed draws, and exercises `Present` successfully on this PC;
 full DAT shader/material and GX/TEV translation remain to be connected.
+The D3D12 test reads back a rendered frame and checks both a changed triangle
+pixel and the untouched clear color; it also verifies that a second geometry
+upload changes the pixel color. The native DAT parser has been run against the
+extracted `GrCn.dat` fixture (1,699,264-byte data block, 6,144 relocations,
+185 public symbols, 3 externals) while keeping the source bytes immutable.
 The asset layer now decodes GX I4/I8/IA4/IA8, RGB565, RGB5A3, RGBA8, and
 palette-indexed C4/C8/C14X2 tiled blocks into host RGBA8 pixels with
 dimension, truncation, and palette-index checks. Material, mipmap, and TEV

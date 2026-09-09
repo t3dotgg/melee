@@ -24,6 +24,9 @@ combine it with `--frames N` for a bounded smoke run:
 
 ```powershell
 build/native-shell/melee_native_shell.exe --training --frames 120
+# Validate an extracted Melee DAT without adding it to Git:
+$env:MELEE_DAT_FIXTURE = "build/disc/files/GrCn.dat"
+build/native-shell/melee_native_dat_archive_tests.exe
 ```
 
 Xbox user 0 drives player one and user 1 drives player two through the same
