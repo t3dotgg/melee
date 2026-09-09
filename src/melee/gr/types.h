@@ -1342,7 +1342,7 @@ struct grBigBlue_GroundData {
     /* gp+118 gp+16C gp+1C0 */ s32 x34;
     /* gp+11C gp+170 gp+1C4 */ Vec3 x38;
     /* gp+128 gp+17C gp+1D0 */ Vec3 x44;
-    /* gp+134 gp+188 gp+1DC */ s32 x50;
+    /* gp+134 gp+188 gp+1DC */ HSD_GObj* x50;
 };
 ASSERT_SIZE(struct grBigBlue_GroundData, 0x54);
 
@@ -1359,11 +1359,17 @@ ASSERT_SIZE(struct grBigBlue_ManagerVars, 0x11C);
 struct grBigBlue_PlatformVars {
     /* gp+C4 */ u32 xC4;
     /* gp+C8 */ s32 xC8_timer;
-    /* gp+CC */ s32 xCC_timer;
-    /* gp+D0 */ s32 xD0_timer;
+    /* gp+CC */ union {
+        s32 xCC_timer;
+        f32 target_z;
+    };
+    /* gp+D0 */ union {
+        s32 xD0_timer;
+        f32 target_y;
+    };
     /* gp+D4 */ f32 height_offset;
     /* gp+D8 */ f32 xD8;
-    /* gp+DC */ f32 target_y;
+    /* gp+DC */ f32 target_y_dc;
     /* gp+E0 */ Vec3 velocity;
     /* gp+EC */ f32 xEC;
 };
@@ -1395,6 +1401,15 @@ ASSERT_SIZE(struct grBigBlue_RoadVars, 0x38);
 /// Per-lane data for the Big Blue car gobj (ID 33), 0x40-byte stride from
 /// gp+D4.
 struct grBigBlue_CarLane {
+#ifdef MELEE_NATIVE
+    /* Native builds use explicit fields. The original bitfield overlay
+     * stores state and direction in the low byte and collision_slot in the
+     * upper five bits of the halfword. */
+    u8 state;
+    u8 direction;
+    u8 state_hi;
+    u8 collision_slot;
+#else
     union {
         /* +00 gp+D4 */ u16 status;
         struct {
@@ -1409,6 +1424,7 @@ struct grBigBlue_CarLane {
             /* +00 gp+D4 */ u16 pad_slot_1 : 4;
         };
     };
+#endif
     /* +02 gp+D6 */ s8 x2;
     /* +03 gp+D7 */ u8 x3;
     /* +04 gp+D8 */ f32 target;
@@ -1757,7 +1773,7 @@ struct grHomeRun_GroundVars {
     /* +04 gp+C8 */ HSD_GObj** back;
     /* +08 gp+CC */ HSD_Text* xCC;
     /* +0C gp+D0 */ HSD_JObj* xD0;
-    /* +10 gp+D4 */ HSD_GObj* xD4;
+    /* +10 gp+D4 */ HSD_GObj* text_gobj;
     /* +14 gp+D8 */ HSD_GObj* bg_gobj[4];
     /* +24 gp+E8 */ struct {
         u8 b0 : 1;
@@ -1775,8 +1791,8 @@ struct grHomeRun_GroundVars {
 struct grHomeRun_GroundVars2 {
     /* +00 gp+C4 */ u16 xC4;
     /* +02 gp+C6 */ u16 xC6;
-    /* +04 gp+C8 */ int xC8;
-    /* +08 gp+CC */ int xCC;
+    /* +04 gp+C8 */ HSD_Text* xC8;
+    /* +08 gp+CC */ HSD_JObj* xCC;
     /* +0C gp+D0 */ float xD0;
 };
 
@@ -2145,7 +2161,7 @@ typedef struct {
     f32 x1C;
     f32 x20;
     f32 x24;
-    void* x28;
+    Item_GObj* x28;
 } RouteEntry;
 
 #endif

@@ -55,7 +55,7 @@ static void order_sdata2(Vec3 temp)
 }
 #endif
 
-static inline void setup_car_child(HSD_JObj* parent, s16 ext_count, s32 offset,
+static inline void setup_car_child(HSD_JObj* parent, s16 ext_count, s32 index,
                                    f32 scale_factor)
 {
     UnkArchiveStruct* archive;
@@ -66,12 +66,10 @@ static inline void setup_car_child(HSD_JObj* parent, s16 ext_count, s32 offset,
 
     jobj = Ground_801C13D0(ext_count, 0);
     if (jobj != NULL) {
-        DynamicModelDesc* entry =
-            (DynamicModelDesc*) ((u8*) offset +
-                                 (uintptr_t) archive->unk4->unk8);
-        if (entry->anims != NULL) {
-            if (entry->matanims != NULL) {
-                grAnime_801C6C0C(jobj, *entry->anims, *entry->matanims, NULL);
+        struct UnkStageDat_x8_t* entry = &archive->unk4->unk8[index];
+        if (entry->unk4 != NULL) {
+            if (entry->unk8 != NULL) {
+                grAnime_801C6C0C(jobj, *entry->unk4, *entry->unk8, NULL);
                 HSD_JObjReqAnimAllByFlags(jobj, 0x497, 0.0f);
                 HSD_ForeachAnim(jobj, JOBJ_TYPE, 0x76a4, HSD_AObjSetRate,
                                 AOBJ_ARG_AF, 1.0);
@@ -233,19 +231,19 @@ void grFZeroCar_801CAFBC(HSD_GObj* gobj, void* data, s32 count, s32 mode)
         }
 
         if (c0 != NULL) {
-            setup_car_child(c0, count, (s16) count * 0x34, scale_factor);
+            setup_car_child(c0, count, count, scale_factor);
         }
 
         if (c1 != NULL) {
-            setup_car_child(c1, count, (s16) count * 0x34, scale_factor);
+            setup_car_child(c1, count, count, scale_factor);
         }
 
         if (c2 != NULL) {
-            setup_car_child(c2, count, (s16) count * 0x34, scale_factor);
+            setup_car_child(c2, count, count, scale_factor);
         }
 
         if (c3 != NULL) {
-            setup_car_child(c3, count, (s16) count * 0x34, scale_factor);
+            setup_car_child(c3, count, count, scale_factor);
         }
     }
 }
