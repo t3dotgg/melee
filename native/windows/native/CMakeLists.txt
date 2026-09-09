@@ -35,6 +35,7 @@ add_library(melee_native_core STATIC
     src/native_animation.cpp
     src/native_render_geometry.cpp
     src/native_material.cpp
+    src/native_material_asset.cpp
 )
 target_include_directories(melee_native_core PUBLIC include)
 if (WIN32)
@@ -152,6 +153,22 @@ add_executable(melee_native_material_tests tests/material_tests.cpp)
 target_link_libraries(melee_native_material_tests PRIVATE melee_native_core)
 add_test(NAME native_material COMMAND melee_native_material_tests)
 
+add_executable(melee_native_material_asset_tests tests/material_asset_tests.cpp)
+target_link_libraries(melee_native_material_asset_tests PRIVATE melee_native_core)
+add_test(NAME native_material_asset COMMAND melee_native_material_asset_tests)
+
 add_executable(melee_native_loop_tests tests/loop_tests.cpp)
 target_link_libraries(melee_native_loop_tests PRIVATE melee_native_core)
 add_test(NAME native_game_loop COMMAND melee_native_loop_tests)
+
+# Release builds define NDEBUG, which would erase the assertions in these
+# executable tests. Keep assertions active so malformed native data and GPU
+# capability failures are observed by CTest on the real Windows machine.
+get_property(native_targets DIRECTORY PROPERTY BUILDSYSTEM_TARGETS)
+foreach(native_target IN LISTS native_targets)
+    if (native_target MATCHES "_tests$")
+        target_compile_options(${native_target} PRIVATE
+            $<$<CXX_COMPILER_ID:MSVC>:/UNDEBUG>
+            $<$<NOT:$<CXX_COMPILER_ID:MSVC>>:-UNDEBUG>)
+    endif()
+endforeach()

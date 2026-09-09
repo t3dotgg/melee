@@ -167,8 +167,9 @@ The native frontend now owns a real Win32 window handle and message pump,
 including hidden-window operation for headless tests.
 The current Windows target now also creates an `IDXGISwapChain3` flip-model
 chain with optional tearing, owns render-target resources, records command
-lists, and exercises `Present` successfully on this PC; shader/material and
-GX/TEV translation remain to be connected.
+lists, compiles a small native color pipeline, uploads proxy vertex/index
+buffers, issues indexed draws, and exercises `Present` successfully on this PC;
+full DAT shader/material and GX/TEV translation remain to be connected.
 The asset layer now decodes GX I4/I8/IA4/IA8, RGB565, RGB5A3, RGBA8, and
 palette-indexed C4/C8/C14X2 tiled blocks into host RGBA8 pixels with
 dimension, truncation, and palette-index checks. Material, mipmap, and TEV

@@ -37,8 +37,10 @@ simulation at 60 Hz while a separate render clock can run at 120 Hz.
 `XboxPadMapper` maps physical Xbox A to attack/confirm, B to special/back, and
 X/Y to jump while retaining edge-triggered state. `RenderSnapshot` provides an
 ordered, pointer-free handoff to the renderer;
-`NativeWin32SwapChain::clear_and_present` is the first concrete D3D12 command
-path and is covered by `native_gpu_pass`.
+`NativeWin32SwapChain::clear_and_present` is the concrete D3D12 command path:
+it uploads prepared geometry, binds a native color pipeline, issues indexed
+draws, fences the queue, and presents. It is covered by `native_gpu_pass` and
+`native_swapchain`.
 `build_proxy_geometry` turns ordered snapshots into validated host vertices and
 indexed draw ranges for the next material and shader stage.
 `NativeScene` adds stable object IDs, deterministic callback ordering, and safe

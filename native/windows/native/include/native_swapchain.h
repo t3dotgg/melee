@@ -35,7 +35,9 @@ public:
     // Record and submit a native D3D12 render pass that clears the current
     // back buffer, waits for GPU completion, and presents it. This is the
     // first concrete command-recording boundary used by the native renderer.
-    bool clear_and_present(float red, float green, float blue, float alpha = 1.0f) noexcept;
+    bool clear_and_present(float red, float green, float blue, float alpha = 1.0f,
+                           bool capture = false) noexcept;
+    std::span<const std::uint8_t> captured_pixels() const noexcept { return captured_pixels_; }
     void show() noexcept;
     void pump_messages() noexcept;
     bool available() const noexcept { return swap_chain_ != nullptr; }
@@ -47,10 +49,12 @@ public:
     const NativeGeometryUploadPlan& prepared_geometry() const noexcept { return geometry_plan_; }
     std::span<const NativeRenderDraw> prepared_draws() const noexcept { return geometry_draws_; }
     std::uint64_t geometry_uploads() const noexcept { return geometry_uploads_; }
+    std::uint64_t draw_calls() const noexcept { return draw_calls_; }
     void* native_window() const noexcept { return window_; }
 
 private:
     void* d3d12_module_ = nullptr;
+    void* d3dcompiler_module_ = nullptr;
     void* dxgi_module_ = nullptr;
     void* device_ = nullptr;
     void* queue_ = nullptr;
@@ -61,6 +65,8 @@ private:
     void* rtv_heap_ = nullptr;
     void* fence_ = nullptr;
     void* fence_event_ = nullptr;
+    void* root_signature_ = nullptr;
+    void* pipeline_state_ = nullptr;
     void* geometry_upload_ = nullptr;
     void* geometry_buffer_ = nullptr;
     void* geometry_mapping_ = nullptr;
@@ -68,6 +74,8 @@ private:
     std::vector<NativeRenderDraw> geometry_draws_;
     std::uint32_t geometry_capacity_ = 0;
     std::uint64_t geometry_uploads_ = 0;
+    std::uint64_t draw_calls_ = 0;
+    std::vector<std::uint8_t> captured_pixels_;
     bool geometry_pending_ = false;
     bool geometry_buffer_ready_ = false;
     bool submission_failed_ = false;

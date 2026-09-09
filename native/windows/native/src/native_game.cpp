@@ -77,10 +77,18 @@ TimingStepResult NativeGameLoop::advance(double elapsed_seconds)
         current_snapshot_ = game_.render_snapshot();
     });
     if (result.render_frames != 0 && renderer_.running()) {
-        const auto snapshot = interpolate(previous_snapshot_, current_snapshot_,
-                                           static_cast<float>(result.interpolation_alpha));
-        renderer_.render(game_.state(), snapshot);
-        ++presented_frames_;
+        for (std::uint32_t i = 0; i < result.render_frames && renderer_.running(); ++i) {
+            // A fixed tick produces two display samples. Their local alpha
+            // spans the interval so the first sample is halfway between the
+            // old and new rules state and the second reaches the new state.
+            const float alpha = result.render_frames == 1
+                                    ? static_cast<float>(result.interpolation_alpha)
+                                    : static_cast<float>(i + 1) /
+                                          static_cast<float>(result.render_frames);
+            renderer_.render(game_.state(),
+                             interpolate(previous_snapshot_, current_snapshot_, alpha));
+            ++presented_frames_;
+        }
     }
     return result;
 }

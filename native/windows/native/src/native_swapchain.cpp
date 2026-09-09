@@ -6,8 +6,10 @@
 
 #ifdef _WIN32
 #include <d3d12.h>
+#include <d3dcompiler.h>
 #include <dxgi1_6.h>
 #include <windows.h>
+#include <wrl/client.h>
 
 namespace {
 constexpr wchar_t kClassName[] = L"MeleeNativeSwapChainWindow";
@@ -37,6 +39,21 @@ void release_render_targets(std::array<void*, 8>& targets) noexcept
 {
     for (auto& target : targets) release_object(target);
 }
+
+bool compile_shader(HMODULE module, const char* source, const char* entry, const char* profile,
+                    ID3DBlob** bytecode) noexcept
+{
+    using CompileFn = HRESULT(WINAPI*)(LPCVOID, SIZE_T, LPCSTR, const D3D_SHADER_MACRO*,
+                                       ID3DInclude*, LPCSTR, LPCSTR, UINT, UINT,
+                                       ID3DBlob**, ID3DBlob**);
+    auto compile = reinterpret_cast<CompileFn>(GetProcAddress(module, "D3DCompile"));
+    if (compile == nullptr) return false;
+    ID3DBlob* errors = nullptr;
+    const HRESULT result = compile(source, std::strlen(source), "melee_native_shader", nullptr,
+                                    nullptr, entry, profile, 0, 0, bytecode, &errors);
+    if (errors != nullptr) errors->Release();
+    return SUCCEEDED(result);
+}
 } // namespace
 #endif
 
@@ -60,6 +77,7 @@ bool NativeWin32SwapChain::initialize(const NativeSwapChainDesc& desc)
         return false;
     };
     d3d12_module_ = LoadLibraryW(L"d3d12.dll");
+    d3dcompiler_module_ = LoadLibraryW(L"d3dcompiler_47.dll");
     dxgi_module_ = LoadLibraryW(L"dxgi.dll");
     if (d3d12_module_ == nullptr || dxgi_module_ == nullptr) return fail();
     using CreateDeviceFn = HRESULT(WINAPI*)(IUnknown*, D3D_FEATURE_LEVEL, REFIID, void**);
@@ -164,6 +182,54 @@ bool NativeWin32SwapChain::initialize(const NativeSwapChainDesc& desc)
         handle.ptr += static_cast<SIZE_T>(i) * rtv_increment_;
         device->CreateRenderTargetView(static_cast<ID3D12Resource*>(back_buffers_[i]), nullptr, handle);
     }
+    if (d3dcompiler_module_ != nullptr) {
+        constexpr char shader[] = R"(
+struct VIn { float3 p : POSITION; float4 c : COLOR; };
+struct VOut { float4 p : SV_Position; float4 c : COLOR; };
+VOut vs_main(VIn i) { VOut o; o.p=float4(i.p.x/10.0, i.p.y/6.0, 0.0, 1.0); o.c=i.c; return o; }
+float4 ps_main(VOut i) : SV_Target { return i.c; }
+)";
+        ID3DBlob* vs = nullptr;
+        ID3DBlob* ps = nullptr;
+        if (compile_shader(static_cast<HMODULE>(d3dcompiler_module_), shader, "vs_main", "vs_5_0", &vs) &&
+            compile_shader(static_cast<HMODULE>(d3dcompiler_module_), shader, "ps_main", "ps_5_0", &ps)) {
+            D3D12_ROOT_SIGNATURE_DESC root_desc{};
+            root_desc.Flags = D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
+            ID3DBlob* root_blob = nullptr;
+            ID3DBlob* root_error = nullptr;
+            if (SUCCEEDED(D3D12SerializeRootSignature(&root_desc, D3D_ROOT_SIGNATURE_VERSION_1,
+                                                       &root_blob, &root_error)) &&
+                SUCCEEDED(device->CreateRootSignature(0, root_blob->GetBufferPointer(),
+                                                       root_blob->GetBufferSize(),
+                                                       __uuidof(ID3D12RootSignature), &root_signature_))) {
+                D3D12_INPUT_ELEMENT_DESC input[] = {
+                    {"POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0,
+                     D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0},
+                    {"COLOR", 0, DXGI_FORMAT_R8G8B8A8_UNORM, 0, 12,
+                     D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0},
+                };
+                D3D12_GRAPHICS_PIPELINE_STATE_DESC pso{};
+                pso.InputLayout = {input, 2};
+                pso.pRootSignature = static_cast<ID3D12RootSignature*>(root_signature_);
+                pso.VS = {vs->GetBufferPointer(), vs->GetBufferSize()};
+                pso.PS = {ps->GetBufferPointer(), ps->GetBufferSize()};
+                pso.RasterizerState.FillMode = D3D12_FILL_MODE_SOLID;
+                pso.RasterizerState.CullMode = D3D12_CULL_MODE_NONE;
+                pso.RasterizerState.DepthClipEnable = TRUE;
+                pso.BlendState.RenderTarget[0].RenderTargetWriteMask = D3D12_COLOR_WRITE_ENABLE_ALL;
+                pso.SampleMask = UINT_MAX;
+                pso.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
+                pso.NumRenderTargets = 1;
+                pso.RTVFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM;
+                pso.SampleDesc.Count = 1;
+                device->CreateGraphicsPipelineState(&pso, __uuidof(ID3D12PipelineState), &pipeline_state_);
+            }
+            if (root_error != nullptr) root_error->Release();
+            if (root_blob != nullptr) root_blob->Release();
+        }
+        if (vs != nullptr) vs->Release();
+        if (ps != nullptr) ps->Release();
+    }
     return true;
 #else
     (void)desc;
@@ -190,6 +256,8 @@ void NativeWin32SwapChain::shutdown() noexcept
     release_object(geometry_buffer_);
     release_render_targets(back_buffers_);
     release_object(fence_);
+    release_object(pipeline_state_);
+    release_object(root_signature_);
     release_object(rtv_heap_);
     release_object(command_list_);
     release_object(command_allocator_);
@@ -203,10 +271,12 @@ void NativeWin32SwapChain::shutdown() noexcept
     if (class_registered_) UnregisterClassW(kClassName, GetModuleHandleW(nullptr));
     if (dxgi_module_ != nullptr) FreeLibrary(static_cast<HMODULE>(dxgi_module_));
     if (d3d12_module_ != nullptr) FreeLibrary(static_cast<HMODULE>(d3d12_module_));
+    if (d3dcompiler_module_ != nullptr) FreeLibrary(static_cast<HMODULE>(d3dcompiler_module_));
     if (com_initialized_) CoUninitialize();
 #endif
     swap_chain_ = factory_ = queue_ = device_ = window_ = nullptr;
     d3d12_module_ = dxgi_module_ = nullptr;
+    d3dcompiler_module_ = nullptr;
     rtv_increment_ = 0;
     fence_value_ = 0;
     width_ = height_ = buffer_count_ = 0;
@@ -219,6 +289,7 @@ void NativeWin32SwapChain::shutdown() noexcept
     close_requested_ = false;
     tearing_supported_ = class_registered_ = com_initialized_ = false;
     presented_frames_ = 0;
+    draw_calls_ = 0;
 }
 
 bool NativeWin32SwapChain::prepare_geometry(const NativeRenderGeometry& geometry) noexcept
@@ -308,7 +379,7 @@ bool NativeWin32SwapChain::present() noexcept
 }
 
 bool NativeWin32SwapChain::clear_and_present(float red, float green, float blue,
-                                             float alpha) noexcept
+                                             float alpha, bool capture) noexcept
 {
 #ifdef _WIN32
     if (swap_chain_ == nullptr || command_allocator_ == nullptr || command_list_ == nullptr ||
@@ -321,6 +392,29 @@ bool NativeWin32SwapChain::clear_and_present(float red, float green, float blue,
     auto* fence = static_cast<ID3D12Fence*>(fence_);
     const UINT index = chain->GetCurrentBackBufferIndex();
     if (index >= buffer_count_ || back_buffers_[index] == nullptr) return false;
+    Microsoft::WRL::ComPtr<ID3D12Resource> readback;
+    D3D12_PLACED_SUBRESOURCE_FOOTPRINT footprint{};
+    UINT64 readback_bytes = 0;
+    if (capture) {
+        auto* device = static_cast<ID3D12Device*>(device_);
+        const auto target_desc = static_cast<ID3D12Resource*>(back_buffers_[index])->GetDesc();
+        device->GetCopyableFootprints(&target_desc, 0, 1, 0, &footprint, nullptr, nullptr,
+                                      &readback_bytes);
+        D3D12_HEAP_PROPERTIES heap{};
+        heap.Type = D3D12_HEAP_TYPE_READBACK;
+        D3D12_RESOURCE_DESC desc{};
+        desc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
+        desc.Width = readback_bytes;
+        desc.Height = 1;
+        desc.DepthOrArraySize = 1;
+        desc.MipLevels = 1;
+        desc.SampleDesc.Count = 1;
+        desc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
+        if (FAILED(device->CreateCommittedResource(&heap, D3D12_HEAP_FLAG_NONE, &desc,
+                D3D12_RESOURCE_STATE_COPY_DEST, nullptr, IID_PPV_ARGS(&readback)))) return false;
+        try { captured_pixels_.resize(static_cast<std::size_t>(width_) * height_ * 4); }
+        catch (...) { return false; }
+    }
     if (FAILED(allocator->Reset()) || FAILED(list->Reset(allocator, nullptr))) return false;
     constexpr D3D12_RESOURCE_STATES geometry_read = D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER |
                                                   D3D12_RESOURCE_STATE_INDEX_BUFFER;
@@ -360,7 +454,35 @@ bool NativeWin32SwapChain::clear_and_present(float red, float green, float blue,
     descriptor.ptr += static_cast<SIZE_T>(index) * rtv_increment_;
     const float clear_color[4] = {red, green, blue, alpha};
     list->ClearRenderTargetView(descriptor, clear_color, 0, nullptr);
-    std::swap(barrier.Transition.StateBefore, barrier.Transition.StateAfter);
+    list->OMSetRenderTargets(1, &descriptor, FALSE, nullptr);
+    const D3D12_VIEWPORT viewport{0.0F, 0.0F, static_cast<float>(width_),
+                                  static_cast<float>(height_), 0.0F, 1.0F};
+    const D3D12_RECT scissor{0, 0, static_cast<LONG>(width_), static_cast<LONG>(height_)};
+    list->RSSetViewports(1, &viewport);
+    list->RSSetScissorRects(1, &scissor);
+    if (pipeline_state_ != nullptr && geometry_plan_.total_bytes != 0) {
+        list->SetGraphicsRootSignature(static_cast<ID3D12RootSignature*>(root_signature_));
+        list->SetPipelineState(static_cast<ID3D12PipelineState*>(pipeline_state_));
+        for (const auto& draw : geometry_draws_) {
+            list->DrawIndexedInstanced(draw.index_count, 1, draw.first_index, 0, 0);
+            ++draw_calls_;
+        }
+    }
+    barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_RENDER_TARGET;
+    if (capture) {
+        barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_COPY_SOURCE;
+        list->ResourceBarrier(1, &barrier);
+        D3D12_TEXTURE_COPY_LOCATION source{};
+        source.pResource = resource;
+        source.Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;
+        D3D12_TEXTURE_COPY_LOCATION destination{};
+        destination.pResource = readback.Get();
+        destination.Type = D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT;
+        destination.PlacedFootprint = footprint;
+        list->CopyTextureRegion(&destination, 0, 0, 0, &source, nullptr);
+        barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_COPY_SOURCE;
+    }
+    barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_PRESENT;
     list->ResourceBarrier(1, &barrier);
     if (FAILED(list->Close())) return false;
     ID3D12CommandList* lists[] = {list};
@@ -376,6 +498,19 @@ bool NativeWin32SwapChain::clear_and_present(float red, float green, float blue,
     }
     if (fence->GetCompletedValue() == UINT64_MAX) return false; // Removed device.
     submission_failed_ = false;
+    if (capture) {
+        void* pixels = nullptr;
+        const D3D12_RANGE range{0, static_cast<SIZE_T>(readback_bytes)};
+        if (FAILED(readback->Map(0, &range, &pixels))) return false;
+        for (std::uint32_t y = 0; y < height_; ++y) {
+            std::memcpy(captured_pixels_.data() + static_cast<std::size_t>(y) * width_ * 4,
+                        static_cast<const std::byte*>(pixels) + footprint.Offset +
+                            static_cast<std::size_t>(y) * footprint.Footprint.RowPitch,
+                        static_cast<std::size_t>(width_) * 4);
+        }
+        const D3D12_RANGE no_writes{0, 0};
+        readback->Unmap(0, &no_writes);
+    }
     if (geometry_pending_) {
         ++geometry_uploads_;
         geometry_pending_ = false;
@@ -387,6 +522,7 @@ bool NativeWin32SwapChain::clear_and_present(float red, float green, float blue,
     (void)green;
     (void)blue;
     (void)alpha;
+    (void)capture;
     return false;
 #endif
 }

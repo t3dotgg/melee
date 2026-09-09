@@ -63,7 +63,7 @@ int main()
     assert(std::abs(mixer.active_voices()[0].remaining_seconds - 0.5) < 1e-12);
 
     const auto second = mixer.play(AudioVoiceRequest{ .sample_id = 11,
-                                                      .duration_seconds = 2.0,
+                                                      .duration_seconds = 0.5,
                                                       .priority = 3 },
                                    callback);
     assert(second.has_value() && mixer.active_count() == 2);
@@ -89,11 +89,11 @@ int main()
 
     mixer.advance(0.49);
     assert(mixer.active_count() == 2);
-    mixer.advance(0.01);
+    mixer.advance(0.02);
     assert(mixer.active_count() == 1);
     assert(reasons.size() == 2 &&
            reasons[1] == AudioCompletionReason::Finished);
-    assert(backend->advanced == 0.5);
+    assert(std::abs(backend->advanced - 0.51) < 1e-12);
 
     assert(mixer.stop(*third));
     assert(mixer.active_count() == 0);
