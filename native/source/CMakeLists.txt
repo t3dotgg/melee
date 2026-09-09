@@ -82,6 +82,14 @@ add_executable(test_scheduler tests/test_scheduler.c platform/os.c
 target_link_libraries(test_scheduler PRIVATE melee_host_options)
 add_test(NAME scheduler COMMAND test_scheduler)
 
+add_executable(test_pad tests/test_pad.c platform/pad.c)
+target_link_libraries(test_pad PRIVATE melee_host_options)
+add_test(NAME pad COMMAND test_pad)
+
+add_executable(test_gx tests/test_gx.c platform/gx.c)
+target_link_libraries(test_gx PRIVATE melee_host_options)
+add_test(NAME gx COMMAND test_gx)
+
 # The focused tests above are the default build. The complete game target is
 # opt-in because it is still missing host services needed for a playable
 # window, controller input, audio, and save data. When enabled, CMake compiles
@@ -106,6 +114,9 @@ if(MELEE_BUILD_NATIVE_GAME)
     target_compile_definitions(native_melee PRIVATE MELEE_NATIVE_DISPLAY)
     target_link_libraries(native_melee PRIVATE
         "-framework Cocoa"
-        "-framework QuartzCore")
+        "-framework QuartzCore"
+        "-framework AudioToolbox")
+    target_sources(native_melee PRIVATE
+        "${CMAKE_CURRENT_SOURCE_DIR}/platform/audio_output.m")
     set_target_properties(native_melee PROPERTIES OUTPUT_NAME melee-native)
 endif()
