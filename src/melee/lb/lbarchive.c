@@ -94,6 +94,11 @@ native_audio_load_data(NativeArchiveBinding* binding, uint32_t offset,
                                    error) != NATIVE_ARCHIVE_OK ||
             !present || !NativeArchiveDataRange(binding->archive, target, 4))
         {
+            fprintf(
+                stderr, "audio group %zu raw=%08x target=%u present=%d\\n",
+                group,
+                NativeArchiveBE32(binding->archive->data + offset + group * 4),
+                target, present);
             return NULL;
         }
         while (
@@ -897,6 +902,14 @@ void* HSD_ArchiveNativePublicAddress(HSD_Archive* archive, const char* symbol)
                 }
             }
         }
+        return NULL;
+    }
+    if (strcmp(symbol, "lbAudioLoadData") == 0) {
+        root = native_audio_load_data(binding, offset, &error);
+        if (root != NULL) {
+            return root;
+        }
+        native_archive_error(symbol, &error);
         return NULL;
     }
     NativeArchiveStatus stage_status =
