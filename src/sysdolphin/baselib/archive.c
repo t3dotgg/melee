@@ -20,6 +20,13 @@ static inline void relocateInternalPointers(HSD_Archive* archive)
 
 s32 HSD_ArchiveParse(HSD_Archive* archive, u8* src, size_t file_size)
 {
+#ifdef MELEE_NATIVE
+    (void) archive;
+    (void) src;
+    (void) file_size;
+    OSReport("HSD_ArchiveParse is unavailable on native hosts; use NativeArchive.\n");
+    return -1;
+#else
     u32 file_offset;
 
     if (archive == NULL) {
@@ -65,6 +72,7 @@ s32 HSD_ArchiveParse(HSD_Archive* archive, u8* src, size_t file_size)
     relocateInternalPointers(archive);
 
     return 0;
+#endif
 }
 
 void* HSD_ArchiveGetPublicAddress(HSD_Archive* archive,
