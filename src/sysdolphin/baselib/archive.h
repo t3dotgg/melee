@@ -62,6 +62,9 @@ void HSD_ArchiveLocateExtern(HSD_Archive* archive, const char* symbol_name,
 /* The legacy archive handle is only an API token on the native host.  The
  * loader keeps the serialized file and its typed graph in a side table. */
 void* HSD_ArchiveNativePublicAddress(HSD_Archive*, const char*);
+/* Native SIS roots retain the serialized pointer-word count so text indices
+ * can be checked before mapping them to widened host records. */
+size_t HSD_ArchiveNativeSisCount(const void* table);
 void HSD_ArchiveNativeRelease(HSD_Archive*);
 #endif
 

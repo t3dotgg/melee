@@ -318,7 +318,20 @@ void mnNameNew_8023B314(NameNewEntry* arg0, s32 arg1)
     text = arg0->desc_text;
     idx = mnNameNew_804D4F7C[selection - 0x32];
     if (text != NULL) {
+#ifdef MELEE_NATIVE
+        SIS* sis_table = HSD_SisLib_804D1124[0];
+        size_t count = HSD_ArchiveNativeSisCount(sis_table);
+        SIS* sis = NULL;
+        if (sis_table != NULL && (count == 0 || (size_t) idx < count)) {
+            SIS* entry = &sis_table[idx / 2];
+            void* selected = (idx & 1) != 0 ? (void*) entry->textures
+                                            : (void*) entry->kerning;
+            sis = (SIS*) selected;
+        }
+        if (text->sis_buffer == sis) {
+#else
         if (text->sis_buffer == ((SIS**) HSD_SisLib_804D1124[0])[idx]) {
+#endif
             return;
         }
         HSD_SisLib_803A5CC4(arg0->desc_text);

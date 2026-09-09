@@ -34,6 +34,12 @@ __attribute__((weak)) void* HSD_ArchiveNativePublicAddress(
     return NULL;
 }
 
+__attribute__((weak)) size_t HSD_ArchiveNativeSisCount(const void* table)
+{
+    (void) table;
+    return 0;
+}
+
 __attribute__((weak)) void HSD_ArchiveNativeRelease(HSD_Archive* archive)
 {
     (void) archive;

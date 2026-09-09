@@ -619,12 +619,25 @@ void HSD_SisLib_803A62A0(s32 font_idx, char* archive_name, char* symbol_name)
 
 void HSD_SisLib_803A6368(HSD_Text* text, s32 sis_idx)
 {
-    SIS** sis_table;
+    SIS* sis_table;
     s32 i;
 
-    sis_table = (SIS**) HSD_SisLib_804D1124[text->font_idx];
+    sis_table = HSD_SisLib_804D1124[text->font_idx];
     if (sis_table != NULL) {
-        text->sis_buffer = sis_table[sis_idx];
+#ifdef MELEE_NATIVE
+        size_t count = HSD_ArchiveNativeSisCount(sis_table);
+        if (sis_idx >= 0 && (count == 0 || (size_t) sis_idx < count)) {
+            SIS* entry = &sis_table[sis_idx / 2];
+            void* selected = (sis_idx & 1) != 0
+                                 ? (void*) entry->textures
+                                 : (void*) entry->kerning;
+            text->sis_buffer = (SIS*) selected;
+        } else {
+            text->sis_buffer = NULL;
+        }
+#else
+        text->sis_buffer = ((SIS**) sis_table)[sis_idx];
+#endif
     }
     text->x60 = NULL;
     text->current_height = 0.0F;

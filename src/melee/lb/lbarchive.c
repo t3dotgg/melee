@@ -25,6 +25,8 @@ typedef struct NativeSceneAllocation NativeSceneAllocation;
 
 struct NativeSisRoot {
     SIS* table;
+    /* Number of serialized pointer words. Host SIS records pack two words,
+     * but callers index the original word sequence. */
     size_t count;
     NativeSisRoot* next;
 };
@@ -92,57 +94,50 @@ static void native_archive_error(const char* operation,
                                                       : error->message);
 }
 
-/* SIS roots are arrays of two serialized four-byte offsets.  Convert the
- * pointer-bearing table while retaining immutable byte ranges in the archive
- * owned copy.  A pair of null entries terminates the table. */
+/* SIS roots are contiguous four-byte pointer words. The first two words
+ * hold kerning and glyph texture metadata. The remaining words point at
+ * encoded text streams. Pair the words into host SIS records while keeping
+ * the original byte ranges immutable. */
 static SIS* native_sis_root(NativeArchiveBinding* binding, uint32_t offset,
                             NativeArchiveError* error)
 {
     NativeSisRoot* root;
     SIS* table;
-    size_t count = 0;
+    size_t word_count = 0;
+    size_t record_count;
     size_t i;
     bool saw_entry = false;
-    const size_t max_entries = NativeArchiveDataSize(binding->archive) / 8u;
+    const size_t max_words = NativeArchiveDataSize(binding->archive) / 4u;
 
-    for (i = 0; i < max_entries; ++i) {
-        uint32_t field0 = offset + (uint32_t) (i * 8u);
-        uint32_t field1 = field0 + 4u;
-        uint32_t target0 = 0;
-        uint32_t target1 = 0;
-        bool present0 = false;
-        bool present1 = false;
-        NativeArchiveStatus status0;
-        NativeArchiveStatus status1;
-        status0 = NativeArchiveReference(binding->archive, field0, &target0,
-                                          &present0, error);
-        status1 = NativeArchiveReference(binding->archive, field1, &target1,
-                                          &present1, error);
-        if (status0 != NATIVE_ARCHIVE_OK || status1 != NATIVE_ARCHIVE_OK) {
-            /* The first non-SIS pair marks the end of this root. */
+    for (i = 0; i < max_words; ++i) {
+        uint32_t target = 0;
+        bool present = false;
+        size_t field = (size_t) offset + i * 4u;
+        NativeArchiveStatus status;
+        if (field > UINT32_MAX) return NULL;
+        status = NativeArchiveReference(binding->archive, (uint32_t) field,
+                                        &target, &present, error);
+        if (status != NATIVE_ARCHIVE_OK) {
             if (!saw_entry) return NULL;
+            if (getenv("MELEE_TRACE_SIS") != NULL)
+                OSReport("SIS scan end i=%zu status=%d msg=%s\\n", i,
+                         status, error == NULL ? "" : error->message);
             break;
         }
-        if (!present0 && !present1) {
+        if (!present) {
             if (saw_entry) break;
             return NULL;
         }
-        if (!present0 || !present1) {
-            native_archive_error("SIS root", error);
-            return NULL;
-        }
-        if (!NativeArchiveDataRange(binding->archive, target0, 1) ||
-            !NativeArchiveDataRange(binding->archive, target1, 1)) {
-            /* Some message tables use end-of-data sentinels. */
-            if (target0 > NativeArchiveDataSize(binding->archive) ||
-                target1 > NativeArchiveDataSize(binding->archive))
-                return NULL;
-        }
+        if (target > NativeArchiveDataSize(binding->archive)) return NULL;
         saw_entry = true;
-        count = i + 1;
+        word_count = i + 1;
     }
-    if (count == 0 || count > SIZE_MAX / sizeof(*table)) return NULL;
-    table = calloc(count, sizeof(*table));
+    if (word_count == 0 || word_count > SIZE_MAX / 4u) return NULL;
+    if (getenv("MELEE_TRACE_SIS") != NULL)
+        OSReport("SIS words=%zu offset=%u\\n", word_count, offset);
+    record_count = (word_count + 1u) / 2u;
+    if (record_count > SIZE_MAX / sizeof(*table)) return NULL;
+    table = calloc(record_count, sizeof(*table));
     if (table == NULL) {
         if (error != NULL) {
             error->status = NATIVE_ARCHIVE_NO_MEMORY;
@@ -151,26 +146,27 @@ static SIS* native_sis_root(NativeArchiveBinding* binding, uint32_t offset,
         }
         return NULL;
     }
-    for (i = 0; i < count; ++i) {
-        uint32_t target0 = 0;
-        uint32_t target1 = 0;
-        bool present0 = false;
-        bool present1 = false;
-        if (NativeArchiveReference(binding->archive, offset + (uint32_t) (i * 8u),
-                                   &target0, &present0, error) !=
-                NATIVE_ARCHIVE_OK ||
-            NativeArchiveReference(binding->archive,
-                                   offset + (uint32_t) (i * 8u + 4u), &target1,
-                                   &present1, error) != NATIVE_ARCHIVE_OK) {
+    for (i = 0; i < word_count; ++i) {
+        uint32_t target = 0;
+        bool present = false;
+        if (NativeArchiveReference(binding->archive, offset + (uint32_t) (i * 4u),
+                                   &target, &present, error) !=
+                NATIVE_ARCHIVE_OK || !present) {
+            if (getenv("MELEE_TRACE_SIS") != NULL)
+                OSReport("SIS fill failed i=%zu target=%u present=%d\\n", i,
+                         target, present);
             free(table);
             return NULL;
         }
-        table[i].kerning = present0 && target0 < NativeArchiveDataSize(binding->archive)
-                                ? (TextKerning*) (binding->archive->data + target0)
-                                : NULL;
-        table[i].textures = present1 && target1 < NativeArchiveDataSize(binding->archive)
-                                ? (TextGlyphTexture*) (binding->archive->data + target1)
-                                : NULL;
+        if ((i & 1u) == 0) {
+            table[i / 2u].kerning = target < NativeArchiveDataSize(binding->archive)
+                                         ? (TextKerning*) (binding->archive->data + target)
+                                         : NULL;
+        } else {
+            table[i / 2u].textures = target < NativeArchiveDataSize(binding->archive)
+                                         ? (TextGlyphTexture*) (binding->archive->data + target)
+                                         : NULL;
+        }
     }
     root = calloc(1, sizeof(*root));
     if (root == NULL) {
@@ -178,10 +174,26 @@ static SIS* native_sis_root(NativeArchiveBinding* binding, uint32_t offset,
         return NULL;
     }
     root->table = table;
-    root->count = count;
+    root->count = word_count;
     root->next = binding->sis_roots;
     binding->sis_roots = root;
     return table;
+}
+
+/* Return the number of valid serialized SIS pointer words for a converted
+ * root. This lets native callers reject an out-of-range text index before
+ * doing the host record/parity mapping. */
+size_t HSD_ArchiveNativeSisCount(const void* table)
+{
+    NativeArchiveBinding* binding;
+    for (binding = native_archive_bindings; binding != NULL;
+         binding = binding->next) {
+        NativeSisRoot* root;
+        for (root = binding->sis_roots; root != NULL; root = root->next) {
+            if (root->table == table) return root->count;
+        }
+    }
+    return 0;
 }
 
 static struct Fighter_804D653C_t* native_rumble_root(
