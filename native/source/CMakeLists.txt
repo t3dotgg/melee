@@ -57,5 +57,11 @@ target_link_libraries(test_scene_bytecode PRIVATE melee_host_options)
 add_test(NAME scene_bytecode COMMAND test_scene_bytecode)
 
 add_executable(test_effects tests/test_effects.c)
+target_sources(test_effects PRIVATE "${MELEE_ROOT}/src/melee/ef/eflib.c")
 target_link_libraries(test_effects PRIVATE melee_host_options)
+target_link_options(test_effects PRIVATE -Wl,-dead_strip)
 add_test(NAME effects COMMAND test_effects)
+
+add_executable(test_archive tests/test_archive.c assets/archive.c assets/descriptors.c platform/report.c)
+target_link_libraries(test_archive PRIVATE melee_host_options)
+add_test(NAME archive COMMAND test_archive)
