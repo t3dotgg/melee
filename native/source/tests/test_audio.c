@@ -41,12 +41,14 @@ int main(void)
     AXPBMIX mix = { 0 };
     AXPBSRC source = { 1, 0, 0, { 0, 0, 0, 0 } };
 
-    /* Predictor 0, scale 0, followed by sixteen positive ADPCM nibbles. */
+    /* Predictor 0, scale 0, followed by fourteen ADPCM nibbles. Addresses
+     * for ADPCM voices are nibble addresses. */
     aram[0] = 0;
-    for (int i = 0; i < 8; ++i) aram[1 + i] = 0x12;
+    for (int i = 0; i < 7; ++i) aram[1 + i] = 0x12;
+    aram[7] = 0xF1; /* include a negative nibble in the signed path */
     address.format = 0;
-    address.endAddressLo = 9;
-    address.currentAddressLo = 0;
+    address.endAddressLo = 15;
+    address.currentAddressLo = 2;
     mix.vL = 32767;
     mix.vR = 32767;
 
@@ -68,6 +70,30 @@ int main(void)
     assert(voice->pb.state == 0);
     AXFreeVoice(voice);
 
+    /* A looping ADPCM frame returns to its sample address and keeps running.
+     * The loop history is restored before decoding the next frame. */
+    memset(mixed, 0, sizeof(mixed));
+    mixed_frames = 0;
+    AXInit();
+    voice = AXAcquireVoice(1, NULL, 0);
+    assert(voice != NULL);
+    address.loopFlag = 1;
+    address.loopAddressLo = 2;
+    address.endAddressLo = 15;
+    address.currentAddressLo = 2;
+    address.format = 0;
+    AXSetVoiceAddr(voice, &address);
+    AXSetVoiceAdpcm(voice, &(AXPBADPCM){ 0 });
+    AXSetVoiceAdpcmLoop(voice, &(AXPBADPCMLOOP){ 0 });
+    AXSetVoiceSrc(voice, &source);
+    AXSetVoiceVe(voice, &envelope);
+    AXSetVoiceMix(voice, &mix);
+    AXSetVoiceState(voice, 1);
+    NativeAudioTick();
+    assert(mixed_frames == 533);
+    assert(voice->pb.state != 0);
+    AXFreeVoice(voice);
+
     /* PCM16 remains big endian in ARAM. */
     aram[0] = 0x40;
     aram[1] = 0x00;
@@ -78,8 +104,8 @@ int main(void)
     AXInit();
     voice = AXAcquireVoice(1, NULL, 0);
     assert(voice != NULL);
-    address.format = 2;
-    address.endAddressLo = 4;
+    address.format = 0x0A;
+    address.endAddressLo = 1;
     address.currentAddressLo = 0;
     AXSetVoiceAddr(voice, &address);
     AXSetVoiceSrc(voice, &source);
@@ -97,7 +123,7 @@ int main(void)
     AXInit();
     voice = AXAcquireVoice(1, NULL, 0);
     assert(voice != NULL);
-    address.format = 3;
+    address.format = 0x03;
     address.currentAddressLo = 0;
     AXSetVoiceAddr(voice, &address);
     AXSetVoiceSrc(voice, &source);

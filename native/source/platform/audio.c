@@ -159,8 +159,8 @@ static void* ax_aux_b_context;
 
 #ifdef MELEE_NATIVE
 #define NATIVE_AX_FORMAT_ADPCM 0
-#define NATIVE_AX_FORMAT_PCM8 1
-#define NATIVE_AX_FORMAT_PCM16 2
+#define NATIVE_AX_FORMAT_PCM8 0x19
+#define NATIVE_AX_FORMAT_PCM16 0x0A
 
 /* State that the GameCube DSP normally keeps while decoding each voice. */
 static u32 native_ax_block_address[AX_MAX_VOICES];
@@ -186,7 +186,12 @@ static inline s16 native_ax_clamp(s32 value)
 
 static void native_ax_decode_block(AXVPB* voice, u32 address)
 {
-    const u8* data = NativeARAMPointer(address, 9);
+    /* ADPCM addresses use nibbles. Each frame has a one byte header followed
+     * by seven bytes containing fourteen samples. The PB current address
+     * points at the first sample nibble, two nibbles after the frame start. */
+    const u32 frame = address >= 2 ? (address - 2) & ~0xFu : 0;
+    const u32 byte_address = frame / 2;
+    const u8* data = NativeARAMPointer(byte_address, 8);
     int predictor;
     int scale;
     s32 yn1;
@@ -202,11 +207,12 @@ static void native_ax_decode_block(AXVPB* voice, u32 address)
     if (predictor >= 8) predictor = 0;
     yn1 = (s16) voice->pb.adpcm.yn1;
     yn2 = (s16) voice->pb.adpcm.yn2;
-    for (int i = 0; i < 16; ++i) {
+    for (int i = 0; i < 14; ++i) {
         int nibble = (i & 1) == 0 ? data[1 + i / 2] >> 4
                                   : data[1 + i / 2] & 0xF;
         if (nibble >= 8) nibble -= 16;
-        s32 sample = (s32) nibble << scale;
+        /* Left-shifting a negative signed value is undefined in C. */
+        s32 sample = (s32) nibble * (1 << scale);
         sample += ((s16) voice->pb.adpcm.a[predictor][0] * yn1 +
                    (s16) voice->pb.adpcm.a[predictor][1] * yn2) >> 11;
         sample = native_ax_clamp(sample);
@@ -226,13 +232,19 @@ static bool native_ax_advance(AXVPB* voice)
                                       voice->pb.addr.endAddressLo);
     const u32 loop = native_ax_address(voice->pb.addr.loopAddressHi,
                                        voice->pb.addr.loopAddressLo);
-    const u32 stride = voice->pb.addr.format == NATIVE_AX_FORMAT_ADPCM ? 9 :
-                       voice->pb.addr.format == NATIVE_AX_FORMAT_PCM8 ? 1 : 2;
+    /* PCM16 addresses are 16-bit words. PCM8 addresses are bytes. */
+    const u32 stride = 1;
 
-    current += stride;
-    if (end != 0 && current >= end) {
+    if (voice->pb.addr.format == NATIVE_AX_FORMAT_ADPCM) {
+        const u32 frame = current >= 2 ? (current - 2) & ~0xFu : 0;
+        current = frame + 0x12; /* next frame's first sample nibble */
+    } else {
+        current += stride;
+    }
+    if (end != 0 && current > end) {
         if (voice->pb.addr.loopFlag != 0 && loop < end) {
             current = loop;
+            voice->pb.adpcm.pred_scale = voice->pb.adpcmLoop.loop_pred_scale;
             voice->pb.adpcm.yn1 = voice->pb.adpcmLoop.loop_yn1;
             voice->pb.adpcm.yn2 = voice->pb.adpcmLoop.loop_yn2;
         } else {
@@ -253,7 +265,7 @@ static bool native_ax_sample(AXVPB* voice, s16* output)
                                           voice->pb.addr.currentAddressLo);
     const u32 end = native_ax_address(voice->pb.addr.endAddressHi,
                                       voice->pb.addr.endAddressLo);
-    if (voice->pb.state == 0 || (end != 0 && address >= end)) {
+    if (voice->pb.state == 0 || (end != 0 && address > end)) {
         voice->pb.state = 0;
         return false;
     }
@@ -266,23 +278,32 @@ static bool native_ax_sample(AXVPB* voice, s16* output)
         return false;
     }
     if (voice->pb.addr.format == NATIVE_AX_FORMAT_ADPCM) {
+        const u32 frame = address >= 2 ? (address - 2) & ~0xFu : 0;
         if (!native_ax_block_valid[index] ||
-            native_ax_block_address[index] != address) {
+            native_ax_block_address[index] != frame) {
             native_ax_decode_block(voice, address);
-            native_ax_block_address[index] = address;
+            native_ax_block_address[index] = frame;
             native_ax_block_position[index] = 0;
             native_ax_block_valid[index] = true;
         }
-        *output = native_ax_block_samples[index][native_ax_block_position[index]];
-        native_ax_block_position[index]++;
-        if (native_ax_block_position[index] == 16) {
+        const u32 frame_pos = address - frame - 2;
+        *output = native_ax_block_samples[index][frame_pos];
+        if (frame_pos == 13) {
             native_ax_block_position[index] = 0;
             native_ax_advance(voice);
+        } else {
+            native_ax_block_position[index] = (u8) (frame_pos + 1);
+            const u32 next = address + 1;
+            voice->pb.addr.currentAddressHi = (u16) (next >> 16);
+            voice->pb.addr.currentAddressLo = (u16) next;
         }
         return true;
     }
+    const u32 byte_address = voice->pb.addr.format == NATIVE_AX_FORMAT_PCM8
+                                 ? address
+                                 : address * 2;
     const u8* data = NativeARAMPointer(
-        address, voice->pb.addr.format == NATIVE_AX_FORMAT_PCM8 ? 1 : 2);
+        byte_address, voice->pb.addr.format == NATIVE_AX_FORMAT_PCM8 ? 1 : 2);
     if (data == NULL) {
         voice->pb.state = 0;
         return false;
@@ -340,6 +361,13 @@ void AXInit(void)
 {
     memset(ax_voices, 0, sizeof(ax_voices));
     memset(ax_voice_used, 0, sizeof(ax_voice_used));
+#ifdef MELEE_NATIVE
+    memset(native_ax_block_address, 0, sizeof(native_ax_block_address));
+    memset(native_ax_block_position, 0, sizeof(native_ax_block_position));
+    memset(native_ax_block_valid, 0, sizeof(native_ax_block_valid));
+    memset(native_ax_source_position, 0, sizeof(native_ax_source_position));
+    native_ax_remainder = 0;
+#endif
     ax_mode = 0;
     ax_callback = NULL;
 }
@@ -374,6 +402,10 @@ void AXFreeVoice(AXVPB* voice)
     }
     const size_t index = (size_t) (voice - ax_voices);
     ax_voice_used[index] = false;
+#ifdef MELEE_NATIVE
+    native_ax_block_valid[index] = false;
+    native_ax_source_position[index] = 0.0f;
+#endif
     memset(voice, 0, sizeof(*voice));
 }
 
