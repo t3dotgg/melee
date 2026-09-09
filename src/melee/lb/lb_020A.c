@@ -196,7 +196,8 @@ void fn_8002113C(HSD_JObj* jobj, Vec3* axis, f32 angle)
     Mtx rotMtx;
     Mtx result;
 #ifdef MELEE_NATIVE
-    /* Joint rotation accessors copy four floats, including for Euler joints. */
+    /* Joint rotation accessors copy four floats, including for Euler joints.
+     */
     Quaternion rot;
 #else
     Vec3 rot;

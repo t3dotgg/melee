@@ -1035,7 +1035,8 @@ static inline void it_80279E24_inline(Item_GObj* item_gobj)
     item->xDD4_itemVar.pokemon_spawn.x58++;
 #ifdef MELEE_NATIVE
     if (item->xDD4_itemVar.pokemon_spawn.x58 >=
-        item->xDD4_itemVar.pokemon_spawn.x54) {
+        item->xDD4_itemVar.pokemon_spawn.x54)
+    {
         return;
     }
 #endif

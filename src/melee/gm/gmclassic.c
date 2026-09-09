@@ -605,8 +605,7 @@ static gm_803DDEC8Struct* gmClassic_801B2D54(gm_803DDEC8Struct* arg0)
 #ifdef MELEE_NATIVE
     /* These globals share storage in the original image, but native globals
      * can have separate addresses and sanitizer redzones. */
-    gmClassic_804908A0Data* state =
-        (gmClassic_804908A0Data*) gm_804908A0;
+    gmClassic_804908A0Data* state = (gmClassic_804908A0Data*) gm_804908A0;
     gmClassic_803DDEC8Data* matchups = &gmClassic_803DDEC8;
 #else
     gmClassicRuntimeData* o =
@@ -619,8 +618,8 @@ static gm_803DDEC8Struct* gmClassic_801B2D54(gm_803DDEC8Struct* arg0)
 
     for (ptr = arg0; ptr->x0 != 0xD; ptr++) {
         if (ptr->x1 & 8) {
-            gmClassicMatchup* result = gmClassic_801B2BA4(
-                matchups->x2B0, state->order.x60, arg0);
+            gmClassicMatchup* result =
+                gmClassic_801B2BA4(matchups->x2B0, state->order.x60, arg0);
             if (result != NULL) {
                 ptr->xC = result;
             } else {
@@ -633,8 +632,8 @@ static gm_803DDEC8Struct* gmClassic_801B2D54(gm_803DDEC8Struct* arg0)
     for (ptr = arg0; ptr->x0 != 0xD; ptr++) {
         u8 flags = ptr->x1;
         if ((flags & 2) && !(flags & 0x20)) {
-            gmClassicMatchup* result = gmClassic_801B2BA4(
-                matchups->x26C, state->order.x54, arg0);
+            gmClassicMatchup* result =
+                gmClassic_801B2BA4(matchups->x26C, state->order.x54, arg0);
             if (result != NULL) {
                 ptr->xC = result;
             } else {
@@ -647,8 +646,8 @@ static gm_803DDEC8Struct* gmClassic_801B2D54(gm_803DDEC8Struct* arg0)
     for (ptr = arg0; ptr->x0 != 0xD; ptr++) {
         u8 flags = ptr->x1;
         if ((flags & 0x10) && !(flags & 0x20)) {
-            gmClassicMatchup* result = gmClassic_801B2BA4(
-                matchups->x1B8, state->order.x34, arg0);
+            gmClassicMatchup* result =
+                gmClassic_801B2BA4(matchups->x1B8, state->order.x34, arg0);
             if (result != NULL) {
                 ptr->xC = result;
             } else {
@@ -661,8 +660,8 @@ static gm_803DDEC8Struct* gmClassic_801B2D54(gm_803DDEC8Struct* arg0)
     for (ptr = arg0; ptr->x0 != 0xD; ptr++) {
         u8 flags = ptr->x1;
         if (flags == 0 || flags == 4) {
-            gmClassicMatchup* result = gmClassic_801B2BA4(
-                matchups->x0CC, state->order.x0C, arg0);
+            gmClassicMatchup* result =
+                gmClassic_801B2BA4(matchups->x0CC, state->order.x0C, arg0);
             if (result != NULL) {
                 ptr->xC = result;
             } else {
@@ -703,8 +702,7 @@ void gm_Mode_Classic_OnLoad(void)
     UnkAllstarData* data;
 #ifdef MELEE_NATIVE
     gmClassic_803DDEC8Data* matchups = &gmClassic_803DDEC8;
-    gmClassic_804908A0Data* state =
-        (gmClassic_804908A0Data*) gm_804908A0;
+    gmClassic_804908A0Data* state = (gmClassic_804908A0Data*) gm_804908A0;
 #else
     gmClassicSceneData* scene_data =
         (gmClassicSceneData*) gm_Mode_Classic_States;

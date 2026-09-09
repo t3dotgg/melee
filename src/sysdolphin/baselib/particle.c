@@ -115,8 +115,7 @@ static void particle_native_load(int bank, const u8* cmdBank,
         return;
     }
     cmd_count = particle_be32(cmdBank + 8);
-    if (cmd_count > (cmd_bank_size - 12) / sizeof(u32) ||
-        tex_bank_size < 4) {
+    if (cmd_count > (cmd_bank_size - 12) / sizeof(u32) || tex_bank_size < 4) {
         OSPanic(__FILE__, 108, "invalid native particle bank tables\n");
         return;
     }
@@ -141,13 +140,15 @@ static void particle_native_load(int bank, const u8* cmdBank,
         HSD_PSCmdList* dst;
         size_t size;
         if (target == 0 || target > cmd_bank_size ||
-            cmd_bank_size - target < 60) {
+            cmd_bank_size - target < 60)
+        {
             continue;
         }
         for (j = 0; j < cmd_count; ++j) {
             u32 candidate = particle_be32(cmdBank + 12 + j * 4);
             if (candidate > target && candidate < next_target &&
-                candidate <= cmd_bank_size) {
+                candidate <= cmd_bank_size)
+            {
                 next_target = candidate;
             }
         }

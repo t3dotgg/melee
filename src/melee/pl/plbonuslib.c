@@ -592,7 +592,7 @@ void pl_8003E70C(Item_GObj* igobj)
 #ifdef MELEE_NATIVE
     {
         u32* count = (u32*) ((u8*) &temp_r31->x0_staleMoveTable
-                             .total_attack_count_struct.x598[0] +
+                                 .total_attack_count_struct.x598[0] +
                              (size_t) temp_r3 * sizeof(u32));
         *count += 1;
     }
@@ -607,8 +607,8 @@ u32 pl_8003E7D4(int arg0, int kind)
 
 #ifdef MELEE_NATIVE
     return *(u32*) ((u8*) &Player_GetStaleMoveTableIndexPtr2(arg0)
-                         ->x0_staleMoveTable.total_attack_count_struct.x598[0] +
-                     (size_t) kind * sizeof(u32));
+                        ->x0_staleMoveTable.total_attack_count_struct.x598[0] +
+                    (size_t) kind * sizeof(u32));
 #else
     return Player_GetStaleMoveTableIndexPtr2(arg0)
         ->x0_staleMoveTable.total_attack_count_struct.x598[kind];

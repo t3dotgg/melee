@@ -2048,7 +2048,8 @@ void Player_80036E20(CharacterKind ckind, HSD_Archive* archive, s32 arg2)
     if ((ftMapping_list[ckind].extra_internal_id != -1) &&
         (ftMapping_list[ckind].has_transformation == 0))
     {
-        ftDemo_SetArchiveData(ftMapping_list[ckind].extra_internal_id, archive, arg2);
+        ftDemo_SetArchiveData(ftMapping_list[ckind].extra_internal_id, archive,
+                              arg2);
     }
 }
 

@@ -705,7 +705,8 @@ typedef struct NativeCastleParameters {
     s16 x12C[4];
     f32 x134, x138, x13C, x140;
 } NativeCastleParameters;
-_Static_assert(sizeof(NativeCastleParameters) == 0x150, "native castle parameter layout");
+_Static_assert(sizeof(NativeCastleParameters) == 0x150,
+               "native castle parameter layout");
 
 static void* castle_parameters(NativeStageArchive* stage, uint32_t offset)
 {
@@ -786,8 +787,8 @@ typedef struct NativeKongoParameters {
     s32 unk64, unk68;
     f32 unk6C, unk70, unk74, unk78, unk7C, unk80;
     void* unk84;
-    f32 unk88, unk8C, unk90, unk94, unk98, unk9C, unkA0, unkA4, unkA8,
-        unkAC, unkB0, unkB4, unkB8;
+    f32 unk88, unk8C, unk90, unk94, unk98, unk9C, unkA0, unkA4, unkA8, unkAC,
+        unkB0, unkB4, unkB8;
 } NativeKongoParameters;
 _Static_assert(sizeof(NativeKongoParameters) == 0xC8,
                "native kongo parameter layout");
@@ -846,8 +847,8 @@ static void* kongo_parameters(NativeStageArchive* stage, uint32_t offset)
 }
 
 typedef struct NativeCorneriaParameters {
-    f32 x0, x4, x8, xC, x10, x14, x18, x1C, x20, x24, x28, x2C, x30, x34,
-        x38, x3C, x40, x44, x48, x4C;
+    f32 x0, x4, x8, xC, x10, x14, x18, x1C, x20, x24, x28, x2C, x30, x34, x38,
+        x3C, x40, x44, x48, x4C;
     u8 padding50[0x18];
     f32 x68;
     u8 padding6C[4];

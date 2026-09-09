@@ -17,13 +17,13 @@
 #include <sysdolphin/baselib/sobjlib.h>
 
 #ifdef MELEE_NATIVE
-#include "assets/events.h"
 #include "../../../native/source/assets/archive_internal.h"
 #include "../../../native/source/assets/effects.h"
 #include "../../../native/source/assets/fighters.h"
 #include "../../../native/source/assets/items.h"
 #include "../../../native/source/assets/stage.h"
 #include "../../../native/source/command.h"
+#include "assets/events.h"
 #include <sysdolphin/baselib/sislib.h>
 #endif
 
@@ -105,9 +105,8 @@ native_audio_load_data(NativeArchiveBinding* binding, uint32_t offset,
             bool list_present = false;
             size_t count = 0;
             if (NativeArchiveReference(
-                    binding->archive, table_offset + entry * 4,
-                    &list_offset, &list_present, error) !=
-                    NATIVE_ARCHIVE_OK ||
+                    binding->archive, table_offset + entry * 4, &list_offset,
+                    &list_present, error) != NATIVE_ARCHIVE_OK ||
                 !list_present ||
                 !NativeArchiveDataRange(binding->archive, list_offset, 4))
             {
@@ -115,7 +114,7 @@ native_audio_load_data(NativeArchiveBinding* binding, uint32_t offset,
             }
             while (count < 0x1000 &&
                    NativeArchiveDataRange(binding->archive,
-                                           list_offset + count * 4, 4) &&
+                                          list_offset + count * 4, 4) &&
                    NativeArchiveBE32(binding->archive->data + list_offset +
                                      count * 4) != 0x83D60)
             {
@@ -1162,8 +1161,8 @@ void* HSD_ArchiveNativePublicAddress(HSD_Archive* archive, const char* symbol)
     }
     if (strcmp(symbol, "ScInfCnt_scene_models") == 0 ||
         strcmp(symbol, "Stc_scemdls") == 0 ||
-        strcmp(symbol, "Stc_rarwmdls") == 0 ||
-        strcmp(symbol, "lupe") == 0 || strcmp(symbol, "tdsce") == 0 ||
+        strcmp(symbol, "Stc_rarwmdls") == 0 || strcmp(symbol, "lupe") == 0 ||
+        strcmp(symbol, "tdsce") == 0 ||
         native_name_ends_with(symbol, "_scene_modelset") ||
         native_name_ends_with(symbol, "_scene_models"))
     {
@@ -1281,8 +1280,7 @@ size_t HSD_ArchiveNativeDataLimit(const void* pointer)
             continue;
         }
         offset = (size_t) (address - start);
-        for (size_t i = 0; i < NativeArchivePublicCount(binding->archive);
-             ++i)
+        for (size_t i = 0; i < NativeArchivePublicCount(binding->archive); ++i)
         {
             NativeArchiveSymbol symbol;
             if (NativeArchivePublic(binding->archive, i, &symbol, NULL) ==
