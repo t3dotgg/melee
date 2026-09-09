@@ -59,6 +59,13 @@ typedef struct GXSWVtxAttrState {
 static GXSWVtxAttrState gx_vtx_state[GX_MAX_VTXFMT][GX_VA_MAX_ATTR];
 static GXVtxFmt gx_active_vtxfmt;
 
+/* GX_VA_NBT shares the normal slot in the FIFO. The enum gives it a value at
+ * the end of the attribute list, but its data still follows position. */
+static GXAttr gx_state_attr(GXAttr attr)
+{
+    return attr == GX_VA_NBT ? GX_VA_NRM : attr;
+}
+
 static void gx_ensure_efb(void)
 {
     if (gx_efb != NULL) return;
@@ -405,7 +412,9 @@ static bool gx_dl_vertex(const u8 **cursor, const u8 *end, GXVtxFmt format)
     f32 values[3] = { 0.0f, 0.0f, 0.0f };
     GXColor color = gx_current_color;
     bool have_position = false;
-    for (GXAttr attr = GX_VA_PNMTXIDX; attr < GX_VA_MAX_ATTR; attr++) {
+    /* Attributes 21 through 24 are array setup tokens, not vertex stream
+     * fields. NBT is normalized to the NRM slot by gx_state_attr(). */
+    for (GXAttr attr = GX_VA_PNMTXIDX; attr <= GX_VA_TEX7; attr++) {
         if (attr == GX_VA_POS) {
             if (!gx_dl_attr(cursor, end, attr, &states[attr], values, NULL))
                 return false;
@@ -609,6 +618,7 @@ void GXPixModeSync(void) {}
 void GXSetAlphaCompare(GXCompare comp0, u8 ref0, GXAlphaOp op, GXCompare comp1, u8 ref1) {}
 void GXSetAlphaUpdate(GXBool update_enable) {}
 void GXSetArray(GXAttr attr, const void *base_ptr, u8 stride) {
+    attr = gx_state_attr(attr);
     if (attr >= GX_VA_MAX_ATTR) return;
     for (u32 format = 0; format < GX_MAX_VTXFMT; format++) {
         gx_vtx_state[format][attr].array = (const u8 *) base_ptr;
@@ -665,12 +675,14 @@ void GXSetTexCoordGen2(GXTexCoordID dst_coord, GXTexGenType func, GXTexGenSrc sr
 void GXSetTexCopyDst(u16 wd, u16 ht, GXTexFmt fmt, GXBool mipmap) {}
 void GXSetTexCopySrc(u16 left, u16 top, u16 wd, u16 ht) {}
 void GXSetVtxAttrFmt(GXVtxFmt vtxfmt, GXAttr attr, GXCompCnt cnt, GXCompType type, u8 frac) {
+    attr = gx_state_attr(attr);
     if (vtxfmt >= GX_MAX_VTXFMT || attr >= GX_VA_MAX_ATTR) return;
     gx_vtx_state[vtxfmt][attr].cnt = cnt;
     gx_vtx_state[vtxfmt][attr].type = type;
     gx_vtx_state[vtxfmt][attr].frac = frac;
 }
 void GXSetVtxDesc(GXAttr attr, GXAttrType type) {
+    attr = gx_state_attr(attr);
     if (attr >= GX_VA_MAX_ATTR) return;
     for (u32 format = 0; format < GX_MAX_VTXFMT; format++)
         gx_vtx_state[format][attr].desc = type;
