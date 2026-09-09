@@ -2,6 +2,7 @@
 
 #include <placeholder.h>
 #include <stdio.h>
+#include <stddef.h>
 
 #include "lbarchive.h"
 #include "lbcardnew.h"
@@ -391,7 +392,7 @@ int lbSnap_8001DE8C(void* arg0)
 
 static inline int lbSnap_GetSaveDataOffset(struct Unk80433380_0* snap)
 {
-    return snap->xC + ((int) &snap->x38 - (int) snap);
+    return snap->xC + (int) offsetof(struct Unk80433380_0, x38);
 }
 
 #ifdef MUST_MATCH

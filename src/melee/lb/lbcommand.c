@@ -35,20 +35,26 @@ void Command_03(CommandInfo* info)
 {
     info->event_return[info->loop_count++] = info->u + 1;
     info->event_return[info->loop_count++] =
-        (union CmdUnion*) info->u->Command_03.value;
+        (union CmdUnion*) (uintptr_t) info->u->Command_03.value;
     NEXT_CMD(info);
 }
 
 /// Repeat the loop body or pop both loop entries when the count reaches zero.
 void Command_04(CommandInfo* info)
 {
+#ifdef MELEE_NATIVE
+    uintptr_t remaining =
+        (uintptr_t) info->event_return[info->loop_count - 1] - 1;
+    info->event_return[info->loop_count - 1] = (union CmdUnion*) remaining;
+#else
     /* Decrement the count at event_return[loop_count - 1] as a word, not a
      * command pointer. Keep this base and index form for the matching build.
      */
     u32* words = (u32*) info;
     words[info->loop_count + 3] -= 1;
+#endif
 
-    if ((s32) info->event_return[info->loop_count - 1]) {
+    if (info->event_return[info->loop_count - 1] != NULL) {
         info->u = info->event_return[info->loop_count - 2];
         return;
     }

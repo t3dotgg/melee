@@ -118,7 +118,11 @@ UNK_T func_804A70A0(UNK_T, s32, u32, s32, s32, s32, s32, s32, f64, f64, f64,
                     f64, f64, f64, f64, f64);
 void HSD_SisLib_803A947C(HSD_Archive*);
 HSD_Archive* HSD_SisLib_803A945C(char*);
+#ifdef MELEE_NATIVE
+void HSD_SisLib_803A84BC(HSD_GObj*, intptr_t);
+#else
 void HSD_SisLib_803A84BC(HSD_GObj*, int);
+#endif
 s32 HSD_SisLib_803A7F0C(HSD_Text*, s32);
 void HSD_SisLib_803A8134(void*, HSD_Text*, f32*, f32*);
 void HSD_SisLib_803A7684(HSD_Text*, const u8*, u8);
