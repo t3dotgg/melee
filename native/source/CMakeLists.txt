@@ -99,6 +99,13 @@ add_executable(test_audio tests/test_audio.c platform/audio.c)
 target_link_libraries(test_audio PRIVATE melee_host_options)
 add_test(NAME audio COMMAND test_audio)
 
+add_executable(test_synth_stream tests/test_synth_stream.c platform/audio.c
+    platform/report.c)
+target_link_libraries(test_synth_stream PRIVATE melee_host_options)
+target_link_options(test_synth_stream PRIVATE -Wl,-dead_strip)
+add_test(NAME synth_stream_loop COMMAND test_synth_stream loop)
+add_test(NAME synth_stream_finite COMMAND test_synth_stream finite)
+
 add_executable(test_gx tests/test_gx.c platform/gx.c)
 target_link_libraries(test_gx PRIVATE melee_host_options)
 add_test(NAME gx COMMAND test_gx)
