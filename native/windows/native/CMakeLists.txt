@@ -14,6 +14,7 @@ add_library(melee_native_core STATIC
     src/native_game_memory.cpp
     src/native_archive.cpp
     src/native_timing.cpp
+    src/native_input.cpp
 )
 target_include_directories(melee_native_core PUBLIC include)
 target_compile_options(melee_native_core PRIVATE
@@ -40,3 +41,7 @@ enable_testing()
 add_test(NAME native_memory_and_game COMMAND melee_native_tests)
 add_test(NAME native_archive COMMAND melee_native_archive_tests)
 add_test(NAME native_timing COMMAND melee_native_timing_tests)
+
+add_executable(melee_native_input_tests tests/input_tests.cpp)
+target_link_libraries(melee_native_input_tests PRIVATE melee_native_core)
+add_test(NAME native_input_mapping COMMAND melee_native_input_tests)
