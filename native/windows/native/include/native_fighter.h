@@ -31,6 +31,7 @@ struct FighterState {
 class NativeFighter final {
 public:
     void reset() noexcept { state_ = {}; state_.stocks = 4; }
+    void set_position(float x, float y) noexcept { state_.x = x; state_.y = y; }
     void update(const FighterInput& input, double dt_seconds);
     const FighterState& state() const noexcept { return state_; }
 
