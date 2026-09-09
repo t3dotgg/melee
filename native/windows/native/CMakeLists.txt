@@ -27,6 +27,7 @@ add_library(melee_native_core STATIC
     src/native_windows_input.cpp
     src/native_heap.cpp
     src/native_renderer_backend.cpp
+    src/native_d3d12.cpp
 )
 target_include_directories(melee_native_core PUBLIC include)
 target_compile_options(melee_native_core PRIVATE
@@ -98,4 +99,8 @@ add_test(NAME native_heap COMMAND melee_native_heap_tests)
 add_executable(melee_native_renderer_backend_tests tests/renderer_backend_tests.cpp)
 target_link_libraries(melee_native_renderer_backend_tests PRIVATE melee_native_core)
 add_test(NAME native_renderer_backend COMMAND melee_native_renderer_backend_tests)
+
+add_executable(melee_native_d3d12_tests tests/d3d12_tests.cpp)
+target_link_libraries(melee_native_d3d12_tests PRIVATE melee_native_core)
+add_test(NAME native_d3d12 COMMAND melee_native_d3d12_tests)
 
