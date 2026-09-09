@@ -80,7 +80,7 @@ struct lbl_8046B488_t* fn_8016AE60(void)
     return gm_1601_GetUnkData();
 }
 
-bool gm_8016AE80(void)
+s32 gm_8016AE80(void)
 {
     return gm_GetStartMeleeRules()->item_freq;
 }

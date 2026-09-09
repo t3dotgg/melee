@@ -9,7 +9,7 @@
 /* 16AE44 */ VsSceneController* gmVs_GetController_1(void);
 /* 16AE50 */ struct StartMeleeRules* gm_GetStartMeleeRules(void);
 /* 16AE60 */ struct lbl_8046B488_t* fn_8016AE60(void);
-/* 16AE80 */ bool gm_8016AE80(void);
+/* 16AE80 */ s32 gm_8016AE80(void);
 /* 16AE94 */ f32 gm_8016AE94(void);
 /* 16AEA4 */ u64 gm_8016AEA4(void);
 /* 16AEB8 */ s32 gm_8016AEB8(void);
