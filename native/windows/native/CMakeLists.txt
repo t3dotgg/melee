@@ -31,10 +31,11 @@ add_library(melee_native_core STATIC
     src/native_d3d12.cpp
     src/native_texture.cpp
     src/native_window.cpp
+    src/native_swapchain.cpp
 )
 target_include_directories(melee_native_core PUBLIC include)
 if (WIN32)
-    target_link_libraries(melee_native_core PUBLIC user32)
+    target_link_libraries(melee_native_core PUBLIC user32 d3d12 dxgi)
 endif()
 target_compile_options(melee_native_core PRIVATE
     $<$<CXX_COMPILER_ID:MSVC>:/W4>
@@ -121,4 +122,11 @@ add_test(NAME native_texture COMMAND melee_native_texture_tests)
 add_executable(melee_native_window_tests tests/window_tests.cpp)
 target_link_libraries(melee_native_window_tests PRIVATE melee_native_core)
 add_test(NAME native_window COMMAND melee_native_window_tests)
+
+add_executable(melee_native_swapchain_tests tests/swapchain_tests.cpp)
+target_link_libraries(melee_native_swapchain_tests PRIVATE melee_native_core)
+if (WIN32)
+    target_link_libraries(melee_native_swapchain_tests PRIVATE d3d12 dxgi)
+endif()
+add_test(NAME native_swapchain COMMAND melee_native_swapchain_tests)
 

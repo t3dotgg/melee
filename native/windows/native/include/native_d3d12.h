@@ -16,6 +16,7 @@ public:
     bool initialize();
     void shutdown() noexcept;
     bool available() const noexcept { return device_ != nullptr; }
+    void* native_handle() const noexcept { return device_; }
     std::uint32_t feature_level() const noexcept { return feature_level_; }
 
 private:
