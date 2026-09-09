@@ -23,6 +23,11 @@ void release_object(void*& ptr) noexcept
     if (ptr != nullptr) static_cast<IUnknown*>(ptr)->Release();
     ptr = nullptr;
 }
+
+void release_render_targets(std::array<void*, 8>& targets) noexcept
+{
+    for (auto& target : targets) release_object(target);
+}
 } // namespace
 #endif
 
@@ -117,6 +122,39 @@ bool NativeWin32SwapChain::initialize(const NativeSwapChainDesc& desc)
     }
     chain->Release();
     factory->MakeWindowAssociation(static_cast<HWND>(window_), DXGI_MWA_NO_ALT_ENTER);
+
+    // Allocate the objects required by the first real native render pass.
+    D3D12_DESCRIPTOR_HEAP_DESC rtv_desc{};
+    rtv_desc.NumDescriptors = buffer_count_;
+    rtv_desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;
+    if (FAILED(device->CreateDescriptorHeap(&rtv_desc, __uuidof(ID3D12DescriptorHeap),
+                                            &rtv_heap_)))
+        return fail();
+    rtv_increment_ = device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
+    if (rtv_increment_ == 0) return fail();
+    if (FAILED(device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT,
+                                               __uuidof(ID3D12CommandAllocator),
+                                               &command_allocator_)))
+        return fail();
+    if (FAILED(device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT,
+                                         static_cast<ID3D12CommandAllocator*>(command_allocator_),
+                                         nullptr, __uuidof(ID3D12GraphicsCommandList),
+                                         &command_list_)))
+        return fail();
+    // New command lists start in the recording state; close until first use.
+    if (FAILED(static_cast<ID3D12GraphicsCommandList*>(command_list_)->Close())) return fail();
+    if (FAILED(device->CreateFence(0, D3D12_FENCE_FLAG_NONE, __uuidof(ID3D12Fence), &fence_)))
+        return fail();
+    fence_event_ = CreateEventW(nullptr, FALSE, FALSE, nullptr);
+    if (fence_event_ == nullptr) return fail();
+    auto* chain3 = static_cast<IDXGISwapChain3*>(swap_chain_);
+    auto descriptor = static_cast<ID3D12DescriptorHeap*>(rtv_heap_)->GetCPUDescriptorHandleForHeapStart();
+    for (std::uint32_t i = 0; i < buffer_count_; ++i) {
+        if (FAILED(chain3->GetBuffer(i, __uuidof(ID3D12Resource), &back_buffers_[i]))) return fail();
+        D3D12_CPU_DESCRIPTOR_HANDLE handle = descriptor;
+        handle.ptr += static_cast<SIZE_T>(i) * rtv_increment_;
+        device->CreateRenderTargetView(static_cast<ID3D12Resource*>(back_buffers_[i]), nullptr, handle);
+    }
     return true;
 #else
     (void)desc;
@@ -127,6 +165,13 @@ bool NativeWin32SwapChain::initialize(const NativeSwapChainDesc& desc)
 void NativeWin32SwapChain::shutdown() noexcept
 {
 #ifdef _WIN32
+    release_render_targets(back_buffers_);
+    release_object(fence_);
+    release_object(rtv_heap_);
+    release_object(command_list_);
+    release_object(command_allocator_);
+    if (fence_event_ != nullptr) CloseHandle(static_cast<HANDLE>(fence_event_));
+    fence_event_ = nullptr;
     release_object(swap_chain_);
     release_object(factory_);
     release_object(queue_);
@@ -139,6 +184,8 @@ void NativeWin32SwapChain::shutdown() noexcept
 #endif
     swap_chain_ = factory_ = queue_ = device_ = window_ = nullptr;
     d3d12_module_ = dxgi_module_ = nullptr;
+    rtv_increment_ = 0;
+    fence_value_ = 0;
     width_ = height_ = buffer_count_ = 0;
     tearing_supported_ = class_registered_ = com_initialized_ = false;
     presented_frames_ = 0;
@@ -156,6 +203,56 @@ bool NativeWin32SwapChain::present() noexcept
     }
 #endif
     return false;
+}
+
+bool NativeWin32SwapChain::clear_and_present(float red, float green, float blue,
+                                             float alpha) noexcept
+{
+#ifdef _WIN32
+    if (swap_chain_ == nullptr || command_allocator_ == nullptr || command_list_ == nullptr ||
+        rtv_heap_ == nullptr || fence_ == nullptr || fence_event_ == nullptr)
+        return false;
+    auto* chain = static_cast<IDXGISwapChain3*>(swap_chain_);
+    auto* allocator = static_cast<ID3D12CommandAllocator*>(command_allocator_);
+    auto* list = static_cast<ID3D12GraphicsCommandList*>(command_list_);
+    auto* queue = static_cast<ID3D12CommandQueue*>(queue_);
+    auto* fence = static_cast<ID3D12Fence*>(fence_);
+    const UINT index = chain->GetCurrentBackBufferIndex();
+    if (index >= buffer_count_ || back_buffers_[index] == nullptr) return false;
+    if (FAILED(allocator->Reset()) || FAILED(list->Reset(allocator, nullptr))) return false;
+    auto* resource = static_cast<ID3D12Resource*>(back_buffers_[index]);
+    D3D12_RESOURCE_BARRIER barrier{};
+    barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+    barrier.Transition.pResource = resource;
+    barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+    barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_PRESENT;
+    barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_RENDER_TARGET;
+    list->ResourceBarrier(1, &barrier);
+    auto descriptor = static_cast<ID3D12DescriptorHeap*>(rtv_heap_)->GetCPUDescriptorHandleForHeapStart();
+    descriptor.ptr += static_cast<SIZE_T>(index) * rtv_increment_;
+    const float clear_color[4] = {red, green, blue, alpha};
+    list->ClearRenderTargetView(descriptor, clear_color, 0, nullptr);
+    std::swap(barrier.Transition.StateBefore, barrier.Transition.StateAfter);
+    list->ResourceBarrier(1, &barrier);
+    if (FAILED(list->Close())) return false;
+    ID3D12CommandList* lists[] = {list};
+    queue->ExecuteCommandLists(1, lists);
+    const std::uint64_t value = ++fence_value_;
+    if (FAILED(queue->Signal(fence, value))) return false;
+    if (fence->GetCompletedValue() < value) {
+        if (FAILED(fence->SetEventOnCompletion(value, static_cast<HANDLE>(fence_event_))))
+            return false;
+        if (WaitForSingleObject(static_cast<HANDLE>(fence_event_), INFINITE) != WAIT_OBJECT_0)
+            return false;
+    }
+    return present();
+#else
+    (void)red;
+    (void)green;
+    (void)blue;
+    (void)alpha;
+    return false;
+#endif
 }
 
 void NativeWin32SwapChain::pump_messages() noexcept

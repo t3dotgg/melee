@@ -1,5 +1,6 @@
 #pragma once
 
+#include <array>
 #include <cstdint>
 
 namespace melee::native {
@@ -24,6 +25,10 @@ public:
     bool initialize(const NativeSwapChainDesc& desc = {});
     void shutdown() noexcept;
     bool present() noexcept;
+    // Record and submit a native D3D12 render pass that clears the current
+    // back buffer, waits for GPU completion, and presents it. This is the
+    // first concrete command-recording boundary used by the native renderer.
+    bool clear_and_present(float red, float green, float blue, float alpha = 1.0f) noexcept;
     void pump_messages() noexcept;
     bool available() const noexcept { return swap_chain_ != nullptr; }
     bool tearing_supported() const noexcept { return tearing_supported_; }
@@ -39,6 +44,14 @@ private:
     void* queue_ = nullptr;
     void* factory_ = nullptr;
     void* swap_chain_ = nullptr;
+    void* command_allocator_ = nullptr;
+    void* command_list_ = nullptr;
+    void* rtv_heap_ = nullptr;
+    void* fence_ = nullptr;
+    void* fence_event_ = nullptr;
+    std::array<void*, 8> back_buffers_{};
+    std::uint32_t rtv_increment_ = 0;
+    std::uint64_t fence_value_ = 0;
     void* window_ = nullptr;
     std::uint32_t width_ = 0;
     std::uint32_t height_ = 0;
