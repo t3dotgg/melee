@@ -59,9 +59,14 @@ typedef f32 (*ROMtxPtr)[3];
 #define MTXDegToRad(a) ((a) * 0.01745329252f)
 #define MTXRadToDeg(a) ((a) * 57.29577951f)
 
+#ifdef MELEE_NATIVE
+void MTXFrustum(Mtx44 m, f32 t, f32 b, f32 l, f32 r, f32 n, f32 f);
+void MTXOrtho(Mtx44 m, f32 t, f32 b, f32 l, f32 r, f32 n, f32 f);
+#else
 void MTXFrustum(Mtx m, f32 t, f32 b, f32 l, f32 r, f32 n, f32 f);
 void MTXPerspective(Mtx m, f32 fovY, f32 aspect, f32 n, f32 f);
 void MTXOrtho(Mtx m, f32 t, f32 b, f32 l, f32 r, f32 n, f32 f);
+#endif
 void MTXPerspective(Mtx44 m, f32 fovY, f32 aspect, f32 n, f32 f);
 void C_MTXLookAt(Mtx m, Point3dPtr camPos, VecPtr camUp, Point3dPtr target);
 
