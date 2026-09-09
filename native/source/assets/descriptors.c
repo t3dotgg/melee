@@ -109,6 +109,18 @@ static bool grow_index(NativeArchiveGraph* graph)
     return true;
 }
 
+static Node* find_node(NativeArchiveGraph* graph, uint32_t offset,
+                       Schema schema)
+{
+    Node* node;
+    if (graph->bucket_count == 0) return NULL;
+    for (node = graph->buckets[hash_offset(offset, graph->bucket_count)];
+         node != NULL; node = node->hash_next) {
+        if (node->offset == offset && node->schema == schema) return node;
+    }
+    return NULL;
+}
+
 static void* add_node(NativeArchiveGraph* graph, uint32_t offset,
                       Schema schema, size_t length)
 {
@@ -519,6 +531,11 @@ static NativeArchiveStatus convert_root(NativeArchiveGraph* graph,
     }
     root = add_node(graph, offset, schema, 0);
     if (root != NULL) {
+        /* A graph may decode several roots. Queue this root when an earlier
+         * conversion drained the pending list. */
+        if (graph->pending == NULL) {
+            graph->pending = find_node(graph, offset, schema);
+        }
         while (graph->pending != NULL) {
             Node* node = graph->pending;
             if (!convert_node(graph, node)) {
