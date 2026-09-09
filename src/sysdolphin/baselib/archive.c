@@ -6,6 +6,9 @@
 
 static inline void relocateInternalPointers(HSD_Archive* archive)
 {
+#ifdef MELEE_NATIVE
+    (void) archive;
+#else
     u32 reloc_index;
     u32* pointer_slot;
 
@@ -16,6 +19,7 @@ static inline void relocateInternalPointers(HSD_Archive* archive)
             (u32*) (archive->data + archive->reloc_info[reloc_index].offset);
         *pointer_slot += (u32) archive->data;
     }
+#endif
 }
 
 s32 HSD_ArchiveParse(HSD_Archive* archive, u8* src, size_t file_size)

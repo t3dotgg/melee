@@ -264,6 +264,10 @@ bool lbArchive_800171CC(HSD_Archive** dst, const char* filename,
 
 static inline void Locate(HSD_Archive* archive, intptr_t base_addr)
 {
+#ifdef MELEE_NATIVE
+    (void) archive;
+    (void) base_addr;
+#else
     u32 reloc_index;
     u32 offset;
 
@@ -273,6 +277,7 @@ static inline void Locate(HSD_Archive* archive, intptr_t base_addr)
         offset = archive->reloc_info[reloc_index].offset;
         *(intptr_t*) (archive->data + offset) += base_addr;
     }
+#endif
 }
 
 int lbArchiveRelocate(HSD_Archive* archive, u8* src, size_t file_size,
