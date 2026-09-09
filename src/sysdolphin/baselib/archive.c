@@ -84,6 +84,11 @@ void* HSD_ArchiveGetPublicAddress(HSD_Archive* archive,
 {
     u32 public_index;
 
+    if (archive == NULL || symbol_name == NULL || archive->symbols == NULL ||
+        archive->public_info == NULL || archive->data == NULL) {
+        return NULL;
+    }
+
     for (public_index = 0; public_index < archive->header.nb_public;
          public_index++)
     {
