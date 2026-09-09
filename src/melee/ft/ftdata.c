@@ -1563,7 +1563,7 @@ void ftData_800855C8(FighterKind kind, u8 color)
                            1, 3, 1, 0);
         }
     }
-    if (ftData_UnkBytePerCharacter[kind] != (char) -1) {
+    if (ftData_UnkBytePerCharacter[kind] != 0xFF) {
         efAsync_LoadAsync(ftData_UnkBytePerCharacter[kind]);
     }
     if (ftData_803C23E4[kind] != NULL) {
