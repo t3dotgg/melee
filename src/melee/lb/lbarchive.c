@@ -16,6 +16,16 @@
 #endif
 void lbArchive_InitializeDAT(HSD_Archive* archive, void* data, size_t length)
 {
+#ifdef MELEE_NATIVE
+    /* DAT files need a NativeArchive graph before their roots can be used.
+     * Keep this legacy entry point fail-fast until its caller has migrated. */
+    (void) archive;
+    (void) data;
+    (void) length;
+    OSReport("lbArchive_InitializeDAT is unavailable on native hosts; use "
+             "NativeArchive.\n");
+    HSD_ASSERT(73, 0);
+#else
     const char* extern_name;
     int extern_index = 0;
 
@@ -33,6 +43,7 @@ void lbArchive_InitializeDAT(HSD_Archive* archive, void* data, size_t length)
             return;
         }
     }
+#endif
 }
 #ifdef MUST_MATCH
 #pragma pop
