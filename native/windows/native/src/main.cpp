@@ -9,6 +9,7 @@
 #include <cmath>
 #include <cstdint>
 #include <filesystem>
+#include <fstream>
 #include <iostream>
 #include <memory>
 #include <string_view>
@@ -59,6 +60,7 @@ class D3D12Renderer final : public melee::native::NativeRenderer {
 public:
     explicit D3D12Renderer(melee::native::NativeWin32SwapChain& chain) : chain_(chain) {}
     bool running() const noexcept override { return !chain_.close_requested(); }
+    void set_capture_path(std::filesystem::path path) { capture_path_ = std::move(path); }
 
     void render(const melee::native::NativeFrameState& state) override
     {
@@ -73,7 +75,9 @@ public:
         chain_.prepare_geometry(geometry);
         const float red = 0.04F + std::min(0.5F, std::abs(state.player_x) * 0.04F);
         const float green = 0.10F + std::min(0.5F, std::max(0.0F, state.player_y) * 0.06F);
-        chain_.clear_and_present(red, green, geometry.empty() ? 0.12F : 0.20F, 1.0F);
+        chain_.clear_and_present(red, green, geometry.empty() ? 0.12F : 0.20F, 1.0F,
+                                 !capture_path_.empty());
+        maybe_capture();
     }
 
     void render(const melee::native::NativeFrameState& state,
@@ -84,11 +88,26 @@ public:
         chain_.prepare_geometry(geometry);
         const float red = 0.04F + std::min(0.5F, std::abs(state.player_x) * 0.04F);
         const float green = 0.10F + std::min(0.5F, std::max(0.0F, state.player_y) * 0.06F);
-        chain_.clear_and_present(red, green, geometry.empty() ? 0.12F : 0.20F, 1.0F);
+        chain_.clear_and_present(red, green, geometry.empty() ? 0.12F : 0.20F, 1.0F,
+                                 !capture_path_.empty());
+        maybe_capture();
     }
 
 private:
+    void maybe_capture()
+    {
+        if (captured_ || capture_path_.empty()) return;
+        const auto pixels = chain_.captured_pixels();
+        if (pixels.empty()) return;
+        std::ofstream output(capture_path_, std::ios::binary);
+        output << "P6\n" << chain_.width() << ' ' << chain_.height() << "\n255\n";
+        for (std::size_t offset = 0; offset + 3 <= pixels.size(); offset += 4)
+            output.write(reinterpret_cast<const char*>(pixels.data() + offset), 3);
+        captured_ = output.good();
+    }
     melee::native::NativeWin32SwapChain& chain_;
+    std::filesystem::path capture_path_;
+    bool captured_ = false;
 };
 } // namespace
 
@@ -111,6 +130,7 @@ int main(int argc, char** argv)
     bool preview = false;
     std::filesystem::path preview_path;
     std::size_t preview_offset = 0;
+    std::filesystem::path capture_path;
     for (int i = 1; i < argc; ++i) {
         const std::string_view argument(argv[i]);
         if (argument == "--training") {
@@ -129,6 +149,10 @@ int main(int argc, char** argv)
             }
             continue;
         }
+        if (argument == "--capture" && i + 1 < argc) {
+            capture_path = argv[++i];
+            continue;
+        }
         if (argument == "--frames" && i + 1 < argc) {
             const auto* first = argv[++i];
             const auto* last = first + std::char_traits<char>::length(first);
@@ -143,6 +167,7 @@ int main(int argc, char** argv)
         return 2;
     }
     if (training) game = &training_game;
+    native_renderer.set_capture_path(capture_path);
     std::unique_ptr<melee::native::NativeAssetPreviewGame> preview_game;
     if (preview) {
         try {

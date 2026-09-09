@@ -27,6 +27,8 @@ build/native-shell/melee_native_shell.exe --training --frames 120
 # Preview joints and materials from an extracted DAT through the native
 # D3D12 renderer (TyFox's public root is 41768 in the checked-out fixture):
 build/native-shell/melee_native_shell.exe --dat-preview build/disc/files/TyFox.dat 41768 --frames 120
+# Save the first rendered frame as a standard RGB PPM for inspection:
+build/native-shell/melee_native_shell.exe --training --frames 2 --capture build/native-shell/frame.ppm
 # Validate an extracted Melee DAT without adding it to Git:
 $env:MELEE_DAT_FIXTURE = "build/disc/files/GrCn.dat"
 build/native-shell/melee_native_dat_archive_tests.exe

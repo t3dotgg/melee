@@ -196,3 +196,6 @@ are rejected.
 The shell exposes that path as `--dat-preview PATH OFFSET`, so the extracted
 Fox joint tree can be uploaded and drawn by the same native D3D12 pipeline
 without converting its GameCube pointers into host pointers.
+`--capture PATH` writes the first presented RGBA frame as an RGB PPM after the
+GPU fence completes, which makes native frame output inspectable without a
+graphics debugger.
