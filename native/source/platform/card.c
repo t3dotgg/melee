@@ -27,7 +27,8 @@ s32 CARDGetResultCode(s32 chan)
 int CARDProbe(s32 chan)
 {
     (void) chan;
-    return CARD_RESULT_NOCARD;
+    /* CARDProbe reports a boolean, unlike the result-code APIs. */
+    return 0;
 }
 
 s32 CARDProbeEx(s32 chan, s32* memSize, s32* sectorSize)
