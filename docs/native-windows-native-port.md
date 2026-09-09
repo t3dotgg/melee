@@ -152,3 +152,6 @@ place of the GameCube heap and raw pointer ranges.
 The renderer backend contract now has a headless implementation for deterministic
 tests and a Windows D3D12 capability probe; a swap-chain frontend and GX/TEV
 translation still remain to be implemented.
+The native target also initializes and releases a real D3D12 device through the
+Windows loader, selecting the highest available feature level. Command lists,
+swap-chain ownership, shaders, and GX/TEV translation remain separate work.
