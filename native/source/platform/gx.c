@@ -203,15 +203,37 @@ void GXPosition2f32(f32 x, f32 y) { gx_position(x,y,0.0f); }
 void GXPosition3f32(f32 x, f32 y, f32 z) { gx_position(x,y,z); }
 void GXPosition2u8(u8 x, u8 y) { gx_position((f32)x,(f32)y,0.0f); }
 void GXPosition3u8(u8 x, u8 y, u8 z) { gx_position((f32)x,(f32)y,(f32)z); }
+void GXPosition2s8(s8 x, s8 y) { gx_position((f32)x,(f32)y,0.0f); }
+void GXPosition3s8(s8 x, s8 y, s8 z) { gx_position((f32)x,(f32)y,(f32)z); }
+void GXPosition2u16(u16 x, u16 y) { gx_position((f32)x,(f32)y,0.0f); }
+void GXPosition3u16(u16 x, u16 y, u16 z) { gx_position((f32)x,(f32)y,(f32)z); }
+void GXPosition2s16(s16 x, s16 y) { gx_position((f32)x,(f32)y,0.0f); }
+void GXPosition3s16(s16 x, s16 y, s16 z) { gx_position((f32)x,(f32)y,(f32)z); }
 V3(GXNormal,f32)
-V1(GXColor,u16)
+void GXColor1u16(u16 x) {
+    gx_current_color = (GXColor){
+        (u8) ((((x >> 11) & 0x1f) * 255 + 15) / 31),
+        (u8) ((((x >> 5) & 0x3f) * 255 + 31) / 63),
+        (u8) (((x & 0x1f) * 255 + 15) / 31), 255,
+    };
+}
 void GXColor1u32(u32 x) { gx_current_color=(GXColor){(u8)(x>>24),(u8)(x>>16),(u8)(x>>8),(u8)x}; }
 void GXColor3u8(u8 r,u8 g,u8 b) { gx_current_color=(GXColor){r,g,b,255}; }
 void GXColor4u8(u8 r,u8 g,u8 b,u8 a) { gx_current_color=(GXColor){r,g,b,a}; }
 void GXTexCoord2f32(f32 s, f32 t) { gx_current_tex_s = s; gx_current_tex_t = t; }
 void GXTexCoord1f32(f32 s) { gx_current_tex_s = s; }
-V1(GXTexCoord,u8) V1(GXTexCoord,u16) V2(GXTexCoord,u8)
-void GXColor1x16(u16 x){(void)x;} void GXColor1x8(u8 x){(void)x;} void GXTexCoord1x16(u16 x){(void)x;} void GXTexCoord1x8(u8 x){(void)x;}
+void GXTexCoord2s16(s16 s, s16 t) { gx_current_tex_s = (f32)s; gx_current_tex_t = (f32)t; }
+void GXTexCoord1s16(s16 s) { gx_current_tex_s = (f32)s; }
+void GXTexCoord2u16(u16 s, u16 t) { gx_current_tex_s = (f32)s; gx_current_tex_t = (f32)t; }
+void GXTexCoord1u16(u16 s) { gx_current_tex_s = (f32)s; }
+void GXTexCoord2s8(s8 s, s8 t) { gx_current_tex_s = (f32)s; gx_current_tex_t = (f32)t; }
+void GXTexCoord1s8(s8 s) { gx_current_tex_s = (f32)s; }
+void GXTexCoord2u8(u8 s, u8 t) { gx_current_tex_s = (f32)s; gx_current_tex_t = (f32)t; }
+void GXTexCoord1u8(u8 s) { gx_current_tex_s = (f32)s; }
+void GXColor1x16(u16 x){ (void)x; }
+void GXColor1x8(u8 x){ (void)x; }
+void GXTexCoord1x16(u16 x){ gx_current_tex_s = (f32)x; }
+void GXTexCoord1x8(u8 x){ gx_current_tex_s = (f32)x; }
 u32 GXGetTexBufferSize(u16 width, u16 height, u32 format, u8 mipmap,
                        u8 max_lod)
 {
