@@ -248,6 +248,18 @@ static void HSD_DevComDVDARAMEndCallback(ARQRequest* request)
         i = 1;
     }
 
+#ifdef MELEE_NATIVE
+    /* Keep the request on the DVD queue until HSD_DevComDVDCallback unlinks
+     * it. Adding it to the free list here would overwrite its queue link while
+     * the synchronous native ARQ callback is still unwinding. */
+    if (HSD_DevCom_804D77FC[i]->callback != NULL && HSD_DevCom_804D7804 == 0) {
+        HSD_DevCom_804D77FC[i]->callback(
+            HSD_DevCom_804D77FC[i]->dcReq,
+            (intptr_t) HSD_DevCom_804D77FC[i]->args, NULL,
+            HSD_DevCom_804D77FC[i]->cancelflag);
+    }
+    HSD_DevCom_804D77FC[i] = NULL;
+#else
     if (HSD_DevCom_804D77FC[i]->callback != NULL && HSD_DevCom_804D7804 == 0) {
         HSD_DevCom_804D77FC[i]->callback(
             HSD_DevCom_804D77FC[i]->dcReq,
@@ -256,6 +268,7 @@ static void HSD_DevComDVDARAMEndCallback(ARQRequest* request)
     }
     HSD_DevComARAMCallback_inline(HSD_DevCom_804D77FC[i]);
     HSD_DevCom_804D77FC[i] = NULL;
+#endif
 }
 
 static void HSD_DevComDVDMemCallback(s32 result, DVDFileInfo* unused)
@@ -352,6 +365,12 @@ static void HSD_DevComDVDCallback(s32 result, DVDFileInfo* unused)
                 (uintptr_t) HSD_DevCom_804C6330_bufs[HSD_DevCom_804D77F7],
                 active_dc->dest, active_dc->size, HSD_DevComDVDARAMEndCallback);
             HSD_DevComUnlink(active_dc);
+#ifdef MELEE_NATIVE
+            enabled = OSDisableInterrupts();
+            active_dc->next = HSD_DevCom_804D77F0;
+            HSD_DevCom_804D77F0 = active_dc;
+            OSRestoreInterrupts(enabled);
+#endif
             HSD_DevCom_804D77F5 = 0;
             HSD_DevComDVDWakeUp();
         }
