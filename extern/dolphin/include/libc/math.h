@@ -1,3 +1,6 @@
+#ifdef MELEE_NATIVE
+#include_next <math.h>
+#else
 #ifndef _MATH_H_
 #define _MATH_H_
 
@@ -110,3 +113,5 @@ inline float fmodf(float x, float m)
 #endif
 
 #endif
+
+#endif // MELEE_NATIVE

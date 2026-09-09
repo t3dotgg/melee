@@ -67,7 +67,10 @@ u32 OSGetConsoleSimulatedMemSize(void);
 #define OS_BASE_CACHED (OS_CACHED_REGION_PREFIX << 16)
 #define OS_BASE_UNCACHED (OS_UNCACHED_REGION_PREFIX << 16)
 
-#if defined(__MWERKS__) && !defined(M2CTX)
+#ifdef MELEE_NATIVE
+extern u32 __OSBusClock;
+extern u32 __OSCoreClock;
+#elif defined(__MWERKS__) && !defined(M2CTX)
 u32 __OSPhysicalMemSize : (OS_BASE_CACHED | 0x0028);
 volatile int __OSTVMode : (OS_BASE_CACHED | 0x00CC);
 OSThread* __gUnkThread1 : (OS_BASE_CACHED | 0x00D8);
@@ -101,8 +104,13 @@ void* OSGetArenaHi(void);
 void* OSGetArenaLo(void);
 void OSSetArenaHi(void*);
 void OSSetArenaLo(void*);
+#ifdef MELEE_NATIVE
+void* OSAllocFromArenaLo(size_t size, size_t align);
+void* OSAllocFromArenaHi(size_t size, size_t align);
+#else
 void* OSAllocFromArenaLo(u32 size, u32 align);
 void* OSAllocFromArenaHi(u32 size, u32 align);
+#endif
 
 u32 OSGetPhysicalMemSize(void);
 
@@ -192,13 +200,13 @@ DOLPHIN_ATTRIBUTE_NORETURN void OSPanic(char* file, int line, char* msg, ...);
 #define OSRoundDown32B(x) (((u32) (x)) & ~(32 - 1))
 #endif
 
-void* OSPhysicalToCached(u32 paddr);
-void* OSPhysicalToUncached(u32 paddr);
-u32 OSCachedToPhysical(void* caddr);
-u32 OSUncachedToPhysical(void* ucaddr);
+void* OSPhysicalToCached(uptr paddr);
+void* OSPhysicalToUncached(uptr paddr);
+uptr OSCachedToPhysical(void* caddr);
+uptr OSUncachedToPhysical(void* ucaddr);
 void* OSCachedToUncached(void* caddr);
 void* OSUncachedToCached(void* ucaddr);
-#if !DEBUG
+#if !DEBUG && !defined(MELEE_NATIVE)
 #define OSPhysicalToCached(paddr)                                             \
     ((void*) ((u32) (OS_BASE_CACHED + (u32) (paddr))))
 #define OSPhysicalToUncached(paddr)                                           \

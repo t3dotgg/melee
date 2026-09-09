@@ -9,9 +9,12 @@ typedef unsigned short int u16;
 #include <stdint.h>
 typedef int32_t s32;
 typedef uint32_t u32;
+// Integer storage for pointers passed through SDK callbacks and DMA APIs.
+typedef uintptr_t uptr;
 #else
 typedef signed long s32;
 typedef unsigned long u32;
+typedef u32 uptr;
 #endif
 typedef signed long long int s64;
 typedef unsigned long long int u64;
