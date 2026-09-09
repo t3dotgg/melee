@@ -5,6 +5,7 @@
 #include <stdlib.h>
 
 #include <assets/archive.h>
+extern const unsigned char* NativeARAMPointer(u32 address, u32 length);
 #endif
 
 #include <sysdolphin/baselib/forward.h>
@@ -184,6 +185,13 @@ static FigaTree* ftDataNativeReadMotion(FighterKind kind, const void* bytes,
     HSD_ASSERT(0x974, motion->x4 >= 0 && motion->x8 > 0 &&
                            (size_t) motion->x4 <= size &&
                            (size_t) motion->x8 <= size - motion->x4);
+    /* Cached AJ bundles can reside in ARAM. The original motion reader
+     * distinguishes these offsets from main-memory pointers before DMA. */
+    if ((uintptr_t) bytes < 0x80000000u) {
+        HSD_ASSERT(0x974, size <= UINT32_MAX);
+        bytes = NativeARAMPointer((u32) (uintptr_t) bytes, (u32) size);
+        HSD_ASSERT(0x974, bytes != NULL);
+    }
     source = (const u8*) bytes + motion->x4;
     for (entry = ftData_native_motions[kind]; entry != NULL;
          entry = entry->next)

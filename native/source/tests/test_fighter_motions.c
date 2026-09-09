@@ -4,6 +4,7 @@
 #undef __assert
 
 #include "../../../src/melee/ft/ftdata.c"
+#include <dolphin/ar.h>
 #include <melee/lb/lbanim.h>
 
 static void motion_word(u8* data, size_t offset, u32 value)
@@ -57,6 +58,17 @@ static void test_motion_bundle(void)
     assert(second != first && second->frames == 120);
     ftDataNativeClearMotions();
     assert(ftData_native_motions[FTKIND_MARIO] == NULL);
+
+    ARInit(NULL, 0);
+    u32 address = ARAlloc(sizeof(bundle));
+    assert(address != 0);
+    ARStartDMA(ARAM_DIR_MRAM_TO_ARAM, (uintptr_t) bundle, address,
+               sizeof(bundle));
+    FigaTree* aram = ftDataNativeReadMotion(
+        FTKIND_MARIO, (void*) (uintptr_t) address, sizeof(bundle), &motion);
+    assert(aram->frames == 120 && aram->tracks[2].obj_type == 5);
+    ftDataNativeClearMotions();
+    ARReset();
 }
 
 static void test_real_bundle(const char* path)
