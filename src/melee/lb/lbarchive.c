@@ -32,6 +32,9 @@ typedef struct NativeArchiveBinding NativeArchiveBinding;
 typedef struct NativeSisRoot NativeSisRoot;
 typedef struct NativeSceneAllocation NativeSceneAllocation;
 static void* native_scene_alloc(NativeArchiveBinding* binding, size_t size);
+static bool native_scene_reference(NativeArchiveBinding* binding,
+                                   uint32_t field, uint32_t* target,
+                                   bool* present, NativeArchiveError* error);
 
 struct NativeSisRoot {
     SIS* table;
@@ -73,6 +76,126 @@ struct NativeAudioLoadData {
     int** x8;
     int** xC;
 };
+
+/* MnSelectStageDataTable starts with the camera and lighting descriptors,
+ * followed by twelve static stage-preview models. The matching C struct
+ * stores the final model as four fields at xB0, so keep the serialized table
+ * contiguous here and let the caller's existing field offsets apply. */
+typedef struct NativeStageSelectData {
+    HSD_CObjDesc* camera;
+    HSD_LightDesc* light1;
+    HSD_LightDesc* light2;
+    HSD_FogDesc* fog;
+    StaticModelDesc models[12];
+} NativeStageSelectData;
+
+static bool native_stage_select_model(NativeArchiveBinding* binding,
+                                      uint32_t offset, StaticModelDesc* model,
+                                      NativeArchiveError* error)
+{
+    uint32_t target;
+    bool present;
+    if (!NativeArchiveDataRange(binding->archive, offset, 0x10)) {
+        NativeArchiveFail(error, NATIVE_ARCHIVE_BOUNDS, offset,
+                          "stage select model is truncated");
+        return false;
+    }
+    if (!native_scene_reference(binding, offset, &target, &present, error)) {
+        return false;
+    }
+    model->joint = NULL;
+    if (present && NativeArchiveJoint(binding->graph, target, &model->joint,
+                                      error) != NATIVE_ARCHIVE_OK) {
+        return false;
+    }
+    if (!native_scene_reference(binding, offset + 4, &target, &present,
+                                error)) {
+        return false;
+    }
+    model->animjoint = NULL;
+    if (present && NativeArchiveAnimation(binding->graph, target,
+                                          &model->animjoint,
+                                          error) != NATIVE_ARCHIVE_OK) {
+        return false;
+    }
+    if (!native_scene_reference(binding, offset + 8, &target, &present,
+                                error)) {
+        return false;
+    }
+    model->matanim_joint = NULL;
+    if (present && NativeArchiveMatAnimJoint(binding->graph, target,
+                                             &model->matanim_joint,
+                                             error) != NATIVE_ARCHIVE_OK) {
+        return false;
+    }
+    if (!native_scene_reference(binding, offset + 12, &target, &present,
+                                error)) {
+        return false;
+    }
+    model->shapeanim_joint = NULL;
+    if (present && NativeArchiveShapeAnimJoint(binding->graph, target,
+                                               &model->shapeanim_joint,
+                                               error) != NATIVE_ARCHIVE_OK) {
+        return false;
+    }
+    return true;
+}
+
+static NativeStageSelectData*
+native_stage_select_root(NativeArchiveBinding* binding, uint32_t offset,
+                          NativeArchiveError* error)
+{
+    NativeStageSelectData* root;
+    uint32_t target;
+    bool present;
+    if (!NativeArchiveDataRange(binding->archive, offset, 0xD0)) {
+        NativeArchiveFail(error, NATIVE_ARCHIVE_BOUNDS, offset,
+                          "stage select table is truncated");
+        return NULL;
+    }
+    root = native_scene_alloc(binding, sizeof(*root));
+    if (root == NULL) {
+        return NULL;
+    }
+    if (!native_scene_reference(binding, offset, &target, &present, error)) {
+        return NULL;
+    }
+    if (present && NativeArchiveCObj(binding->graph, target, &root->camera,
+                                     error) != NATIVE_ARCHIVE_OK) {
+        return NULL;
+    }
+    if (!native_scene_reference(binding, offset + 4, &target, &present,
+                                error)) {
+        return NULL;
+    }
+    if (present && NativeArchiveLight(binding->graph, target, &root->light1,
+                                      error) != NATIVE_ARCHIVE_OK) {
+        return NULL;
+    }
+    if (!native_scene_reference(binding, offset + 8, &target, &present,
+                                error)) {
+        return NULL;
+    }
+    if (present && NativeArchiveLight(binding->graph, target, &root->light2,
+                                      error) != NATIVE_ARCHIVE_OK) {
+        return NULL;
+    }
+    if (!native_scene_reference(binding, offset + 12, &target, &present,
+                                error)) {
+        return NULL;
+    }
+    if (present && NativeArchiveFog(binding->graph, target, &root->fog,
+                                    error) != NATIVE_ARCHIVE_OK) {
+        return NULL;
+    }
+    for (size_t i = 0; i < 12; ++i) {
+        if (!native_stage_select_model(binding, offset + 0x10 + i * 0x10,
+                                       &root->models[i], error)) {
+            return NULL;
+        }
+    }
+    return root;
+}
 
 static struct NativeAudioLoadData*
 native_audio_load_data(NativeArchiveBinding* binding, uint32_t offset,
@@ -1056,6 +1179,14 @@ void* HSD_ArchiveNativePublicAddress(HSD_Archive* archive, const char* symbol)
     }
     if (strcmp(symbol, "lbRumbleData") == 0) {
         return native_rumble_root(binding, offset, &error);
+    }
+    if (strcmp(symbol, "MnSelectStageDataTable") == 0) {
+        root = native_stage_select_root(binding, offset, &error);
+        if (root != NULL) {
+            return root;
+        }
+        native_archive_error(symbol, &error);
+        return NULL;
     }
     if (strcmp(symbol, "lbBgFlashColAnimData") == 0) {
         /* LbBf stores an eight-byte header before its animation records. */

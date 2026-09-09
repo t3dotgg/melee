@@ -124,6 +124,7 @@ static void test_css_records(void)
     const u32 animation[] = { 304, 368, 388, 400 };
     NativeArchiveBinding binding;
     NativeArchiveError error = { 0 };
+    memset(&binding, 0, sizeof(binding));
     word(bytes, 0, sizeof(bytes));
     word(bytes, 4, DATA_SIZE);
     word(bytes, 8, POINTERS);
@@ -144,6 +145,36 @@ static void test_css_records(void)
         assert(root[i] != NULL && root[i] == root[4 + (i - 4) % 4]);
     }
     assert(native_css_root(&binding, DATA_SIZE - 4, &error) == NULL);
+    assert(error.status == NATIVE_ARCHIVE_BOUNDS);
+    close_binding(&binding);
+}
+
+static void test_stage_select_records(void)
+{
+    enum { DATA_SIZE = 0xD0 };
+    u8 bytes[32 + DATA_SIZE] = { 0 };
+    NativeArchiveBinding binding;
+    NativeArchiveError error = { 0 };
+    memset(&binding, 0, sizeof(binding));
+    word(bytes, 0, sizeof(bytes));
+    word(bytes, 4, DATA_SIZE);
+    assert(NativeArchiveOpen(bytes, sizeof(bytes), &binding.archive, &error) ==
+           NATIVE_ARCHIVE_OK);
+    NativeArchiveNullExternals(binding.archive);
+    assert(NativeArchiveGraphOpen(binding.archive, &binding.graph, &error) ==
+           NATIVE_ARCHIVE_OK);
+    NativeStageSelectData* root =
+        native_stage_select_root(&binding, 0, &error);
+    assert(root != NULL);
+    assert(root->camera == NULL && root->light1 == NULL &&
+           root->light2 == NULL && root->fog == NULL);
+    for (size_t i = 0; i < 12; ++i) {
+        assert(root->models[i].joint == NULL &&
+               root->models[i].animjoint == NULL &&
+               root->models[i].matanim_joint == NULL &&
+               root->models[i].shapeanim_joint == NULL);
+    }
+    assert(native_stage_select_root(&binding, DATA_SIZE - 4, &error) == NULL);
     assert(error.status == NATIVE_ARCHIVE_BOUNDS);
     close_binding(&binding);
 }
@@ -193,6 +224,7 @@ int main(int argc, char** argv)
 {
     test_scene_records();
     test_css_records();
+    test_stage_select_records();
     size_t roots = 0;
     for (int i = 1; i < argc; ++i) {
         roots += test_real_scene(argv[i]);
