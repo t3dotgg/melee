@@ -220,6 +220,17 @@ u32 AXGetMode(void) { return ax_mode; }
 
 void AXRegisterCallback(void (*callback)(void)) { ax_callback = callback; }
 
+#ifdef MELEE_NATIVE
+/* The GameCube invokes the AX callback from the DSP interrupt. Native builds
+ * have no DSP interrupt, so drive the same callback once per video retrace. */
+void NativeAudioTick(void)
+{
+    if (ax_callback != NULL) {
+        ax_callback();
+    }
+}
+#endif
+
 void AXInitProfile(AXPROFILE* profile, u32 max_profiles)
 {
     (void) max_profiles;
