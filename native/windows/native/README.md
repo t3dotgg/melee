@@ -29,6 +29,8 @@ X/Y to jump while retaining edge-triggered state. `RenderSnapshot` provides an
 ordered, pointer-free handoff to the renderer;
 `NativeWin32SwapChain::clear_and_present` is the first concrete D3D12 command
 path and is covered by `native_gpu_pass`.
+`build_proxy_geometry` turns ordered snapshots into validated host vertices and
+indexed draw ranges for the next material and shader stage.
 `NativeScene` adds stable object IDs, deterministic callback ordering, and safe
 mutation during dispatch. `NativeFighter` and `NativeAudioMixer` demonstrate
 typed gameplay and voice scheduling slices; the latter exposes a backend seam

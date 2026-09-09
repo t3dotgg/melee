@@ -1,5 +1,6 @@
 #include "native_game.h"
 #include "native_input.h"
+#include "native_render_geometry.h"
 #include "native_swapchain.h"
 #include "native_windows_input.h"
 
@@ -50,9 +51,13 @@ public:
         // A visible deterministic frame proves the native command path is
         // connected to simulation state. The material/mesh renderer can use
         // the same swap-chain resources as it replaces this clear pass.
+        melee::native::RenderSnapshot snapshot;
+        snapshot.simulation_frame = state.frame;
+        snapshot.objects.push_back({1, 0, {state.player_x, state.player_y, 0.0F}});
+        const auto geometry = melee::native::build_proxy_geometry(snapshot);
         const float red = 0.04F + std::min(0.5F, std::abs(state.player_x) * 0.04F);
         const float green = 0.10F + std::min(0.5F, std::max(0.0F, state.player_y) * 0.06F);
-        chain_.clear_and_present(red, green, 0.20F, 1.0F);
+        chain_.clear_and_present(red, green, geometry.empty() ? 0.12F : 0.20F, 1.0F);
     }
 
 private:

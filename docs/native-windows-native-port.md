@@ -159,6 +159,9 @@ PRESENT/RENDER_TARGET clear pass, submits it on a direct queue, signals a fence,
 and presents at the independent render cadence. The shell uses this path when
 the device is available and polls XInput user 0 through the Switch-like action
 mapping. Shader/material pipelines and GX/TEV translation remain separate work.
+Immutable render snapshots also convert into validated, pointer-free proxy
+geometry with ordered draw ranges; this is covered by the native render
+geometry test and is ready for D3D12 vertex-buffer upload.
 The native frontend now owns a real Win32 window handle and message pump,
 including hidden-window operation for headless tests.
 The current Windows target now also creates an `IDXGISwapChain3` flip-model
