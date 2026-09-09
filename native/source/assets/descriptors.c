@@ -53,6 +53,8 @@ typedef enum Schema {
     SCHEMA_CANIM,
     SCHEMA_WOBJANIM,
     SCHEMA_ROBJANIM,
+    SCHEMA_ROBJ,
+    SCHEMA_IKHINT,
     SCHEMA_LIGHT,
     SCHEMA_LIGHTANIM,
     SCHEMA_LIGHTPOINT,
@@ -375,6 +377,14 @@ static void* add_node(NativeArchiveGraph* graph, uint32_t offset,
         disk_size = 8;
         host_size = sizeof(HSD_WObjAnim);
         break;
+    case SCHEMA_ROBJ:
+        disk_size = 12;
+        host_size = sizeof(HSD_RObjDesc);
+        break;
+    case SCHEMA_IKHINT:
+        disk_size = 8;
+        host_size = sizeof(HSD_IKHintDesc);
+        break;
     case SCHEMA_ROBJANIM:
         disk_size = 8;
         host_size = sizeof(HSD_RObjAnimJoint);
@@ -622,10 +632,6 @@ static bool convert_node(NativeArchiveGraph* graph, Node* node)
                 return false;
             }
         }
-        if (!unsupported_link(graph, offset + 60,
-                              "joint constraint schema is not implemented")) {
-            return false;
-        }
         joint->flags = NativeArchiveBE32(bytes + 4);
         joint->rotation = read_vec(bytes + 20);
         joint->scale = read_vec(bytes + 32);
@@ -637,6 +643,7 @@ static bool convert_node(NativeArchiveGraph* graph, Node* node)
             joint->u.dobjdesc = link_node(graph, offset + 16, SCHEMA_DOBJ, 0);
         }
         joint->mtx = link_node(graph, offset + 56, SCHEMA_MATRIX, 0);
+        joint->robjdesc = link_node(graph, offset + 60, SCHEMA_ROBJ, 0);
         break;
     }
     case SCHEMA_DOBJ: {
@@ -952,12 +959,9 @@ static bool convert_node(NativeArchiveGraph* graph, Node* node)
     }
     case SCHEMA_WOBJ: {
         HSD_WObjDesc* wobj = node->value;
-        if (!unsupported_link(graph, offset + 16,
-                              "world object constraint schema is not implemented")) {
-            return false;
-        }
         wobj->class_name = link_node(graph, offset, SCHEMA_STRING, 0);
         wobj->pos = read_vec(bytes + 4);
+        wobj->robjdesc = link_node(graph, offset + 16, SCHEMA_ROBJ, 0);
         break;
     }
     case SCHEMA_COBJ: {
@@ -1019,6 +1023,51 @@ static bool convert_node(NativeArchiveGraph* graph, Node* node)
         HSD_WObjAnim* animation = node->value;
         animation->aobjdesc = link_node(graph, offset, SCHEMA_AOBJ, 0);
         animation->robjanim = link_node(graph, offset + 4, SCHEMA_ROBJANIM, 0);
+        break;
+    }
+    case SCHEMA_ROBJ: {
+        HSD_RObjDesc* constraint = node->value;
+        constraint->next = link_node(graph, offset, SCHEMA_ROBJ, 0);
+        constraint->flags = NativeArchiveBE32(bytes + 4);
+        switch (constraint->flags & ROBJ_TYPE_MASK) {
+        case REFTYPE_JOBJ:
+            constraint->u.joint = link_node(graph, offset + 8, SCHEMA_JOINT, 0);
+            if (constraint->u.joint == NULL) {
+                graph_fail(graph, NATIVE_ARCHIVE_INVALID, offset + 8,
+                           "joint constraint requires a joint");
+                return false;
+            }
+            break;
+        case REFTYPE_LIMIT:
+            constraint->u.limit = read_float(bytes + 8);
+            break;
+        case REFTYPE_IKHINT:
+            constraint->u.ik_hint = link_node(graph, offset + 8, SCHEMA_IKHINT, 0);
+            if (constraint->u.ik_hint == NULL) {
+                graph_fail(graph, NATIVE_ARCHIVE_INVALID, offset + 8,
+                           "IK constraint requires a hint descriptor");
+                return false;
+            }
+            break;
+        case REFTYPE_EXP:
+            graph_fail(graph, NATIVE_ARCHIVE_UNSUPPORTED, offset + 8,
+                       "PowerPC constraint functions require native bindings");
+            return false;
+        case REFTYPE_BYTECODE:
+            graph_fail(graph, NATIVE_ARCHIVE_UNSUPPORTED, offset + 8,
+                       "constraint bytecode schema is not implemented");
+            return false;
+        default:
+            graph_fail(graph, NATIVE_ARCHIVE_INVALID, offset + 4,
+                       "constraint has an invalid reference type");
+            return false;
+        }
+        break;
+    }
+    case SCHEMA_IKHINT: {
+        HSD_IKHintDesc* hint = node->value;
+        hint->bone_length = read_float(bytes);
+        hint->rotate_x = read_float(bytes + 4);
         break;
     }
     case SCHEMA_ROBJANIM: {

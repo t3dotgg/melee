@@ -834,6 +834,41 @@ static void test_external_chains(void)
     reject_file(&fixture, fixture.size);
 }
 
+static void test_joint_constraints(void)
+{
+    Fixture fixture = fixture_new(196);
+    reference(&fixture, 60, 64);
+    reference(&fixture, 64, 76);
+    word(&fixture, 68, REFTYPE_JOBJ | 1);
+    reference(&fixture, 72, 0);
+    reference(&fixture, 76, 88);
+    word(&fixture, 80, REFTYPE_LIMIT | 2);
+    word(&fixture, 84, 0x42b40000); /* 90 degrees */
+    word(&fixture, 92, REFTYPE_IKHINT);
+    reference(&fixture, 96, 100);
+    word(&fixture, 100, 0x3fc00000); /* 1.5 */
+    word(&fixture, 104, 0xbf800000); /* -1 */
+    reference(&fixture, 108 + 16, 64);
+    public_symbol(&fixture, 108, "wobj");
+    NativeArchive* archive = open_fixture(&fixture);
+    NativeArchiveGraph* graph = open_graph(archive);
+    NativeArchiveError error = { 0 };
+    HSD_Joint* joint = NULL;
+    HSD_WObjDesc* wobj = NULL;
+    CHECK(NativeArchiveJoint(graph, 0, &joint, &error) == NATIVE_ARCHIVE_OK);
+    CHECK(joint->robjdesc->u.joint == joint);
+    CHECK(joint->robjdesc->next->u.limit == 90.0f);
+    CHECK(joint->robjdesc->next->next->u.ik_hint->bone_length == 1.5f);
+    CHECK(joint->robjdesc->next->next->u.ik_hint->rotate_x == -1.0f);
+    CHECK(NativeArchiveWObjByName(graph, "wobj", &wobj, &error) ==
+          NATIVE_ARCHIVE_OK);
+    CHECK(wobj->robjdesc == joint->robjdesc);
+    check_host_pointer(&fixture, joint->robjdesc);
+    check_host_pointer(&fixture, joint->robjdesc->next->next->u.ik_hint);
+    NativeArchiveGraphClose(graph);
+    NativeArchiveClose(archive);
+}
+
 static void test_unsupported_joint_fields(void)
 {
     const uint32_t fields[] = { 60 };
@@ -847,7 +882,7 @@ static void test_unsupported_joint_fields(void)
         CHECK(NativeArchiveJoint(graph, 0, &root, &error) ==
               NATIVE_ARCHIVE_UNSUPPORTED);
         CHECK(root == NULL);
-        CHECK(error.offset == HEADER_SIZE + fields[i]);
+        CHECK(error.offset == HEADER_SIZE + 64 + 8);
         NativeArchiveError first = error;
         root = (HSD_Joint*) (uintptr_t) 1;
         CHECK(NativeArchiveJoint(graph, 64, &root, &error) == first.status);
@@ -880,7 +915,7 @@ static void test_unsupported_animation_and_wobj(void)
     CHECK(NativeArchiveWObj(graph, 0, &wobj, &error) ==
           NATIVE_ARCHIVE_UNSUPPORTED);
     CHECK(wobj == NULL);
-    CHECK(error.offset == HEADER_SIZE + 16);
+    CHECK(error.offset == HEADER_SIZE + 20 + 8);
     NativeArchiveGraphClose(graph);
     NativeArchiveClose(archive);
 }
@@ -1122,6 +1157,7 @@ int main(void)
     test_bad_relocations();
     test_bad_symbols();
     test_external_chains();
+    test_joint_constraints();
     test_unsupported_joint_fields();
     test_unsupported_animation_and_wobj();
     test_external_graph_reference();
