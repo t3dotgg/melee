@@ -58,7 +58,29 @@ void GXInitTexObj(GXTexObj*o,void*d,u16 w,u16 h,GXTexFmt f,GXTexWrapMode s,GXTex
 void GXInitTexObjCI(GXTexObj*o,void*d,u16 w,u16 h,GXTexFmt f,GXTexWrapMode s,GXTexWrapMode t,u8 m,u32 tl){GXInitTexObj(o,d,w,h,f,s,t,m);o->dummy[3]=tl;}
 void GXInitTexObjLOD(GXTexObj*o,GXTexFilter a,GXTexFilter b,f32 c,f32 d,f32 e,GXBool f,GXBool g,GXAnisotropy h){o->dummy[4]=(uptr)a|((uptr)b<<8);(void)c;(void)d;(void)e;(void)f;(void)g;(void)h;}
 GXTexFmt GXGetTexObjFmt(const GXTexObj*o){return (GXTexFmt)(o->dummy[2]&255);} u16 GXGetTexObjWidth(const GXTexObj*o){return (u16)o->dummy[1];} u16 GXGetTexObjHeight(const GXTexObj*o){return (u16)(o->dummy[1]>>16);} void*GXGetTexObjData(const GXTexObj*o){return(void*)o->dummy[0];}
-void GXProject(f32 x,f32 y,f32 z,f32 m[3][4],f32*pm,f32*vp,f32*sx,f32*sy,f32*sz){if(sx)*sx=x;if(sy)*sy=y;if(sz)*sz=z;(void)m;(void)pm;(void)vp;}
+void GXProject(f32 x, f32 y, f32 z, f32 m[3][4], f32 *pm, f32 *vp,
+               f32 *sx, f32 *sy, f32 *sz)
+{
+    if (!m || !pm || !vp || !sx || !sy || !sz) return;
+    f32 ex = m[0][3] + m[0][0] * x + m[0][1] * y + m[0][2] * z;
+    f32 ey = m[1][3] + m[1][0] * x + m[1][1] * y + m[1][2] * z;
+    f32 ez = m[2][3] + m[2][0] * x + m[2][1] * y + m[2][2] * z;
+    f32 xc, yc, zc, wc;
+    if (pm[0] == 0.0f) {
+        xc = ex * pm[1] + ez * pm[2];
+        yc = ey * pm[3] + ez * pm[4];
+        zc = pm[6] + ez * pm[5];
+        wc = 1.0f / -ez;
+    } else {
+        xc = pm[2] + ex * pm[1];
+        yc = pm[4] + ey * pm[3];
+        zc = pm[6] + ez * pm[5];
+        wc = 1.0f;
+    }
+    *sx = vp[2] * 0.5f + vp[0] + wc * xc * vp[2] * 0.5f;
+    *sy = vp[3] * 0.5f + vp[1] - wc * yc * vp[3] * 0.5f;
+    *sz = vp[5] + wc * zc * (vp[5] - vp[4]);
+}
 void GXSetProjection(f32 m[4][4], GXProjectionType t)
 {
     gx_projection[0] = (f32)t;
