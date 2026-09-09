@@ -86,6 +86,17 @@ Estimates are order-of-magnitude engineering time, not promises. A playable
 slice is feasible before full mode/roster parity; complete parity requires
 substantial DAT and unknown-field reverse engineering.
 
+## Current implementation status
+
+The `native/windows/native` target currently contains the host-side foundation:
+validated big-endian MARC asset parsing, rooted synchronous/asynchronous asset
+I/O, typed XInput mapping, a deterministic 60 Hz simulation scheduler with an
+independent 120 Hz render clock, and an ordered render snapshot/interpolation
+interface. These components build as a 64-bit Windows executable without the
+DOL or GameCube SDK and have focused CTest coverage. The executable is a shell
+and deterministic demo game; fighter rules, scenes, GX-compatible rendering,
+audio, saves, and the complete asset catalog still require source-level ports.
+
 ## Acceptance tests
 
 * Source-port x64 target links without DolRecomp, RecompCore, CPUState, or
