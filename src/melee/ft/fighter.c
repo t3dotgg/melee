@@ -1237,7 +1237,11 @@ void Fighter_ChangeMotionState(Fighter_GObj* gobj, FtMotionId msid,
             Vec3 translation;
             Quaternion quat;
 
+#ifdef MELEE_NATIVE
+            bone_index = fp->x596_x7;
+#else
             bone_index = fp->x596_bits.x7;
+#endif
 
             if ((flags & Ft_MF_FreezeState) != 0) {
                 fp->x2223_b0 = 1;

@@ -1304,6 +1304,32 @@ struct Fighter {
     /*  fp+58C */ u32 x58C;
     /*  fp+590 */ FigaTree* x590;
     /*  fp+594 */ union {
+#ifdef MELEE_NATIVE
+        /* The GameCube compiler numbers these bitfields from the most
+         * significant bit. ARM64 numbers them from the least significant
+         * bit, so reverse the declaration order to preserve the serialized
+         * flag word. The animation source kind is in bits 0..5. */
+        struct {
+            /* fp+594:5 */ u32 x596_pad : 6;
+            /* fp+596:8 */ u32 x596_x7 : 3;
+            /* fp+596:15 */ u32 x596_x0 : 7;
+            /* fp+594:16 */ u32 x594_pad_flags : 8;
+            /* fp+594:24 */ u32 x594_b7 : 1;
+            /* fp+594:25 */ u32 x594_b6 : 1;
+            /* fp+594:26 */ u32 x594_b5 : 1;
+            /* fp+594:27 */ u32 x594_b4 : 1;
+            /* fp+594:28 */ u32 x594_b3 : 1;
+            /* fp+594:29 */ u32 x594_b2 : 1;
+            /* fp+594:30 */ u32 x594_b1_loop : 1;
+            /* fp+594:31 */ u32 x594_b0 : 1;
+        };
+        struct {
+            /* fp+594:0 */ u32 x597_bits : 6;
+            /* fp+594:6 */ u32 x594_pad2_bits : 3;
+            /* fp+594:9 */ u32 x594_bits : 13;
+            /* fp+594:22 */ u32 x594_pad : 10;
+        };
+#else
         struct {
             /* fp+594:0 */ u8 x594_b0 : 1;
             /* fp+594:1 */ u8 x594_b1_loop : 1;
@@ -1324,6 +1350,7 @@ struct Fighter {
             u32 x594_pad2 : 3;
             u32 x597_bits : 6; // FighterKind of this fighter's x590 FigaTree
         };
+#endif
         /* fp+594 */ s32 x594_s32;
     };
     /*  fp+598 */ FigaTree* x598;

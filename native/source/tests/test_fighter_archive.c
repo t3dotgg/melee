@@ -17,6 +17,27 @@ static void word(u8* data, size_t offset, u32 value)
     data[offset + 3] = value;
 }
 
+static void test_animation_flag_layout(void)
+{
+#ifdef MELEE_NATIVE
+    Fighter fighter = { 0 };
+    const u32 flags = 0xA52A40A2;
+
+    fighter.x594_s32 = (s32) flags;
+    assert(fighter.x597_bits == 34);
+    assert(fighter.x594_bits == (flags >> 9 & 0x1FFF));
+    assert(fighter.x594_b0 == 1);
+    assert(fighter.x594_b1_loop == 0);
+    assert(fighter.x594_b2 == 1);
+    assert(fighter.x594_b3 == 0);
+    assert(fighter.x594_b4 == 0);
+    assert(fighter.x594_b5 == 1);
+    assert(fighter.x594_b6 == 0);
+    assert(fighter.x594_b7 == 1);
+    assert(fighter.x596_x7 == (flags >> 6 & 7));
+#endif
+}
+
 static void test_layout(void)
 {
     enum {
@@ -190,6 +211,7 @@ static void test_real_archive(const char* path)
 
 int main(int argc, char** argv)
 {
+    test_animation_flag_layout();
     test_layout();
     for (int i = 1; i < argc; ++i) {
         test_real_archive(argv[i]);
