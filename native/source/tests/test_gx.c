@@ -82,5 +82,41 @@ int main(void)
     memset(xfb, 0, sizeof xfb);
     GXCopyDisp(xfb, GX_FALSE);
     assert((xfb[(32 * 64 + 32) * 2] | xfb[(32 * 64 + 32) * 2 + 1]) != 0);
+
+    /* NBT occupies the normal stream slot even though GX_VA_NBT has a later
+     * enum value. A one-component texture stream must also consume one value,
+     * since GX_TEX_S and GX_NRM_XYZ share the value zero. */
+    GXInit(NULL, 0);
+    GXSetViewport(0, 0, 64, 64, 0, 1);
+    GXSetScissor(0, 0, 64, 64);
+    GXSetVtxDesc(GX_VA_POS, GX_DIRECT);
+    GXSetVtxDesc(GX_VA_NBT, GX_DIRECT);
+    GXSetVtxDesc(GX_VA_TEX0, GX_DIRECT);
+    GXSetVtxAttrFmt(GX_VTXFMT0, GX_VA_POS, GX_POS_XYZ, GX_F32, 0);
+    GXSetVtxAttrFmt(GX_VTXFMT0, GX_VA_NBT, GX_NRM_NBT, GX_F32, 0);
+    GXSetVtxAttrFmt(GX_VTXFMT0, GX_VA_TEX0, GX_TEX_S, GX_F32, 0);
+    uint8_t __attribute__((aligned(32))) nbt_list[192] = { 0 };
+    nbt_list[0] = GX_TRIANGLES | GX_VTXFMT0;
+    nbt_list[1] = 0;
+    nbt_list[2] = 3;
+    offset = 3;
+    for (size_t vertex = 0; vertex < 3; vertex++) {
+        for (size_t component = 0; component < 3; component++) {
+            put_be_float(nbt_list + offset, positions[vertex][component]);
+            offset += 4;
+        }
+        for (size_t component = 0; component < 9; component++) {
+            put_be_float(nbt_list + offset, component % 3 == 2 ? 1.0f : 0.0f);
+            offset += 4;
+        }
+        put_be_float(nbt_list + offset, (float) vertex / 2.0f);
+        offset += 4;
+    }
+    GXCallDisplayList(nbt_list, sizeof nbt_list);
+    GXSetDispCopySrc(0, 0, 64, 64);
+    GXSetDispCopyDst(64, 64);
+    memset(xfb, 0, sizeof xfb);
+    GXCopyDisp(xfb, GX_FALSE);
+    assert((xfb[(32 * 64 + 32) * 2] | xfb[(32 * 64 + 32) * 2 + 1]) != 0);
     return 0;
 }
