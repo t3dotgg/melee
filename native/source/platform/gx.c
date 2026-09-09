@@ -420,7 +420,8 @@ static GXColor gx_texture_nearest(const GXSWTexture* texture, f32 s, f32 t)
             palette[2].g = (u8) ((palette[0].g + palette[1].g) / 2);
             palette[2].b = (u8) ((palette[0].b + palette[1].b) / 2);
             palette[2].a = 255;
-            palette[3] = (GXColor){ 0, 0, 0, 0 };
+            palette[3] = palette[2];
+            palette[3].a = 0;
         }
         selector = block[4 + local_y] >> (6 - local_x * 2);
         return palette[selector & 3];

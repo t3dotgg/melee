@@ -2,6 +2,7 @@
 #define MELEE_NATIVE_GX_TEXTURE_CASES_H
 
 #include <assert.h>
+#include <string.h>
 
 #include <dolphin/gx.h>
 
@@ -73,6 +74,19 @@ static void test_gx_texture_cases(void)
                     GX_FALSE, GX_ANISO_1);
     GXLoadTexObj(&texture, GX_TEXMAP0);
     assert(gx_texture_test_sample(0.25f, 0.125f) == 0x80808080);
+
+    /* CMPR keeps the average endpoint RGB when selector 3 is transparent. */
+    memset(data, 0, sizeof data);
+    data[1] = 0x1f;
+    data[2] = 0xf8;
+    data[4] = 0x1b;
+    GXInitTexObj(&texture, data, 8, 8, GX_TF_CMPR, GX_CLAMP, GX_CLAMP,
+                 GX_FALSE);
+    GXLoadTexObj(&texture, GX_TEXMAP0);
+    assert(gx_texture_test_sample(0, 0) == 0xff0000ff);
+    assert(gx_texture_test_sample(0.125f, 0) == 0xffff0000);
+    assert(gx_texture_test_sample(0.25f, 0) == 0xff7f007f);
+    assert(gx_texture_test_sample(0.375f, 0) == 0x007f007f);
 
     /* C14X2 discards the two unused high bits before palette lookup. */
     u8 palette[4] = { 0, 0, 0xf8, 0 };
