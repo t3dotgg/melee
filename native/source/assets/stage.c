@@ -897,6 +897,36 @@ static void* corneria_parameters(NativeStageArchive* stage, uint32_t offset)
     return result;
 }
 
+typedef struct NativeFoursideParameters {
+    u32 words[17];
+    u16 ufo_challenge;
+    u16 x46;
+    u16 x48;
+} NativeFoursideParameters;
+_Static_assert(sizeof(NativeFoursideParameters) == 0x4C,
+               "native fourside parameter layout");
+
+static void* fourside_parameters(NativeStageArchive* stage, uint32_t offset)
+{
+    NativeFoursideParameters* result;
+    const u8* data;
+    if (!range(stage, offset, 0x4A)) {
+        return NULL;
+    }
+    result = allocate(stage, 1, sizeof(*result));
+    if (result == NULL) {
+        return NULL;
+    }
+    data = stage->archive->data + offset;
+    for (size_t i = 0; i < 17; ++i) {
+        result->words[i] = NativeArchiveBE32(data + i * 4);
+    }
+    result->ufo_challenge = read16(data + 0x44);
+    result->x46 = read16(data + 0x46);
+    result->x48 = read16(data + 0x48);
+    return result;
+}
+
 static void* stage_parameters(NativeStageArchive* stage, uint32_t offset)
 {
     uint32_t ground_offset;
@@ -959,6 +989,8 @@ static void* stage_parameters(NativeStageArchive* stage, uint32_t offset)
         return scalar_array(stage, offset, 0x68 / 4, 4);
     case St_Kind_Greens:
         return scalar_array(stage, offset, 0x7C / 4, 4);
+    case St_Kind_Fourside:
+        return fourside_parameters(stage, offset);
     case St_Kind_Izumi:
         return scalar_array(stage, offset, 21, 4);
     case St_Kind_Story:
