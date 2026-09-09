@@ -193,3 +193,6 @@ links through relocation entries and decodes materials without host pointer
 casts. Running it on extracted `TyFox.dat` at public root offset 41,768 found
 30 material descriptors and 7 joint nodes; malformed or unrelocated pointers
 are rejected.
+The shell exposes that path as `--dat-preview PATH OFFSET`, so the extracted
+Fox joint tree can be uploaded and drawn by the same native D3D12 pipeline
+without converting its GameCube pointers into host pointers.

@@ -8,7 +8,9 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
+#include <filesystem>
 #include <iostream>
+#include <memory>
 #include <string_view>
 
 namespace {
@@ -106,10 +108,25 @@ int main(int argc, char** argv)
     D3D12Renderer native_renderer(chain);
     std::uint64_t max_frames = 0;
     bool training = false;
+    bool preview = false;
+    std::filesystem::path preview_path;
+    std::size_t preview_offset = 0;
     for (int i = 1; i < argc; ++i) {
         const std::string_view argument(argv[i]);
         if (argument == "--training") {
             training = true;
+            continue;
+        }
+        if (argument == "--dat-preview" && i + 2 < argc) {
+            preview = true;
+            preview_path = argv[++i];
+            const auto* first = argv[++i];
+            const auto* last = first + std::char_traits<char>::length(first);
+            const auto parsed = std::from_chars(first, last, preview_offset);
+            if (parsed.ec != std::errc{} || parsed.ptr != last) {
+                std::cerr << "usage: melee_native_shell [--training] [--dat-preview PATH OFFSET] [--frames N]\n";
+                return 2;
+            }
             continue;
         }
         if (argument == "--frames" && i + 1 < argc) {
@@ -117,15 +134,27 @@ int main(int argc, char** argv)
             const auto* last = first + std::char_traits<char>::length(first);
             const auto parsed = std::from_chars(first, last, max_frames);
             if (parsed.ec != std::errc{} || parsed.ptr != last) {
-                std::cerr << "usage: melee_native_shell [--training] [--frames N]\n";
+                std::cerr << "usage: melee_native_shell [--training] [--dat-preview PATH OFFSET] [--frames N]\n";
                 return 2;
             }
             continue;
         }
-        std::cerr << "usage: melee_native_shell [--training] [--frames N]\n";
+        std::cerr << "usage: melee_native_shell [--training] [--dat-preview PATH OFFSET] [--frames N]\n";
         return 2;
     }
     if (training) game = &training_game;
+    std::unique_ptr<melee::native::NativeAssetPreviewGame> preview_game;
+    if (preview) {
+        try {
+            preview_game = std::make_unique<melee::native::NativeAssetPreviewGame>(
+                preview_path, preview_offset);
+            game = preview_game.get();
+        } catch (const std::exception& error) {
+            std::cerr << "DAT preview failed: " << error.what() << "\n";
+            chain.shutdown();
+            return 3;
+        }
+    }
     const int result = melee::native::run_native_loop(*game, input,
         gpu ? static_cast<melee::native::NativeRenderer&>(native_renderer)
             : static_cast<melee::native::NativeRenderer&>(console), max_frames);

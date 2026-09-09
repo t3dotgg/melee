@@ -3,12 +3,15 @@
 #include "native_game_memory.h"
 #include "native_fighter.h"
 #include "native_audio.h"
+#include "native_dat_scene.h"
 #include "native_match.h"
 #include "native_render.h"
 #include "native_scene.h"
 #include "native_timing.h"
 
 #include <cstdint>
+#include <filesystem>
+#include <vector>
 
 namespace melee::native {
 
@@ -101,6 +104,21 @@ public:
         (void)snapshot;
         render(state);
     }
+};
+
+// Asset preview host used to validate the DAT-to-render boundary before full
+// fighter scene loading is complete. It owns copied archive bytes and emits
+// joint transforms as immutable render objects.
+class NativeAssetPreviewGame final : public NativeGame {
+public:
+    NativeAssetPreviewGame(std::filesystem::path dat_path, std::size_t joint_offset);
+    void update(const NativeInput&, double) override;
+    const NativeFrameState& state() const noexcept override { return state_; }
+    RenderSnapshot render_snapshot() const override;
+
+private:
+    std::vector<NativeDatJointRef> joints_;
+    NativeFrameState state_;
 };
 
 // Drives the same simulation/presentation path from either measured host time

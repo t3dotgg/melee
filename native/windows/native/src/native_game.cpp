@@ -3,6 +3,9 @@
 
 #include <algorithm>
 #include <chrono>
+#include <fstream>
+#include <iterator>
+#include <stdexcept>
 #include <thread>
 
 namespace melee::native {
@@ -43,6 +46,33 @@ RenderSnapshot NativeDemoGame::render_snapshot() const
 NativeTrainingGame::NativeTrainingGame()
     : audio_(AudioMixerConfig{}, make_platform_audio_backend())
 {
+}
+
+NativeAssetPreviewGame::NativeAssetPreviewGame(std::filesystem::path dat_path,
+                                               std::size_t joint_offset)
+{
+    std::ifstream input(dat_path, std::ios::binary);
+    if (!input) throw std::runtime_error("asset preview DAT cannot be opened");
+    const std::vector<char> raw((std::istreambuf_iterator<char>(input)), {});
+    const auto archive = NativeDatArchive::parse(std::as_bytes(std::span(raw)));
+    joints_ = collect_hsd_joint_nodes(archive, joint_offset);
+    if (joints_.empty()) throw std::invalid_argument("asset preview DAT has no joints");
+}
+
+void NativeAssetPreviewGame::update(const NativeInput&, double)
+{
+    ++state_.frame;
+}
+
+RenderSnapshot NativeAssetPreviewGame::render_snapshot() const
+{
+    RenderSnapshot snapshot;
+    snapshot.simulation_frame = state_.frame;
+    snapshot.objects.reserve(joints_.size());
+    std::uint32_t id = 1;
+    for (const auto& joint : joints_)
+        snapshot.objects.push_back({id++, joint.flags, joint.position});
+    return snapshot;
 }
 
 void NativeTrainingGame::update(const NativeInput& input, double dt_seconds)
