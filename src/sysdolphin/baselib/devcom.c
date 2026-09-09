@@ -419,10 +419,18 @@ int HSD_DevComRequest(int file, uintptr_t src, uintptr_t dest, size_t size,
         !(HSD_DevComGetDestType(type) == DEVCOMDEST_SBUF
             && size > DEVCOM_BUF_SIZE));
 
+#ifndef MELEE_NATIVE
     HSD_ASSERT(0x1EF, src % 32 == 0);
     HSD_ASSERT(0x1F0, dest % 32 == 0);
     HSD_ASSERT(0x1F1, size % 32 == 0);
     HSD_ASSERT(0x1F2, size != 0);
+#else
+    /* Host buffers do not need GameCube cache-line alignment. */
+    if (size == 0) {
+        HSD_AudioFree(dc);
+        return -1;
+    }
+#endif
 
     pri = (type & 0x38) == 0x20 ? pri : 3;
 

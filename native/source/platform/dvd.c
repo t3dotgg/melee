@@ -26,7 +26,7 @@ static int g_ready;
 static int g_is_iso;
 static int g_iso_fd = -1;
 static char g_current_dir[PATH_MAX] = "/";
-static DVDDiskID g_disk_id = { {'G', 'A', 'L', 'E'}, {'0', '1'}, 0, 2, 0, 0, { 0 } };
+static DVDDiskID g_disk_id;
 
 static u32 be32(const u8* p)
 {
@@ -208,6 +208,26 @@ static void dvd_init(void)
         if (g_iso_fd >= 0) close(g_iso_fd);
         g_iso_fd = -1;
         g_is_iso = 0;
+    }
+    /* Extracted game trees may include the original boot record. Only use
+     * its identity when it is present. Never guess a disc revision. */
+    {
+        char boot_path[PATH_MAX];
+        int fd;
+        ssize_t got;
+        if (snprintf(boot_path, sizeof(boot_path), "%s/sys/boot.bin", g_root) <
+                (int) sizeof(boot_path) ||
+            snprintf(boot_path, sizeof(boot_path), "%s/boot.bin", g_root) <
+                (int) sizeof(boot_path)) {
+            fd = open(boot_path, O_RDONLY);
+            if (fd >= 0) {
+                got = read(fd, &g_disk_id, sizeof(g_disk_id));
+                close(fd);
+                if (got != (ssize_t) sizeof(g_disk_id)) {
+                    memset(&g_disk_id, 0, sizeof(g_disk_id));
+                }
+            }
+        }
     }
     dvd_add_entry("/", 0, 0, TRUE);
     dvd_scan_dir(g_root, "");
