@@ -10,7 +10,11 @@ extern "C" {
 
 typedef struct
 {
+#ifdef MELEE_NATIVE
+    u8 pad[128] ATTRIBUTE_ALIGN(sizeof(void*));
+#else
     u8 pad[128];
+#endif
 } GXFifoObj;
 
 typedef void (*GXBreakPtCallback)(void);
