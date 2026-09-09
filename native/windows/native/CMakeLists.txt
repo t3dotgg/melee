@@ -18,6 +18,7 @@ add_library(melee_native_core STATIC
     src/native_render.cpp
     src/native_filesystem.cpp
     src/native_asset_store.cpp
+    src/native_snapshot.cpp
 )
 target_include_directories(melee_native_core PUBLIC include)
 target_compile_options(melee_native_core PRIVATE
@@ -55,3 +56,8 @@ add_executable(melee_native_render_tests tests/render_tests.cpp)
 target_link_libraries(melee_native_render_tests PRIVATE melee_native_core)
 add_test(NAME native_render COMMAND melee_native_render_tests)
 add_test(NAME native_filesystem_and_assets COMMAND melee_native_filesystem_tests)
+
+add_executable(melee_native_snapshot_tests tests/snapshot_tests.cpp)
+target_link_libraries(melee_native_snapshot_tests PRIVATE melee_native_core)
+add_test(NAME native_snapshot COMMAND melee_native_snapshot_tests)
+
