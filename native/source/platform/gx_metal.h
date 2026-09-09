@@ -53,8 +53,8 @@ int NativeGXMetalInit(uint32_t width, uint32_t height);
 void NativeGXMetalShutdown(void);
 int NativeGXMetalSupports(const NativeGXMetalState* state);
 int NativeGXMetalDraw(const NativeGXMetalVertex* vertices, uint32_t count,
-                     const NativeGXMetalState* state,
-                     const NativeGXMetalTexture textures[8]);
+                      const NativeGXMetalState* state,
+                      const NativeGXMetalTexture textures[8]);
 int NativeGXMetalReadback(uint8_t* rgba, float* depth);
 int NativeGXMetalUpload(const uint8_t* rgba, const float* depth);
 

@@ -41,6 +41,19 @@ static u64 gx_trace_draws, gx_trace_vertices, gx_trace_fragments,
     gx_trace_copies;
 static void gx_trace_frame(void);
 
+#ifdef MELEE_NATIVE_METAL
+static void gx_metal_reset(void);
+static void gx_metal_sync(void);
+static void gx_metal_cpu_dirty(void);
+static void gx_metal_invalidate_textures(void);
+static bool gx_metal_try_draw(void);
+#else
+static void gx_metal_reset(void) {}
+static void gx_metal_sync(void) {}
+static void gx_metal_cpu_dirty(void) {}
+static void gx_metal_invalidate_textures(void) {}
+#endif
+
 static GXBool gx_should_skip_raster(void)
 {
     const char* value = getenv("MELEE_SKIP_RENDER");
@@ -462,6 +475,10 @@ static GXColor gx_texture_sample(const GXSWTexture* texture, f32 s, f32 t)
 #include "gx_raster.h"
 #include "gx_tev.h"
 
+#ifdef MELEE_NATIVE_METAL
+#include "gx_metal_bridge.h"
+#endif
+
 static void gx_rasterize(void)
 {
     gx_trace_draws++;
@@ -469,6 +486,13 @@ static void gx_rasterize(void)
     if (gx_skip_raster || gx_vertex_count == 0) {
         return;
     }
+#ifdef MELEE_NATIVE_METAL
+    if (gx_metal_try_draw()) {
+        return;
+    }
+#endif
+    gx_metal_sync();
+    gx_metal_cpu_dirty();
     if (gx_primitive == GX_POINTS) {
         for (u32 i = 0; i < gx_vertex_count; i++) {
             GXSWVertex* v = &gx_vertices[i];
@@ -1072,6 +1096,7 @@ GXFifoObj* GXInit(void* buffer, u32 size)
     gx_tev_reset();
     gx_raster_reset();
     gx_copy_reset();
+    gx_metal_reset();
     return &gx_fifo;
 }
 GXDrawDoneCallback GXSetDrawDoneCallback(GXDrawDoneCallback c)
@@ -1184,7 +1209,8 @@ GX_WRITE1(GXParam, u16, 2)
 GX_WRITE1(GXParam, u32, 4)
 GX_WRITE1(GXParam, s8, 1)
 GX_WRITE1(GXParam, s16, 2)
-GX_WRITE1(GXParam, s32, 4) GX_FLOAT1(GXParam)
+GX_WRITE1(GXParam, s32, 4)
+GX_FLOAT1(GXParam)
     GX_FLOAT3(GXParam) void GXParam4f32(f32 x, f32 y, f32 z, f32 w)
 {
     GXParam3f32(x, y, z);
@@ -1195,11 +1221,12 @@ GX_FLOAT3(GXPosition)
 GX_WRITE2(GXPosition, u8, 1)
 GX_WRITE3(GXPosition, u8, 1)
 GX_WRITE2(GXPosition, s8, 1)
-GX_WRITE3(GXPosition, s8, 1) GX_WRITE2(GXPosition, u16, 2)
-    GX_WRITE3(GXPosition, u16, 2) GX_WRITE2(GXPosition, s16, 2)
-        GX_WRITE3(GXPosition, s16, 2) GX_FLOAT3(GXNormal)
-            GX_WRITE3(GXNormal, s8, 1) GX_WRITE3(GXNormal, s16, 2)
-                GX_WRITE1(GXColor, u16, 2) GX_WRITE1(GXColor, u32, 4)
+GX_WRITE3(GXPosition, s8, 1)
+GX_WRITE2(GXPosition, u16, 2) GX_WRITE3(GXPosition, u16, 2)
+    GX_WRITE2(GXPosition, s16, 2) GX_WRITE3(GXPosition, s16, 2)
+        GX_FLOAT3(GXNormal) GX_WRITE3(GXNormal, s8, 1)
+            GX_WRITE3(GXNormal, s16, 2) GX_WRITE1(GXColor, u16, 2)
+                GX_WRITE1(GXColor, u32, 4)
                     GX_WRITE3(GXColor, u8, 1) void GXColor4u8(u8 r, u8 g, u8 b,
                                                               u8 a)
 {
@@ -1211,9 +1238,10 @@ GX_FLOAT2(GXTexCoord)
 GX_WRITE1(GXTexCoord, u8, 1)
 GX_WRITE2(GXTexCoord, u8, 1)
 GX_WRITE1(GXTexCoord, s8, 1)
-GX_WRITE2(GXTexCoord, s8, 1) GX_WRITE1(GXTexCoord, u16, 2)
-    GX_WRITE2(GXTexCoord, u16, 2) GX_WRITE1(GXTexCoord, s16, 2)
-        GX_WRITE2(GXTexCoord, s16, 2) GX_WRITE1(GXMatrixIndex, u8, 1)
+GX_WRITE2(GXTexCoord, s8, 1)
+GX_WRITE1(GXTexCoord, u16, 2) GX_WRITE2(GXTexCoord, u16, 2)
+    GX_WRITE1(GXTexCoord, s16, 2) GX_WRITE2(GXTexCoord, s16, 2)
+        GX_WRITE1(GXMatrixIndex, u8, 1)
 #define GX_INDEX(name)                                                        \
     void name##1x8(u8 x)                                                      \
     {                                                                         \
@@ -1392,7 +1420,10 @@ void GXInitTlutObj(GXTlutObj* tlut_obj, void* lut, GXTlutFmt fmt,
     tlut_obj->dummy[1] = (uptr) fmt;
     tlut_obj->dummy[2] = (uptr) n_entries;
 }
-void GXInvalidateTexAll(void) {}
+void GXInvalidateTexAll(void)
+{
+    gx_metal_invalidate_textures();
+}
 void GXInvalidateVtxCache(void) {}
 
 void GXLoadTexObj(GXTexObj* obj, GXTexMapID id)

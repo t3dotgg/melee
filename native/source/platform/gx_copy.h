@@ -148,6 +148,7 @@ static GXColor gx_copy_filtered(const GXSWCopyRect* rect, int x, int y,
 
 static void gx_copy_clear_rect(const GXSWCopyRect* rect)
 {
+    gx_metal_cpu_dirty();
     u32 right = (u32) rect->left + rect->width;
     u32 bottom = (u32) rect->top + rect->height;
     if (right > gx_efb_width) {
@@ -248,6 +249,7 @@ void GXSetDispCopyGamma(GXGamma gamma)
 void GXCopyDisp(void* dest, GXBool clear)
 {
     gx_ensure_efb();
+    gx_metal_sync();
     gx_trace_frame();
     unsigned width = gx_copy_disp_src.width;
     if (width > gx_copy_disp_width) {
@@ -452,6 +454,8 @@ static void gx_copy_texel(u8* tile, unsigned pixel, GXColor color)
 void GXCopyTex(void* dest, GXBool clear)
 {
     gx_ensure_efb();
+    gx_metal_sync();
+    gx_metal_invalidate_textures();
     unsigned tile_width, tile_height, tile_bytes;
     if (dest != NULL && gx_copy_tex_width != 0 && gx_copy_tex_height != 0 &&
         gx_copy_tex_src.width != 0 && gx_copy_tex_src.height != 0 &&
@@ -507,6 +511,7 @@ static GXBool gx_copy_compare(GXCompare func, u32 value, u32 ref)
 void GXPeekARGB(u16 x, u16 y, u32* color)
 {
     gx_ensure_efb();
+    gx_metal_sync();
     if (color == NULL) {
         return;
     }
@@ -528,6 +533,7 @@ void GXPeekARGB(u16 x, u16 y, u32* color)
 void GXPeekZ(u16 x, u16 y, u32* z)
 {
     gx_ensure_efb();
+    gx_metal_sync();
     if (z != NULL) {
         *z = x < gx_efb_width && y < gx_efb_height
                  ? gx_copy_depth24((size_t) y * gx_efb_width + x)
@@ -621,6 +627,8 @@ static u8 gx_copy_blend_channel(u8 src, u8 dst, u8 src_alpha, u8 dst_alpha)
 void GXPokeARGB(u16 x, u16 y, u32 color)
 {
     gx_ensure_efb();
+    gx_metal_sync();
+    gx_metal_cpu_dirty();
     if (gx_efb == NULL || x >= gx_efb_width || y >= gx_efb_height) {
         return;
     }
@@ -644,6 +652,8 @@ void GXPokeARGB(u16 x, u16 y, u32 color)
 void GXPokeZ(u16 x, u16 y, u32 z)
 {
     gx_ensure_efb();
+    gx_metal_sync();
+    gx_metal_cpu_dirty();
     if (gx_depth == NULL || x >= gx_efb_width || y >= gx_efb_height ||
         !gx_copy_poke_z_update)
     {
