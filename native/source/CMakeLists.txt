@@ -55,3 +55,7 @@ add_executable(test_scene_bytecode tests/test_scene_bytecode.c
     "${MELEE_ROOT}/src/sysdolphin/baselib/bytecode.c")
 target_link_libraries(test_scene_bytecode PRIVATE melee_host_options)
 add_test(NAME scene_bytecode COMMAND test_scene_bytecode)
+
+add_executable(test_effects tests/test_effects.c)
+target_link_libraries(test_effects PRIVATE melee_host_options)
+add_test(NAME effects COMMAND test_effects)

@@ -238,7 +238,10 @@ void* OSAllocFromArenaLo(size_t size, size_t align)
     if (low > high || size > high - low) {
         return NULL;
     }
-    arena_lo = (void*) (low + size);
+    if (low > UINTPTR_MAX - size || low + size > high) {
+        return NULL;
+    }
+    arena_lo = (void*) OSRoundUp32B(low + size);
     return (void*) low;
 }
 
