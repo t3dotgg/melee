@@ -21,7 +21,7 @@ fs::path NativeFileSystem::resolve(std::string_view relative) const
     if (relative.empty() || relative.find('\0') != std::string_view::npos) {
         throw std::invalid_argument("asset path is empty or contains NUL");
     }
-    const fs::path requested = fs::u8path(std::string(relative));
+    const fs::path requested{std::string(relative)};
     if (requested.has_root_name() || requested.has_root_directory() || requested.is_absolute()) {
         throw std::invalid_argument("asset path must be relative");
     }
