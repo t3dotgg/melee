@@ -1126,10 +1126,10 @@ void GXInitLightAttnK(GXLightObj *lt_obj, f32 k0, f32 k1, f32 k2) {}
 void GXInitSpecularDir(GXLightObj *lt_obj, f32 nx, f32 ny, f32 nz) {}
 void GXInitSpecularDirHA(GXLightObj *lt_obj, f32 nx, f32 ny, f32 nz, f32 hx, f32 hy, f32 hz) {}
 void GXInitTexCacheRegion(GXTexRegion *region, u8 is_32b_mipmap, u32 tmem_even, GXTexCacheSize size_even, u32 tmem_odd, GXTexCacheSize size_odd) {}
-void GXInitTexObjData(GXTexObj *obj, void *image_ptr) {}
-void GXInitTexObjTlut(GXTexObj *obj, u32 tlut_name) {}
+void GXInitTexObjData(GXTexObj *obj, void *image_ptr) { if (obj != NULL) obj->dummy[0] = (uptr) image_ptr; }
+void GXInitTexObjTlut(GXTexObj *obj, u32 tlut_name) { if (obj != NULL) obj->dummy[3] = (uptr) tlut_name; }
 void GXInitTexObjUserData(GXTexObj *obj, void *user_data) {}
-void GXInitTexObjWrapMode(GXTexObj *obj, GXTexWrapMode s, GXTexWrapMode t) {}
+void GXInitTexObjWrapMode(GXTexObj *obj, GXTexWrapMode s, GXTexWrapMode t) { if (obj != NULL) { obj->dummy[2] &= ~((uptr) 0xff << 8 | (uptr) 0xff << 16); obj->dummy[2] |= (uptr) s << 8 | (uptr) t << 16; } }
 void GXInitTexPreLoadRegion(GXTexRegion *region, u32 tmem_even, u32 size_even, u32 tmem_odd, u32 size_odd) {}
 void GXInitTlutRegion(GXTlutRegion *region, u32 tmem_addr, GXTlutSize tlut_size) {}
 void GXInitXfRasMetric(void) {}
@@ -1139,7 +1139,7 @@ void GXLoadNrmMtxImm3x3(f32 mtx[3][3], u32 id) {}
 void GXLoadNrmMtxIndx3x3(u16 mtx_indx, u32 id) {}
 void GXLoadPosMtxIndx(u16 mtx_indx, u32 id) {}
 void GXLoadTexMtxIndx(u16 mtx_indx, u32 id, GXTexMtxType type) {}
-void GXLoadTexObjPreLoaded(GXTexObj *obj, GXTexRegion *region, GXTexMapID id) {}
+void GXLoadTexObjPreLoaded(GXTexObj *obj, GXTexRegion *region, GXTexMapID id) { (void) region; GXLoadTexObj(obj, id); }
 void GXPeekARGB(u16 x, u16 y, u32 *color) {}
 void GXPeekZ(u16 x, u16 y, u32 *z) {}
 void GXPokeARGB(u16 x, u16 y, u32 color) {}
