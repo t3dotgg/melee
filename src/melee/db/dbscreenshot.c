@@ -85,7 +85,11 @@ void db_TakeScreenshotIfPending(void)
         temp_r5 = db_ScreenshotNumber;
         db_ScreenshotNumber = temp_r5 + 1;
         sprintf(spC, "USB:shot/screenshot%02d.frb", temp_r5);
+#ifdef MELEE_NATIVE
         fn_802289F8(spC, var_r30,
+#else
+        fn_802289F8(spC, (int) var_r30,
+#endif
                     HSD_VIData.current.vi.rmode.fbWidth *
                         HSD_VIData.current.vi.rmode.xfbHeight * 2);
         db_ScreenshotPending = 0;

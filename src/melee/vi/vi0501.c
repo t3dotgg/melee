@@ -60,7 +60,11 @@ void un_8031D9E4(int arg0, int arg1, int arg2)
 }
 
 void un_8031D9F8(CharacterKind char_kind, int costume, int spawn_mode,
+#ifdef MELEE_NATIVE
                  const u8* spawn_count)
+#else
+                 int spawn_count)
+#endif
 {
     s32 pad0;
     s32 pad1;
