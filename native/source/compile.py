@@ -13,6 +13,7 @@ ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_SOURCES = [
     "src/melee",
     "src/sysdolphin",
+    "src/MSL/float.c",
     "native/source/platform",
     "native/source/assets",
 ]
@@ -60,7 +61,9 @@ def main():
         log.write_text(result.stdout + result.stderr)
         return {
             "source": str(relative), "success": result.returncode == 0,
-            "group": "game" if relative.parts[0] == "src" else "native-support",
+            "group": "game" if relative.parts[:2] in {
+                ("src", "melee"), ("src", "sysdolphin")
+            } else "native-support",
             "object": str(obj.relative_to(output)), "log": str(log.relative_to(output)),
             "errors": [line for line in result.stderr.splitlines() if "error:" in line],
             "command": command,
