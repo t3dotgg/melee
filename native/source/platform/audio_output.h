@@ -13,7 +13,7 @@ void NativeAudioOutputStop(void);
 size_t NativeAudioOutputSubmit(const int16_t* samples, size_t frames);
 size_t NativeAudioOutputQueuedFrames(void);
 
-/* Advance the native AX software mixer by one video retrace. */
+/* Render elapsed 160-frame AX blocks for one 60 Hz video retrace. */
 void NativeAudioTick(void);
 
 #endif

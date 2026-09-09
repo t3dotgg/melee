@@ -42,7 +42,7 @@ static OSStatus render_callback(void* refcon, AudioUnitRenderActionFlags* flags,
     pthread_mutex_unlock(&s_lock);
     if (available < wanted) {
         memset(destination + available * NATIVE_AUDIO_CHANNELS, 0,
-               (wanted - available) * NATIVE_AUDIO_CHANNELS * sizeof(*destination));
+                (wanted - available) * NATIVE_AUDIO_CHANNELS * sizeof(*destination));
     }
     output->mDataByteSize = (UInt32) (wanted * NATIVE_AUDIO_CHANNELS * sizeof(*destination));
     return noErr;
@@ -68,37 +68,21 @@ bool NativeAudioOutputStart(uint32_t sample_rate)
         s_unit = NULL;
         return false;
     }
-    UInt32 enable = 1;
-    if (AudioUnitSetProperty(s_unit, kAudioOutputUnitProperty_EnableIO,
-                             kAudioUnitScope_Output, 0, &enable,
-                             sizeof(enable)) != noErr) {
-        AudioComponentInstanceDispose(s_unit);
-        s_unit = NULL;
-        return false;
-    }
+    /* DefaultOutput already has output enabled. EnableIO belongs to HALOutput. */
     memset(&format, 0, sizeof(format));
     format.mSampleRate = sample_rate;
     format.mFormatID = kAudioFormatLinearPCM;
     format.mFormatFlags = kAudioFormatFlagIsSignedInteger |
-                          kAudioFormatFlagIsPacked |
-                          kAudioFormatFlagsNativeEndian;
+                            kAudioFormatFlagIsPacked |
+                            kAudioFormatFlagsNativeEndian;
     format.mFramesPerPacket = 1;
     format.mChannelsPerFrame = NATIVE_AUDIO_CHANNELS;
     format.mBitsPerChannel = 16;
     format.mBytesPerFrame = NATIVE_AUDIO_CHANNELS * sizeof(int16_t);
     format.mBytesPerPacket = format.mBytesPerFrame;
     if (AudioUnitSetProperty(s_unit, kAudioUnitProperty_StreamFormat,
-                             kAudioUnitScope_Input, 0, &format,
-                             sizeof(format)) != noErr) {
-        AudioComponentInstanceDispose(s_unit);
-        s_unit = NULL;
-        return false;
-    }
-    AURenderCallbackStruct callback = { render_callback, NULL };
-    if (AudioUnitSetProperty(s_unit, kAudioUnitProperty_SetRenderCallback,
-                             kAudioUnitScope_Input, 0, &callback,
-                             sizeof(callback)) != noErr ||
-        AudioUnitInitialize(s_unit) != noErr || AudioOutputUnitStart(s_unit) != noErr) {
+                                kAudioUnitScope_Input, 0, &format,
+                                sizeof(format)) != noErr) {
         AudioComponentInstanceDispose(s_unit);
         s_unit = NULL;
         return false;
@@ -106,6 +90,15 @@ bool NativeAudioOutputStart(uint32_t sample_rate)
     pthread_mutex_lock(&s_lock);
     s_read = s_write = s_count = 0;
     pthread_mutex_unlock(&s_lock);
+    AURenderCallbackStruct callback = { render_callback, NULL };
+    if (AudioUnitSetProperty(s_unit, kAudioUnitProperty_SetRenderCallback,
+                                kAudioUnitScope_Input, 0, &callback,
+                                sizeof(callback)) != noErr ||
+        AudioUnitInitialize(s_unit) != noErr || AudioOutputUnitStart(s_unit) != noErr) {
+        AudioComponentInstanceDispose(s_unit);
+        s_unit = NULL;
+        return false;
+    }
     s_running = true;
     return true;
 }
