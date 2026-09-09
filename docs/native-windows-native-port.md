@@ -188,3 +188,7 @@ containing render mode explicitly; full DAT descriptor traversal remains.
 providing synchronous and ordered asynchronous reads with cancellation. DVD
 seek timing and the complete original disc table still need to be derived from
 game traces.
+The HSD scene bridge now walks the documented Joint/DObj/MObj descriptor
+links through relocation entries and decodes materials without host pointer
+casts. Running it on extracted `TyFox.dat` at public root offset 41,768 found
+30 material descriptors; malformed or unrelocated pointers are rejected.
