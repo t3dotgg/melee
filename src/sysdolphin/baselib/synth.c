@@ -104,7 +104,13 @@ static void HSD_SynthSFXSampleLoadCallback(int result, intptr_t length, void* ad
             n = *HSD_Synth_804D7734;
             (void) n;
             nbytes = SfxLoadStreamDataSize(n << 6);
+#ifdef MELEE_NATIVE
+            /* The stream payload is compacted in place and can overlap. */
+            memmove((u8*) HSD_Synth_804D7730 + 8, HSD_Synth_804D7734,
+                    nbytes);
+#else
             memcpy((u8*) HSD_Synth_804D7730 + 8, HSD_Synth_804D7734, nbytes);
+#endif
             for (k = 0; k < n; k++) {
                 u8* e = (u8*) HSD_Synth_804D7730 + k * 0x40;
                 if (e + 0x10 != NULL) {

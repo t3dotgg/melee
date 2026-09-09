@@ -4,6 +4,17 @@
 #include "devcom.static.h"
 #include "synth.h"
 
+#ifdef MELEE_NATIVE
+/*
+ * The host DVD and ARQ backends complete requests inline. GameCube DVD
+ * callbacks run later, so the original code can call HSD_DevComDVDWakeUp
+ * from a callback without growing the stack. Defer nested wakeups on the
+ * host and drain them from one outer loop instead.
+ */
+static bool native_dvd_wakeup_active;
+static bool native_dvd_wakeup_pending;
+#endif
+
 bool HSD_DevComIsBusy(int idx)
 {
     return (bool) devComStatus[idx];
@@ -332,7 +343,11 @@ static void HSD_DevComDVDCallback(s32 result, DVDFileInfo* unused)
     }
 }
 
+#ifdef MELEE_NATIVE
+static void HSD_DevComDVDWakeUpImpl(void)
+#else
 void HSD_DevComDVDWakeUp(void)
+#endif
 {
     bool enabled = OSDisableInterrupts();
     int i;
@@ -386,6 +401,23 @@ void HSD_DevComDVDWakeUp(void)
     }
     OSRestoreInterrupts(enabled);
 }
+
+#ifdef MELEE_NATIVE
+void HSD_DevComDVDWakeUp(void)
+{
+    if (native_dvd_wakeup_active) {
+        native_dvd_wakeup_pending = true;
+        return;
+    }
+
+    native_dvd_wakeup_active = true;
+    do {
+        native_dvd_wakeup_pending = false;
+        HSD_DevComDVDWakeUpImpl();
+    } while (native_dvd_wakeup_pending);
+    native_dvd_wakeup_active = false;
+}
+#endif
 
 static inline int HSD_DevComGetDestType(int type)
 {
