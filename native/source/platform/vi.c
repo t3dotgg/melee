@@ -2,6 +2,10 @@
 
 #include "scheduler.h"
 
+#if defined(MELEE_NATIVE_DISPLAY)
+#include "display.h"
+#endif
+
 #include <string.h>
 
 typedef struct NativeVIState {
@@ -75,6 +79,19 @@ void VIWaitForRetrace(void)
     if (post != NULL) {
         post(s_vi.retrace_count);
     }
+
+    /* The GameCube presents the XFB selected during the retrace. The native
+     * backend copies that RGB565 buffer to a Cocoa window synchronously. */
+#if defined(MELEE_NATIVE_DISPLAY)
+    if (!s_vi.black && s_vi.next_frame_buffer != NULL) {
+        uint16_t width = s_vi.mode.viWidth != 0 ? s_vi.mode.viWidth
+                                                : s_vi.mode.fbWidth;
+        uint16_t height = s_vi.mode.viHeight != 0 ? s_vi.mode.viHeight
+                                                  : s_vi.mode.xfbHeight;
+        uint16_t stride = (uint16_t) ((s_vi.mode.fbWidth + 15u) & ~15u);
+        NativeDisplayPresent(s_vi.next_frame_buffer, width, height, stride);
+    }
+#endif
 }
 
 void VIConfigure(GXRenderModeObj* mode)

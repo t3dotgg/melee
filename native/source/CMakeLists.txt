@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.20)
 set(CMAKE_OSX_ARCHITECTURES arm64 CACHE STRING "Native game architecture")
-project(melee-source LANGUAGES C)
+project(melee-source LANGUAGES C OBJC)
 
 if(NOT APPLE OR NOT CMAKE_OSX_ARCHITECTURES STREQUAL "arm64")
     message(FATAL_ERROR "This build requires macOS ARM64")
@@ -91,11 +91,17 @@ if(MELEE_BUILD_NATIVE_GAME)
     file(GLOB MELEE_NATIVE_SUPPORT_SOURCES CONFIGURE_DEPENDS
         "${CMAKE_CURRENT_SOURCE_DIR}/platform/*.c"
         "${CMAKE_CURRENT_SOURCE_DIR}/assets/*.c")
+    list(APPEND MELEE_NATIVE_SUPPORT_SOURCES
+        "${CMAKE_CURRENT_SOURCE_DIR}/platform/display.m")
 
     add_executable(native_melee EXCLUDE_FROM_ALL
         native_main.c
         ${MELEE_NATIVE_GAME_SOURCES}
         ${MELEE_NATIVE_SUPPORT_SOURCES})
     target_link_libraries(native_melee PRIVATE melee_host_options)
+    target_compile_definitions(native_melee PRIVATE MELEE_NATIVE_DISPLAY)
+    target_link_libraries(native_melee PRIVATE
+        "-framework Cocoa"
+        "-framework QuartzCore")
     set_target_properties(native_melee PROPERTIES OUTPUT_NAME melee-native)
 endif()
