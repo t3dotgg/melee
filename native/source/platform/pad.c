@@ -1,8 +1,8 @@
 #include "platform/pad.h"
 
-#include <stdbool.h>
 #include <ctype.h>
 #include <errno.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -86,15 +86,16 @@ enum {
 
 static bool key_down(u16 key_code)
 {
-    return key_code < (u16) (sizeof(s_keyboard_keys) / sizeof(*s_keyboard_keys)) &&
+    return key_code <
+               (u16) (sizeof(s_keyboard_keys) / sizeof(*s_keyboard_keys)) &&
            s_keyboard_keys[key_code];
 }
 
 static bool token_equals(const char* token, const char* name)
 {
     while (*token != '\0' && *name != '\0') {
-        if (tolower((unsigned char) *token) !=
-            tolower((unsigned char) *name)) {
+        if (tolower((unsigned char) *token) != tolower((unsigned char) *name))
+        {
             return false;
         }
         token++;
@@ -108,32 +109,57 @@ static bool parse_button_token(const char* token, NativePADScriptEvent* event)
     if (token_equals(token, "none")) {
         return true;
     }
-    if (token_equals(token, "a")) event->button |= PAD_BUTTON_A;
-    else if (token_equals(token, "b")) event->button |= PAD_BUTTON_B;
-    else if (token_equals(token, "x")) event->button |= PAD_BUTTON_X;
-    else if (token_equals(token, "y")) event->button |= PAD_BUTTON_Y;
-    else if (token_equals(token, "start") || token_equals(token, "menu"))
+    if (token_equals(token, "a")) {
+        event->button |= PAD_BUTTON_A;
+    } else if (token_equals(token, "b")) {
+        event->button |= PAD_BUTTON_B;
+    } else if (token_equals(token, "x")) {
+        event->button |= PAD_BUTTON_X;
+    } else if (token_equals(token, "y")) {
+        event->button |= PAD_BUTTON_Y;
+    } else if (token_equals(token, "start") || token_equals(token, "menu")) {
         event->button |= PAD_BUTTON_START;
-    else if (token_equals(token, "z")) event->button |= PAD_TRIGGER_Z;
-    else if (token_equals(token, "l")) event->button |= PAD_TRIGGER_L;
-    else if (token_equals(token, "r")) event->button |= PAD_TRIGGER_R;
-    else if (token_equals(token, "up")) event->button |= PAD_BUTTON_UP;
-    else if (token_equals(token, "down")) event->button |= PAD_BUTTON_DOWN;
-    else if (token_equals(token, "left")) event->button |= PAD_BUTTON_LEFT;
-    else if (token_equals(token, "right")) event->button |= PAD_BUTTON_RIGHT;
-    else if (token_equals(token, "stick_up")) event->stick_y = 80;
-    else if (token_equals(token, "stick_down")) event->stick_y = -80;
-    else if (token_equals(token, "stick_left")) event->stick_x = -80;
-    else if (token_equals(token, "stick_right")) event->stick_x = 80;
-    else if (token_equals(token, "c_up")) event->substick_y = 80;
-    else if (token_equals(token, "c_down")) event->substick_y = -80;
-    else if (token_equals(token, "c_left")) event->substick_x = -80;
-    else if (token_equals(token, "c_right")) event->substick_x = 80;
-    else if (token_equals(token, "trigger_l")) event->trigger_left = 255;
-    else if (token_equals(token, "trigger_r")) event->trigger_right = 255;
-    else if (token_equals(token, "analog_a")) event->analog_a = 255;
-    else if (token_equals(token, "analog_b")) event->analog_b = 255;
-    else return false;
+    } else if (token_equals(token, "z")) {
+        event->button |= PAD_TRIGGER_Z;
+    } else if (token_equals(token, "l")) {
+        event->button |= PAD_TRIGGER_L;
+    } else if (token_equals(token, "r")) {
+        event->button |= PAD_TRIGGER_R;
+    } else if (token_equals(token, "up")) {
+        event->button |= PAD_BUTTON_UP;
+    } else if (token_equals(token, "down")) {
+        event->button |= PAD_BUTTON_DOWN;
+    } else if (token_equals(token, "left")) {
+        event->button |= PAD_BUTTON_LEFT;
+    } else if (token_equals(token, "right")) {
+        event->button |= PAD_BUTTON_RIGHT;
+    } else if (token_equals(token, "stick_up")) {
+        event->stick_y = 80;
+    } else if (token_equals(token, "stick_down")) {
+        event->stick_y = -80;
+    } else if (token_equals(token, "stick_left")) {
+        event->stick_x = -80;
+    } else if (token_equals(token, "stick_right")) {
+        event->stick_x = 80;
+    } else if (token_equals(token, "c_up")) {
+        event->substick_y = 80;
+    } else if (token_equals(token, "c_down")) {
+        event->substick_y = -80;
+    } else if (token_equals(token, "c_left")) {
+        event->substick_x = -80;
+    } else if (token_equals(token, "c_right")) {
+        event->substick_x = 80;
+    } else if (token_equals(token, "trigger_l")) {
+        event->trigger_left = 255;
+    } else if (token_equals(token, "trigger_r")) {
+        event->trigger_right = 255;
+    } else if (token_equals(token, "analog_a")) {
+        event->analog_a = 255;
+    } else if (token_equals(token, "analog_b")) {
+        event->analog_b = 255;
+    } else {
+        return false;
+    }
     return true;
 }
 
@@ -145,22 +171,33 @@ static bool parse_script_entry(char* entry, NativePADScriptEvent* event)
     char* token;
     char* token_state = NULL;
 
-    if (separator == NULL) return false;
+    if (separator == NULL) {
+        return false;
+    }
     *separator = '\0';
-    while (isspace((unsigned char) *entry)) entry++;
+    while (isspace((unsigned char) *entry)) {
+        entry++;
+    }
     errno = 0;
     frame = strtoul(entry, &end, 10);
-    while (isspace((unsigned char) *end)) end++;
+    while (isspace((unsigned char) *end)) {
+        end++;
+    }
     if (entry == end || *end != '\0' || errno == ERANGE ||
-        frame > 0xffffffffUL) {
+        frame > 0xffffffffUL)
+    {
         return false;
     }
     event->frame = (u32) frame;
     token = separator + 1;
     token = strtok_r(token, "+|	 \r\n", &token_state);
-    if (token == NULL) return false;
+    if (token == NULL) {
+        return false;
+    }
     do {
-        if (!parse_button_token(token, event)) return false;
+        if (!parse_button_token(token, event)) {
+            return false;
+        }
     } while ((token = strtok_r(NULL, "+|	 \r\n", &token_state)) != NULL);
     return true;
 }
@@ -169,8 +206,12 @@ static int compare_script_events(const void* left, const void* right)
 {
     const NativePADScriptEvent* a = left;
     const NativePADScriptEvent* b = right;
-    if (a->frame < b->frame) return -1;
-    if (a->frame > b->frame) return 1;
+    if (a->frame < b->frame) {
+        return -1;
+    }
+    if (a->frame > b->frame) {
+        return 1;
+    }
     return 0;
 }
 
@@ -181,7 +222,9 @@ static void apply_script_frame(void)
     bool previous_valid = s_script_event_valid;
     size_t i;
 
-    if (!s_script_enabled) return;
+    if (!s_script_enabled) {
+        return;
+    }
     for (i = 0; i < s_script_count; i++) {
         if (s_script[i].frame <= s_script_frame) {
             event = &s_script[i];
@@ -205,11 +248,14 @@ static void apply_script_frame(void)
         s_status[0].analogB = event->analog_b;
     }
     if (s_script_trace_enabled && s_script_event_valid &&
-        (!previous_valid || previous_index != s_script_event_index)) {
-        fprintf(stderr, "[native-pad] frame %u event %zu buttons=0x%04x stick=(%d,%d) cstick=(%d,%d)\n",
-                s_script_frame, s_script_event_index,
-                s_status[0].button, s_status[0].stickX, s_status[0].stickY,
-                s_status[0].substickX, s_status[0].substickY);
+        (!previous_valid || previous_index != s_script_event_index))
+    {
+        fprintf(stderr,
+                "[native-pad] frame %u event %zu buttons=0x%04x stick=(%d,%d) "
+                "cstick=(%d,%d)\n",
+                s_script_frame, s_script_event_index, s_status[0].button,
+                s_status[0].stickX, s_status[0].stickY, s_status[0].substickX,
+                s_status[0].substickY);
     }
 }
 
@@ -218,37 +264,56 @@ static void update_keyboard_status(void)
     PADStatus* status = &s_status[0];
     u16 buttons = 0;
 
-    if (key_down(KEY_LEFT)) buttons |= PAD_BUTTON_LEFT;
-    if (key_down(KEY_RIGHT)) buttons |= PAD_BUTTON_RIGHT;
-    if (key_down(KEY_DOWN)) buttons |= PAD_BUTTON_DOWN;
-    if (key_down(KEY_UP)) buttons |= PAD_BUTTON_UP;
-    if (key_down(KEY_J)) buttons |= PAD_BUTTON_A;
-    if (key_down(KEY_K)) buttons |= PAD_BUTTON_B;
-    if (key_down(KEY_U)) buttons |= PAD_BUTTON_X;
-    if (key_down(KEY_I)) buttons |= PAD_BUTTON_Y;
-    if (key_down(KEY_O)) buttons |= PAD_TRIGGER_Z;
-    if (key_down(KEY_Q)) buttons |= PAD_TRIGGER_L;
-    if (key_down(KEY_E)) buttons |= PAD_TRIGGER_R;
+    if (key_down(KEY_LEFT)) {
+        buttons |= PAD_BUTTON_LEFT;
+    }
+    if (key_down(KEY_RIGHT)) {
+        buttons |= PAD_BUTTON_RIGHT;
+    }
+    if (key_down(KEY_DOWN)) {
+        buttons |= PAD_BUTTON_DOWN;
+    }
+    if (key_down(KEY_UP)) {
+        buttons |= PAD_BUTTON_UP;
+    }
+    if (key_down(KEY_J)) {
+        buttons |= PAD_BUTTON_A;
+    }
+    if (key_down(KEY_K)) {
+        buttons |= PAD_BUTTON_B;
+    }
+    if (key_down(KEY_U)) {
+        buttons |= PAD_BUTTON_X;
+    }
+    if (key_down(KEY_I)) {
+        buttons |= PAD_BUTTON_Y;
+    }
+    if (key_down(KEY_O)) {
+        buttons |= PAD_TRIGGER_Z;
+    }
+    if (key_down(KEY_Q)) {
+        buttons |= PAD_TRIGGER_L;
+    }
+    if (key_down(KEY_E)) {
+        buttons |= PAD_TRIGGER_R;
+    }
     if (key_down(KEY_RETURN) || key_down(KEY_SPACE)) {
         buttons |= PAD_BUTTON_START;
     }
     status->button = buttons;
 
-    status->stickX = (s8) ((key_down(KEY_D) ? 80 : 0) -
-                           (key_down(KEY_A) ? 80 : 0));
-    status->stickY = (s8) ((key_down(KEY_W) ? 80 : 0) -
-                           (key_down(KEY_S) ? 80 : 0));
-    status->substickX = (s8) ((key_down(KEY_H) ? 80 : 0) -
-                              (key_down(KEY_F) ? 80 : 0));
-    status->substickY = (s8) ((key_down(KEY_T) ? 80 : 0) -
-                              (key_down(KEY_G) ? 80 : 0));
-    status->triggerLeft = key_down(KEY_SHIFT_LEFT) || key_down(KEY_SHIFT_RIGHT)
-                              ? 255
-                              : 0;
-    status->triggerRight = key_down(KEY_CONTROL_LEFT) ||
-                                   key_down(KEY_CONTROL_RIGHT)
-                               ? 255
-                               : 0;
+    status->stickX =
+        (s8) ((key_down(KEY_D) ? 80 : 0) - (key_down(KEY_A) ? 80 : 0));
+    status->stickY =
+        (s8) ((key_down(KEY_W) ? 80 : 0) - (key_down(KEY_S) ? 80 : 0));
+    status->substickX =
+        (s8) ((key_down(KEY_H) ? 80 : 0) - (key_down(KEY_F) ? 80 : 0));
+    status->substickY =
+        (s8) ((key_down(KEY_T) ? 80 : 0) - (key_down(KEY_G) ? 80 : 0));
+    status->triggerLeft =
+        key_down(KEY_SHIFT_LEFT) || key_down(KEY_SHIFT_RIGHT) ? 255 : 0;
+    status->triggerRight =
+        key_down(KEY_CONTROL_LEFT) || key_down(KEY_CONTROL_RIGHT) ? 255 : 0;
     status->analogA = key_down(KEY_C) ? 255 : 0;
     status->analogB = key_down(KEY_V) ? 255 : 0;
     status->err = PAD_ERR_NONE;
@@ -278,14 +343,17 @@ BOOL NativePADSetScript(const char* script)
     }
 
     copy = malloc(strlen(script) + 1);
-    if (copy == NULL) return FALSE;
+    if (copy == NULL) {
+        return FALSE;
+    }
     strcpy(copy, script);
     entry = strtok_r(copy, ";", &state);
     while (entry != NULL) {
         NativePADScriptEvent event;
         memset(&event, 0, sizeof(event));
         if (s_script_count >= NATIVE_PAD_SCRIPT_MAX_EVENTS ||
-            !parse_script_entry(entry, &event)) {
+            !parse_script_entry(entry, &event))
+        {
             free(copy);
             s_script_count = 0;
             return FALSE;
@@ -294,7 +362,9 @@ BOOL NativePADSetScript(const char* script)
         entry = strtok_r(NULL, ";", &state);
     }
     free(copy);
-    if (s_script_count == 0) return FALSE;
+    if (s_script_count == 0) {
+        return FALSE;
+    }
     qsort(s_script, s_script_count, sizeof(*s_script), compare_script_events);
     s_script_enabled = true;
     apply_script_frame();
@@ -308,8 +378,12 @@ void NativePADSetTrace(BOOL enabled)
 
 void NativePADAdvanceFrame(u32 frame)
 {
-    if (!s_script_enabled) return;
-    if (frame == s_script_frame) return;
+    if (!s_script_enabled) {
+        return;
+    }
+    if (frame == s_script_frame) {
+        return;
+    }
     s_script_frame = frame;
     apply_script_frame();
 }
@@ -347,7 +421,8 @@ void NativePADResetKeyboard(void)
 void NativePADHandleKeyCode(u16 key_code, BOOL pressed, BOOL repeat)
 {
     PADInit();
-    if (key_code >= (u16) (sizeof(s_keyboard_keys) / sizeof(*s_keyboard_keys))) {
+    if (key_code >= (u16) (sizeof(s_keyboard_keys) / sizeof(*s_keyboard_keys)))
+    {
         return;
     }
     /* A held key must stay down across Cocoa's key-repeat events. */
@@ -481,9 +556,7 @@ BOOL __PADDisableRecalibration(int arg0)
     return old;
 }
 
-void SIRefreshSamplingRate(void)
-{
-}
+void SIRefreshSamplingRate(void) {}
 
 void PADClamp(PADStatus* status)
 {

@@ -10,7 +10,7 @@ extern HSD_ObjAllocData gobjproc_alloc_data;
 static inline HSD_GObjProc** processTailSlot(int p_link, int s_link)
 {
     return &HSD_GObj_ProcList[p_link +
-                             s_link * (HSD_GObjLibInitData.p_link_max + 1)];
+                              s_link * (HSD_GObjLibInitData.p_link_max + 1)];
 }
 
 void HSD_GObjProc_QueueProc(HSD_GObjProc* gproc)

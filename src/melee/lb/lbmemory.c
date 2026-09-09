@@ -16,11 +16,11 @@ struct MemEntry {
 };
 
 struct LBMgr {
-    OSAlarm alarm; // 0x00
-    u8* src;       // 0x28
-    u8* dst;       // 0x2C
-    size_t size;   // 0x30
-    size_t offset; // 0x34
+    OSAlarm alarm;   // 0x00
+    u8* src;         // 0x28
+    u8* dst;         // 0x2C
+    size_t size;     // 0x30
+    size_t offset;   // 0x34
     intptr_t cb_arg; // 0x38
     HSD_DevComCallback cb;
 };
@@ -42,8 +42,9 @@ struct Allocator {
     u8 x6EC[0x6F0 - 0x6EC];
 };
 
-/* 015320 */ static void lbMemory_80015320(int request_id, intptr_t callback_arg,
-                                           void* buffer, bool cancelflag);
+/* 015320 */ static void lbMemory_80015320(int request_id,
+                                           intptr_t callback_arg, void* buffer,
+                                           bool cancelflag);
 
 struct Allocator lbMemory_804318B0;
 #define _p(x) (lbMemory_804318B0.x)
@@ -71,7 +72,8 @@ static inline Handle* new_handle(void* arenaLo, void* arenaHi)
     if ((uintptr_t) arenaLo < ARGetSize()) {
 #else
     if (((uintptr_t) arenaLo < 0x80000000U) &&
-        ((uintptr_t) arenaHi < 0x80000000U)) {
+        ((uintptr_t) arenaHi < 0x80000000U))
+    {
 #endif
         HSD_ASSERT(0x80, (uintptr_t) arenaLo >= (uintptr_t) _p(a_arenaLo) &&
                              (uintptr_t) arenaHi <= (uintptr_t) _p(a_arenaHi));
@@ -114,8 +116,8 @@ size_t lbMemory_80014F7C(Handle* heap)
 
     while (1) {
         allocation = allocation->x0_next;
-        gap_end =
-            (uintptr_t) ((allocation != NULL) ? allocation->x4_lo : heap->x8_hi);
+        gap_end = (uintptr_t) ((allocation != NULL) ? allocation->x4_lo
+                                                    : heap->x8_hi);
         free_bytes += gap_end - gap_start;
         if (allocation == NULL) {
             break;
@@ -268,8 +270,8 @@ u32 lbMemory_8001529C(Handle* heap, void (*callback)(u32), u32 callback_arg)
     return 0;
 }
 
-static void start_ram_copy(uintptr_t source, uintptr_t destination, size_t size,
-                           Handle* next_allocation)
+static void start_ram_copy(uintptr_t source, uintptr_t destination,
+                           size_t size, Handle* next_allocation)
 {
     struct LBMgr* p = &_p(x6A0_mgr);
     int interrupts_enabled = OSDisableInterrupts();
@@ -286,8 +288,8 @@ static void start_ram_copy(uintptr_t source, uintptr_t destination, size_t size,
     OSSetAlarm(&p->alarm, OSMillisecondsToTicks(3), fn_80015184);
 }
 
-static void lbMemory_80015320(int request_id, intptr_t callback_arg, void* buffer,
-                              bool cancelflag)
+static void lbMemory_80015320(int request_id, intptr_t callback_arg,
+                              void* buffer, bool cancelflag)
 {
     void* null_or_source;
     Handle* handle = (Handle*) callback_arg;
@@ -329,8 +331,10 @@ static void lbMemory_80015320(int request_id, intptr_t callback_arg, void* buffe
             }
         }
 
-        *compact_end = (void*) ((uintptr_t) source + (uintptr_t) handle->x8_hi);
-        lbMemory_80015320(0, (intptr_t) handle->x0_next, null_or_source, false);
+        *compact_end =
+            (void*) ((uintptr_t) source + (uintptr_t) handle->x8_hi);
+        lbMemory_80015320(0, (intptr_t) handle->x0_next, null_or_source,
+                          false);
         return;
     }
 
@@ -380,9 +384,9 @@ void lbMemory_8001564C(void)
 
     _p(a_arenaLo) = (void*) (uintptr_t) ARAlloc(0x20);
     ARFree(&size[2]);
-    _p(a_arenaHi) = (void*) (uintptr_t) ((ARGetSize() > 0x01000000U)
-                                          ? 0x01000000U
-                                          : ARGetSize());
+    _p(a_arenaHi) =
+        (void*) (uintptr_t) ((ARGetSize() > 0x01000000U) ? 0x01000000U
+                                                         : ARGetSize());
 
     _p(free_mem) = (Handle*) &_p(x8_mem)[0];
     for (i = 0; i < 0x82; i++) {

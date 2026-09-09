@@ -11,7 +11,8 @@ struct SfxLoadStreamNode;
 #ifdef MELEE_NATIVE
 struct NativeSfxEntryNode;
 /* Host layout for the six-word SFX bank header. The original stores 32-bit
- * pointers, so AXVPB cannot be used on a 64-bit host without shifting fields. */
+ * pointers, so AXVPB cannot be used on a 64-bit host without shifting fields.
+ */
 struct NativeSfxBankNode {
     union {
         struct NativeSfxBankNode* next;

@@ -84,8 +84,7 @@ static u16 particle_be16(const void* p)
 static u32 particle_be32(const void* p)
 {
     const u8* b = p;
-    return (u32) b[0] << 24 | (u32) b[1] << 16 | (u32) b[2] << 8 |
-           b[3];
+    return (u32) b[0] << 24 | (u32) b[1] << 16 | (u32) b[2] << 8 | b[3];
 }
 
 static f32 particle_be_float(const void* p)
@@ -102,11 +101,11 @@ static void particle_native_load(int bank, const u8* cmdBank,
                                  const u8* texBank)
 {
     u32 cmd_count = particle_be32(cmdBank + 8);
-    HSD_PSCmdList** commands = calloc((size_t) cmd_count + 1,
-                                      sizeof(*commands));
+    HSD_PSCmdList** commands =
+        calloc((size_t) cmd_count + 1, sizeof(*commands));
     u32 tex_count = particle_be32(texBank);
-    HSD_PSTexGroup** textures = calloc((size_t) tex_count + 1,
-                                       sizeof(*textures));
+    HSD_PSTexGroup** textures =
+        calloc((size_t) tex_count + 1, sizeof(*textures));
     u32 i;
     if (commands == NULL || textures == NULL) {
         free(commands);
@@ -118,10 +117,14 @@ static void particle_native_load(int bank, const u8* cmdBank,
         u32 target = particle_be32(cmdBank + 12 + i * 4);
         HSD_PSCmdList* src;
         HSD_PSCmdList* dst;
-        if (target == 0) continue;
+        if (target == 0) {
+            continue;
+        }
         src = (HSD_PSCmdList*) (cmdBank + target);
         dst = calloc(1, 0x100);
-        if (dst == NULL) continue;
+        if (dst == NULL) {
+            continue;
+        }
         dst->type = particle_be16((u8*) src);
         dst->texGroup = particle_be16((u8*) src + 2);
         dst->genLife = particle_be16((u8*) src + 4);
@@ -147,10 +150,14 @@ static void particle_native_load(int bank, const u8* cmdBank,
         HSD_PSTexGroup* src;
         HSD_PSTexGroup* dst;
         u32 j;
-        if (target == 0) continue;
+        if (target == 0) {
+            continue;
+        }
         src = (HSD_PSTexGroup*) (texBank + target);
         dst = calloc(1, sizeof(*dst) + 4 * 64);
-        if (dst == NULL) continue;
+        if (dst == NULL) {
+            continue;
+        }
         dst->num = particle_be32((u8*) src);
         dst->fmt = particle_be32((u8*) src + 4);
         dst->tlutfmt = particle_be32((u8*) src + 8);
@@ -158,7 +165,9 @@ static void particle_native_load(int bank, const u8* cmdBank,
         dst->height = particle_be32((u8*) src + 16);
         dst->palnum = particle_be16((u8*) src + 20);
         dst->palflag = particle_be16((u8*) src + 22);
-        if (dst->num > 64) dst->num = 64;
+        if (dst->num > 64) {
+            dst->num = 64;
+        }
         for (j = 0; j < dst->num; ++j) {
             u32 image = particle_be32((u8*) src + 24 + j * 4);
             dst->texTable[j] = image == 0 ? NULL : (u8*) (texBank + image);
@@ -622,9 +631,8 @@ HSD_Particle* psGenerateParticle0(HSD_Particle** head, int linkNo, int bank,
 #endif
 void hsd_80398F0C(s32 linkNo, s32 bank, s32 kind, u16 texGroup,
                   uintptr_t cmdList, s32 life, s32 zero, uintptr_t gen,
-                  f32 pos_x, f32 pos_y, f32 pos_z,
-                  f32 vel_x, f32 vel_y, f32 vel_z, f32 fric, f32 rate,
-                  f32 angle3)
+                  f32 pos_x, f32 pos_y, f32 pos_z, f32 vel_x, f32 vel_y,
+                  f32 vel_z, f32 fric, f32 rate, f32 angle3)
 {
     psGenerateParticle0(0, linkNo, bank, kind, texGroup, (u8*) cmdList, life,
                         zero, pos_x, pos_y, pos_z, vel_x, vel_y, vel_z, fric,

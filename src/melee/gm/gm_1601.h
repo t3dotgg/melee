@@ -152,7 +152,8 @@
 /* 165FA4 */ MatchEnd* fn_80165FA4(MatchEnd*);
 /* 1661E0 */ MatchEnd* fn_801661E0(MatchEnd*);
 /* 166378 */ void gm_80166378(struct lbl_8046B6A0_24C_t*);
-/* 166A98 */ MatchEnd* gm_80166A98(MatchEnd*, u8, s8, u8, s8, u8, s8, u8, u8, u8);
+/* 166A98 */ MatchEnd* gm_80166A98(MatchEnd*, u8, s8, u8, s8, u8, s8, u8, u8,
+                                   u8);
 /* 166CBC */ u32 fn_80166CBC(MatchEnd*, ssize_t index);
 /* 166CCC */ void gm_80166CCC(MatchEnd*, MatchEnd*);
 /* 167140 */ bool gm_MatchHasMultipleWinners(MatchEnd*);

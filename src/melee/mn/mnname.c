@@ -660,13 +660,10 @@ void mnName_MainInput(HSD_GObj* arg0)
                     if (scroll != 0) {
                         gobj2->column = (u8) (scroll - 1);
                     } else {
-                        gobj2->column =
-                            (u8) (mnName_GetColumnCount() - 1);
+                        gobj2->column = (u8) (mnName_GetColumnCount() - 1);
                     }
                 } else {
-                    if ((mnName_GetColumnCount() - 1) >
-                        (s32) gobj2->column)
-                    {
+                    if ((mnName_GetColumnCount() - 1) > (s32) gobj2->column) {
                         gobj2->column = (u8) (gobj2->column + 1);
                     } else {
                         gobj2->column = 0U;
@@ -948,8 +945,7 @@ static inline void mnName_UpdateSelection(u8 do_update, MnNameData* data)
         if (prev != 0x1A || mn_804A04F0.hovered_selection >= 0x18U) {
             mnName_80238AE0(data, prev, 0);
         }
-        mnName_80238AE0(data, (u8) mn_804A04F0.hovered_selection,
-                        1);
+        mnName_80238AE0(data, (u8) mn_804A04F0.hovered_selection, 1);
     }
 }
 
@@ -1004,8 +1000,7 @@ void fn_80239574(HSD_GObj* arg0)
     u8 state = data->state;
     PAD_STACK(0x8);
 
-    if ((((state == 0) || (data->state == 1)) ||
-         (data->state == 3)) &&
+    if ((((state == 0) || (data->state == 1)) || (data->state == 3)) &&
         (data->cur_menu != ((u8) mn_804A04F0.cur_menu)))
     {
         if (mn_804A04F0.buttons & 0x10) {
@@ -1205,11 +1200,9 @@ void mnName_80239A24(MnNameData* gobj)
         HSD_JObjAnimAll(jobj);
         ref_jobj = data->joints[10];
         col_width = (HSD_JObjGetTranslationX(ref_jobj), ref_jobj->translate.x);
-        col_width = HSD_JObjGetTranslationX(data->joints[11]) -
-                    col_width;
+        col_width = HSD_JObjGetTranslationX(data->joints[11]) - col_width;
         row_height = HSD_JObjGetTranslationY(data->joints[10]);
-        row_height =
-            HSD_JObjGetTranslationY(data->joints[12]) - row_height;
+        row_height = HSD_JObjGetTranslationY(data->joints[12]) - row_height;
         mnName_80239F5C(jobj, col_width * (f32) ((u8) i / 6));
         mnName_80239EBC(jobj, row_height * (f32) ((u8) i % 6));
         {

@@ -30,8 +30,8 @@ static inline s16 sis_load_s16(const u8* ptr)
 
 static inline u32 sis_load_u32(const u8* ptr)
 {
-    return ((u32) ptr[0] << 24) | ((u32) ptr[1] << 16) |
-           ((u32) ptr[2] << 8) | ptr[3];
+    return ((u32) ptr[0] << 24) | ((u32) ptr[1] << 16) | ((u32) ptr[2] << 8) |
+           ptr[3];
 }
 
 static inline s32 sis_load_s32(const u8* ptr)
@@ -40,12 +40,14 @@ static inline s32 sis_load_s32(const u8* ptr)
 }
 
 /* Preserve the original low-byte fixed-point encoding without invoking
- * undefined float-to-integer conversion when malformed data is out of range. */
+ * undefined float-to-integer conversion when malformed data is out of range.
+ */
 static inline u16 sis_fixed8(f32 value)
 {
     f32 scaled = 256.0F * value;
     if (!(scaled == scaled) || scaled < -2147483648.0F ||
-        scaled >= 2147483648.0F) {
+        scaled >= 2147483648.0F)
+    {
         return 0;
     }
     return (u16) (s32) scaled;
@@ -94,11 +96,9 @@ void HSD_SisLib_803A7684(HSD_Text* text, const u8* cursor, u8 flags)
             }
             HSD_SisLib_Free(old_buf);
         }
-        text->string_buffer[text->x6C++] =
-            (u8) (sis_fixed8(text->x78.x) >> 8);
+        text->string_buffer[text->x6C++] = (u8) (sis_fixed8(text->x78.x) >> 8);
         text->string_buffer[text->x6C++] = (u8) sis_fixed8(text->x78.x);
-        text->string_buffer[text->x6C++] =
-            (u8) (sis_fixed8(text->x78.y) >> 8);
+        text->string_buffer[text->x6C++] = (u8) (sis_fixed8(text->x78.y) >> 8);
         text->string_buffer[text->x6C++] = (u8) sis_fixed8(text->x78.y);
         text->string_buffer[text->x6C++] = flags;
         return;
@@ -155,11 +155,9 @@ void HSD_SisLib_803A7684(HSD_Text* text, const u8* cursor, u8 flags)
             }
             HSD_SisLib_Free(old_buf);
         }
-        text->string_buffer[text->x6C++] =
-            (u8) (sis_fixed8(text->x80.x) >> 8);
+        text->string_buffer[text->x6C++] = (u8) (sis_fixed8(text->x80.x) >> 8);
         text->string_buffer[text->x6C++] = (u8) sis_fixed8(text->x80.x);
-        text->string_buffer[text->x6C++] =
-            (u8) (sis_fixed8(text->x80.y) >> 8);
+        text->string_buffer[text->x6C++] = (u8) (sis_fixed8(text->x80.y) >> 8);
         text->string_buffer[text->x6C++] = (u8) sis_fixed8(text->x80.y);
         text->string_buffer[text->x6C++] = flags;
         return;
@@ -217,7 +215,8 @@ void HSD_SisLib_803A7684(HSD_Text* text, const u8* cursor, u8 flags)
         text->string_buffer[text->x6C++] = (u8) ((uintptr_t) cursor >> 0x18U);
         text->string_buffer[text->x6C++] =
             (u8) (((uintptr_t) cursor >> 0x10U) & 0xFFU);
-        text->string_buffer[text->x6C++] = (u8) (((uintptr_t) cursor >> 8U) & 0xFFU);
+        text->string_buffer[text->x6C++] =
+            (u8) (((uintptr_t) cursor >> 8U) & 0xFFU);
         text->string_buffer[text->x6C++] = (u8) (uintptr_t) cursor;
         text->string_buffer[text->x6C++] = flags;
     }
@@ -429,19 +428,19 @@ loop_3:
                      * that happened to hold an address on the GameCube.
                      * Reconstructing that address truncates a native host
                      * pointer and can fault when text uses kerning. */
-                    kern_data = (TextKerning*)
-                        (default_kerning +
-                         (((glyph_code - 0x2000) * 2) & 0x1FFFE));
-                    kern_width = (s32) kern_data->left +
-                                 (s32) kern_data->right - 2;
+                    kern_data = (TextKerning*) (default_kerning +
+                                                (((glyph_code - 0x2000) * 2) &
+                                                 0x1FFFE));
+                    kern_width =
+                        (s32) kern_data->left + (s32) kern_data->right - 2;
                     *out_width =
                         -((text->x80.x * (f32) kern_width) - *out_width);
                 } else {
                     kern_data_2 =
                         (TextKerning*) &glyph_tex
                             ->data[((glyph_code - 0x4000) * 2) & 0x1FFFE];
-                    kern_width = (s32) kern_data_2->left +
-                                 (s32) kern_data_2->right - 2;
+                    kern_width =
+                        (s32) kern_data_2->left + (s32) kern_data_2->right - 2;
                     *out_width =
                         -((text->x80.x * (f32) kern_width) - *out_width);
                 }

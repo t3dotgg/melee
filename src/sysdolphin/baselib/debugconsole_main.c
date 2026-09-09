@@ -658,12 +658,12 @@ void hsd_80394434(void* text)
         default:
             if (mode != 0) {
                 hsd_803922FC(font + (*ptr & 0x7F) * 0x38, x, y, interlace,
-                             PARTICLE_XFB(sp, sp->x34), sp->x3C, sp->x40, sp->x44,
-                             sp->x50);
+                             PARTICLE_XFB(sp, sp->x34), sp->x3C, sp->x40,
+                             sp->x44, sp->x50);
             } else {
                 hsd_803921B8(font + (*ptr & 0x7F) * 0x38, x, y,
-                             PARTICLE_XFB(sp, sp->x34), sp->x3C, sp->x40, sp->x44,
-                             sp->x50);
+                             PARTICLE_XFB(sp, sp->x34), sp->x3C, sp->x40,
+                             sp->x44, sp->x50);
             }
             x += 11;
             break;
@@ -773,8 +773,9 @@ void hsd_80394668(void)
                                          *x40_ptr, sp->x44, *x50_ptr);
                         } else {
                             hsd_803921B8(((ParticleFontData*) sp->x4C)->x700,
-                                         *x4_ptr, *x8_ptr, PARTICLE_XFB(sp, sp->x34),
-                                         sp->x3C, *x40_ptr, sp->x44, *x50_ptr);
+                                         *x4_ptr, *x8_ptr,
+                                         PARTICLE_XFB(sp, sp->x34), sp->x3C,
+                                         *x40_ptr, sp->x44, *x50_ptr);
                         }
                     }
                     cur_x += 11;
@@ -866,12 +867,15 @@ void Exception_ReportStackTrace(OSContext* ctx, int max_depth)
     sp = (u32*) ctx->gpr[1];
     i = 0;
 
-    while (sp != NULL && (u32) (sp + 0x4000) != 0xFFFF && i < (u32) (uintptr_t) max_depth)
+    while (sp != NULL && (u32) (sp + 0x4000) != 0xFFFF &&
+           i < (u32) (uintptr_t) max_depth)
     {
         if ((u32) (uintptr_t) sp < 0x80000000u) {
             break;
         }
-        if ((s64) (u32) (uintptr_t) sp >= (s64) OSGetPhysicalMemSize() + 0x800000000) {
+        if ((s64) (u32) (uintptr_t) sp >=
+            (s64) OSGetPhysicalMemSize() + 0x800000000)
+        {
             break;
         }
         OSReport("%08X:   %08X   %08X\n", sp, sp[0], sp[1]);
@@ -1072,15 +1076,15 @@ static inline void hsd_80394F48_putc(u8 ch, void* const* color)
     s32 b6 = hsd_804CF810.x0_b6;
 
     if (hsd_804CF810.x0_b7 != 0) {
-        hsd_803922FC((void*) (hsd_804CF810.x4C + ch * 0x38), hsd_804CF810.x4,
-                     hsd_804CF810.x8, b6,
-                     PARTICLE_XFB(&hsd_804CF810, hsd_804CF810.x34), hsd_804CF810.x3C,
-                     hsd_804CF810.x40, hsd_804CF810.x44, *color);
+        hsd_803922FC(
+            (void*) (hsd_804CF810.x4C + ch * 0x38), hsd_804CF810.x4,
+            hsd_804CF810.x8, b6, PARTICLE_XFB(&hsd_804CF810, hsd_804CF810.x34),
+            hsd_804CF810.x3C, hsd_804CF810.x40, hsd_804CF810.x44, *color);
     } else {
-        hsd_803921B8((void*) (hsd_804CF810.x4C + ch * 0x38), hsd_804CF810.x4,
-                     hsd_804CF810.x8, PARTICLE_XFB(&hsd_804CF810, hsd_804CF810.x34),
-                     hsd_804CF810.x3C, hsd_804CF810.x40, hsd_804CF810.x44,
-                     *color);
+        hsd_803921B8(
+            (void*) (hsd_804CF810.x4C + ch * 0x38), hsd_804CF810.x4,
+            hsd_804CF810.x8, PARTICLE_XFB(&hsd_804CF810, hsd_804CF810.x34),
+            hsd_804CF810.x3C, hsd_804CF810.x40, hsd_804CF810.x44, *color);
     }
 }
 
@@ -1728,9 +1732,10 @@ static inline void hsd_80396188_draw_rows(char* buf, s32 col, u32** addr,
         hsd_80394434(buf);
         {
             u32 memsize = OSGetPhysicalMemSize();
-            *addr = (u32*) (uintptr_t) ((((uintptr_t) *addr & 0x0FFFFFFF) + memsize + 0x10) %
-                                memsize +
-                            0x80000000);
+            *addr = (u32*) (uintptr_t) ((((uintptr_t) *addr & 0x0FFFFFFF) +
+                                         memsize + 0x10) %
+                                            memsize +
+                                        0x80000000);
         }
         (*i)++;
     } while (*i < 4);
@@ -1971,7 +1976,8 @@ static char* lbl_804D62F8 = "| INPUT ADDRESS : 8%07X |";
 static inline void hsd_80396884_draw_char(s8 ch, s32 b6)
 {
     hsd_803922FC(hsd_804CF810.x4C + (ch & 0x7F) * 0x38, hsd_804CF810.x4,
-                 hsd_804CF810.x8, b6, PARTICLE_XFB(&hsd_804CF810, hsd_804CF810.x34),
+                 hsd_804CF810.x8, b6,
+                 PARTICLE_XFB(&hsd_804CF810, hsd_804CF810.x34),
                  hsd_804CF810.x3C, hsd_804CF810.x40, hsd_804CF810.x44,
                  hsd_804CF810.x50);
 }
@@ -2771,8 +2777,8 @@ void* fn_80397814(void* arg)
 
         hsd_80394544(hsd_804CF810.x18, hsd_804CF810.x14, hsd_804CF810.x20,
                      hsd_804CF810.x1C, 20, hsd_804CF810.x40 - 40,
-                     PARTICLE_XFB(&hsd_804CF810, hsd_804CF810.x34), hsd_804CF810.x3C,
-                     hsd_804CF810.x40, hsd_804CF810.x44,
+                     PARTICLE_XFB(&hsd_804CF810, hsd_804CF810.x34),
+                     hsd_804CF810.x3C, hsd_804CF810.x40, hsd_804CF810.x44,
                      HSD_DebugFontAtlas, NULL);
 
         hsd_804CF810.xC8 = 0;
@@ -2833,7 +2839,8 @@ void* fn_80397814(void* arg)
 #else
             while (disp_node != NULL && !sp->x0_b5) {
                 if (*(void* (**) (void*) )((u8*) disp_node + 0xC) != NULL) {
-                    result = (*(s32 (**)(void*))((u8*) disp_node + 0xC))(disp_node);
+                    result =
+                        (*(s32(**)(void*))((u8*) disp_node + 0xC))(disp_node);
                     switch (result) {
                     case 0:
                         break;

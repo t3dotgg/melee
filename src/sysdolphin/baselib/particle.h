@@ -24,8 +24,8 @@ psGenerateParticle0(HSD_Particle** head, int linkNo, int bank, u32 kind,
                     f32 y, f32 z, f32 vx, f32 vy, f32 vz, f32 size, f32 grav,
                     f32 fric, HSD_Generator* gp, int flgInterpret);
 /* 398F0C */ void hsd_80398F0C(s32, s32, s32, u16, uintptr_t, s32, s32,
-                               uintptr_t, f32,
-                               f32, f32, f32, f32, f32, f32, f32, f32);
+                               uintptr_t, f32, f32, f32, f32, f32, f32, f32,
+                               f32, f32);
 /* 398F8C */ void hsd_80398F8C(HSD_Particle*, f32);
 /* 3991D8 */ s32 hsd_803991D8(HSD_Generator*, HSD_JObj*, f32, f32);
 /* 39930C */ void* hsd_8039930C(HSD_Particle*, HSD_Particle*);

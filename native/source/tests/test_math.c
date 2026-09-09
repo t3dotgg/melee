@@ -1,9 +1,9 @@
-#include <dolphin/mtx.h>
-
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+#include <dolphin/mtx.h>
 
 _Static_assert(sizeof(void*) == 8, "Math tests require host 64-bit pointers");
 _Static_assert(sizeof(u32) == 4, "SDK u32 must remain 32 bits");
@@ -19,8 +19,9 @@ static void check(int condition, const char* name)
 
 static void near(float actual, float expected)
 {
-    if (!isfinite(actual) || fabsf(actual - expected) >
-                                 0.00002f * fmaxf(1.0f, fabsf(expected))) {
+    if (!isfinite(actual) ||
+        fabsf(actual - expected) > 0.00002f * fmaxf(1.0f, fabsf(expected)))
+    {
         fprintf(stderr, "FAILED: expected %.9g, got %.9g\n", expected, actual);
         exit(1);
     }
@@ -53,36 +54,36 @@ static void test_vectors(void)
     near(PSVECSquareDistance(&a, &b), 147);
     near(VECDistance(&a, &b), sqrtf(147));
     PSVECNormalize(&a, &result);
-    vector(result, (Vec) { 3.0f / 13, 4.0f / 13, 12.0f / 13 });
+    vector(result, (Vec){ 3.0f / 13, 4.0f / 13, 12.0f / 13 });
     PSVECNormalize(&a, &a);
     vector(a, result);
     PSVECScale(&a, &a, 13);
-    vector(a, (Vec) { 3, 4, 12 });
+    vector(a, (Vec){ 3, 4, 12 });
     PSVECAdd(&a, &b, &a);
-    vector(a, (Vec) { 1, 9, 13 });
+    vector(a, (Vec){ 1, 9, 13 });
     PSVECSubtract(&a, &b, &b);
-    vector(b, (Vec) { 3, 4, 12 });
+    vector(b, (Vec){ 3, 4, 12 });
 
-    a = (Vec) { 1, 2, 3 };
-    b = (Vec) { 4, 5, 6 };
+    a = (Vec){ 1, 2, 3 };
+    b = (Vec){ 4, 5, 6 };
     PSVECCrossProduct(&a, &b, &a);
-    vector(a, (Vec) { -3, 6, -3 });
-    a = (Vec) { 1, 2, 3 };
+    vector(a, (Vec){ -3, 6, -3 });
+    a = (Vec){ 1, 2, 3 };
     PSVECCrossProduct(&a, &b, &b);
-    vector(b, (Vec) { -3, 6, -3 });
+    vector(b, (Vec){ -3, 6, -3 });
 
-    a = (Vec) { 1, -1, 0 };
-    b = (Vec) { 0, 2, 0 };
+    a = (Vec){ 1, -1, 0 };
+    b = (Vec){ 0, 2, 0 };
     VECReflect(&a, &b, &a);
-    vector(a, (Vec) { sqrtf(0.5f), sqrtf(0.5f), 0 });
-    a = (Vec) { 1, 0, 0 };
-    b = (Vec) { 0, 1, 0 };
+    vector(a, (Vec){ sqrtf(0.5f), sqrtf(0.5f), 0 });
+    a = (Vec){ 1, 0, 0 };
+    b = (Vec){ 0, 1, 0 };
     VECHalfAngle(&a, &b, &a);
-    vector(a, (Vec) { -sqrtf(0.5f), -sqrtf(0.5f), 0 });
-    a = (Vec) { 1, 0, 0 };
-    b = (Vec) { -1, 0, 0 };
+    vector(a, (Vec){ -sqrtf(0.5f), -sqrtf(0.5f), 0 });
+    a = (Vec){ 1, 0, 0 };
+    b = (Vec){ -1, 0, 0 };
     VECHalfAngle(&a, &b, &a);
-    vector(a, (Vec) { 0, 0, 0 });
+    vector(a, (Vec){ 0, 0, 0 });
 }
 
 static void test_affine(void)
@@ -124,11 +125,11 @@ static void test_affine(void)
 
     Vec point = { 7, -3, 2 };
     PSMTXMultVec(a, &point, &point);
-    vector(point, (Vec) { 10, 16, 14 });
+    vector(point, (Vec){ 10, 16, 14 });
     PSMTXMultVec(inverse, &point, &point);
-    vector(point, (Vec) { 7, -3, 2 });
+    vector(point, (Vec){ 7, -3, 2 });
     PSMTXMultVecSR(a, &point, &point);
-    vector(point, (Vec) { 6, 21, 8 });
+    vector(point, (Vec){ 6, 21, 8 });
 
     PSMTXCopy(a, temporary);
     PSMTXTranspose(temporary, temporary);
@@ -141,7 +142,7 @@ static void test_affine(void)
     Vec tangent = { 2, -1, 0 };
     PSMTXMultVecSR(temporary, &normal, &normal);
     PSMTXMultVecSR(a, &tangent, &tangent);
-    vector(normal, (Vec) { -1, 1.0f / 3, -0.25f });
+    vector(normal, (Vec){ -1, 1.0f / 3, -0.25f });
     near(PSVECDotProduct(&normal, &tangent), 0);
 
     Mtx singular = { { 1, 2, 3, 9 }, { 2, 4, 6, 8 }, { 0, 0, 1, 7 } };
@@ -162,11 +163,11 @@ static void test_rotations(void)
     Vec point = { 0, 1, 0 };
     MTXRotRad(rotation, 'x', MTXDegToRad(90));
     PSMTXMultVec(rotation, &point, &point);
-    vector(point, (Vec) { 0, 0, 1 });
-    point = (Vec) { 0, 0, 1 };
+    vector(point, (Vec){ 0, 0, 1 });
+    point = (Vec){ 0, 0, 1 };
     MTXRotRad(rotation, 'Y', MTXDegToRad(90));
     PSMTXMultVec(rotation, &point, &point);
-    vector(point, (Vec) { 1, 0, 0 });
+    vector(point, (Vec){ 1, 0, 0 });
     PSMTXRotTrig(expected, 'z', 1, 0);
     Vec axis = { 0, 0, 7 };
     PSMTXRotAxisRad(rotation, &axis, MTXDegToRad(90));
@@ -174,7 +175,7 @@ static void test_rotations(void)
     Quaternion quaternion = { 0, 0, 2, 2 };
     PSMTXQuat(rotation, &quaternion);
     matrix(rotation, expected);
-    quaternion = (Quaternion) { 0, 0, 0, 3 };
+    quaternion = (Quaternion){ 0, 0, 0, 3 };
     PSMTXQuat(rotation, &quaternion);
     PSMTXIdentity(expected);
     matrix(rotation, expected);
@@ -190,9 +191,9 @@ static void test_rotations(void)
     Vec plane_point = { 0, 2, 0 };
     Vec plane_normal = { 0, 1, 0 };
     MTXReflect(rotation, &plane_point, &plane_normal);
-    point = (Vec) { 3, 5, 7 };
+    point = (Vec){ 3, 5, 7 };
     PSMTXMultVec(rotation, &point, &point);
-    vector(point, (Vec) { 3, -1, 7 });
+    vector(point, (Vec){ 3, -1, 7 });
 }
 
 /* Evaluate homogeneous projection separately from the affine SDK helpers. */
@@ -205,8 +206,8 @@ static Vec project(Mtx44 m, Vec point)
             output[row] += m[row][column] * input[column];
         }
     }
-    return (Vec) { output[0] / output[3], output[1] / output[3],
-                   output[2] / output[3] };
+    return (Vec){ output[0] / output[3], output[1] / output[3],
+                  output[2] / output[3] };
 }
 
 static void test_camera(void)
@@ -218,39 +219,39 @@ static void test_camera(void)
     C_MTXLookAt(view, &camera, &up, &target);
     Vec point;
     PSMTXMultVec(view, &camera, &point);
-    vector(point, (Vec) { 0, 0, 0 });
+    vector(point, (Vec){ 0, 0, 0 });
     PSMTXMultVec(view, &target, &point);
-    vector(point, (Vec) { 0, 0, -5 });
-    camera = (Vec) { 3, 4, 5 };
+    vector(point, (Vec){ 0, 0, -5 });
+    camera = (Vec){ 3, 4, 5 };
     MTXLookAt(view, &camera, &up, &target);
     PSMTXMultVec(view, &target, &point);
-    vector(point, (Vec) { 0, 0, -sqrtf(50) });
+    vector(point, (Vec){ 0, 0, -sqrtf(50) });
     PSMTXMultVec(view, &camera, &point);
-    vector(point, (Vec) { 0, 0, 0 });
+    vector(point, (Vec){ 0, 0, 0 });
 
     Mtx44 projection;
     MTXPerspective(projection, 90, 2, 1, 11);
-    vector(project(projection, (Vec) { 2, 1, -1 }), (Vec) { 1, 1, -1 });
-    vector(project(projection, (Vec) { 0, 0, -11 }), (Vec) { 0, 0, 0 });
+    vector(project(projection, (Vec){ 2, 1, -1 }), (Vec){ 1, 1, -1 });
+    vector(project(projection, (Vec){ 0, 0, -11 }), (Vec){ 0, 0, 0 });
     MTXFrustum(projection, 3, -1, -2, 4, 2, 20);
-    vector(project(projection, (Vec) { 4, 3, -2 }), (Vec) { 1, 1, -1 });
-    vector(project(projection, (Vec) { -2, -1, -2 }), (Vec) { -1, -1, -1 });
+    vector(project(projection, (Vec){ 4, 3, -2 }), (Vec){ 1, 1, -1 });
+    vector(project(projection, (Vec){ -2, -1, -2 }), (Vec){ -1, -1, -1 });
     MTXOrtho(projection, 3, -1, -2, 4, 2, 20);
-    vector(project(projection, (Vec) { 4, 3, -2 }), (Vec) { 1, 1, -1 });
-    vector(project(projection, (Vec) { -2, -1, -20 }), (Vec) { -1, -1, 0 });
+    vector(project(projection, (Vec){ 4, 3, -2 }), (Vec){ 1, 1, -1 });
+    vector(project(projection, (Vec){ -2, -1, -20 }), (Vec){ -1, -1, 0 });
 
     MTXLightPerspective(view, 90, 2, 0.5f, 0.5f, 0.5f, 0.5f);
-    point = (Vec) { 2, 1, -1 };
+    point = (Vec){ 2, 1, -1 };
     PSMTXMultVec(view, &point, &point);
-    vector(point, (Vec) { 1, 1, 1 });
+    vector(point, (Vec){ 1, 1, 1 });
     MTXLightFrustum(view, 3, -1, -2, 4, 2, 0.5f, 0.5f, 0.5f, 0.5f);
-    point = (Vec) { 4, 3, -2 };
+    point = (Vec){ 4, 3, -2 };
     PSMTXMultVec(view, &point, &point);
-    vector(point, (Vec) { 2, 2, 2 });
+    vector(point, (Vec){ 2, 2, 2 });
     MTXLightOrtho(view, 3, -1, -2, 4, 0.5f, 0.5f, 0.5f, 0.5f);
-    point = (Vec) { -2, -1, -2 };
+    point = (Vec){ -2, -1, -2 };
     PSMTXMultVec(view, &point, &point);
-    vector(point, (Vec) { 0, 0, 1 });
+    vector(point, (Vec){ 0, 0, 1 });
 }
 
 static void test_arrays(void)
@@ -286,20 +287,22 @@ static void test_arrays(void)
         vector(output[i], expected[i]);
     }
     float weights[] = { 0, 0.25f, 1 };
-    PSMTXROSkin2VecArray(&identity, &storage.reordered, weights, source, source, 3);
-    vector(source[0], (Vec) { 1, 2, 3 });
-    vector(source[1], (Vec) { 0.25f, -2, 5 });
+    PSMTXROSkin2VecArray(&identity, &storage.reordered, weights, source,
+                         source, 3);
+    vector(source[0], (Vec){ 1, 2, 3 });
+    vector(source[1], (Vec){ 0.25f, -2, 5 });
     vector(source[2], expected[2]);
 
     S16Vec integers[] = { { 1, 2, 3 }, { -32768, 32767, -32768 } };
     PSMTXROMultS16VecArray(&storage.reordered, integers, output, 2);
     vector(output[0], expected[0]);
-    vector(output[1], (Vec) { -65530, -98309, -131066 });
-    Mtx44 full = { { 0, -2, 0, 4 }, { 3, 0, 0, -5 }, { 0, 0, 4, 6 },
-                   { 0, 0, 0, 1 } };
+    vector(output[1], (Vec){ -65530, -98309, -131066 });
+    Mtx44 full = {
+        { 0, -2, 0, 4 }, { 3, 0, 0, -5 }, { 0, 0, 4, 6 }, { 0, 0, 0, 1 }
+    };
     PSMTXMultS16VecArray(&full, integers, output, 2);
     vector(output[0], expected[0]);
-    vector(output[1], (Vec) { -65530, -98309, -131066 });
+    vector(output[1], (Vec){ -65530, -98309, -131066 });
 }
 
 static void test_stack(void)
@@ -316,7 +319,8 @@ static void test_stack(void)
     check(MTXPushFwd(&stack, translation) == &entries[1], "push composition");
     PSMTXConcat(scale, translation, expected);
     matrix(*MTXGetStackPtr(&stack), expected);
-    check(MTXPushInv(&stack, scale) == &entries[2], "push inverse composition");
+    check(MTXPushInv(&stack, scale) == &entries[2],
+          "push inverse composition");
     matrix(*MTXGetStackPtr(&stack), translation);
     check(MTXPush(&stack, translation) == NULL, "full matrix stack");
     check(MTXGetStackPtr(&stack) == &entries[2], "overflow preserves stack");

@@ -1,8 +1,8 @@
-#include <dolphin/os.h>
-
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
+
+#include <dolphin/os.h>
 
 void OSReport(char* format, ...)
 {

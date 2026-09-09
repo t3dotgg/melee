@@ -854,8 +854,9 @@ static UNINITIALIZED_RETURN(s32) mnSnap_8025441C(u64 buttons)
         if (mnSnap_804A0A10.dlg_type == 0) {
             *result = 2;
 #ifdef MELEE_NATIVE
-        } else if ((mnSnap_804A0A10.btn_idx == 0 ? mnSnap_804A0A10.left_btn
-                                                : mnSnap_804A0A10.right_btn) ==
+        } else if ((mnSnap_804A0A10.btn_idx == 0
+                        ? mnSnap_804A0A10.left_btn
+                        : mnSnap_804A0A10.right_btn) ==
                    mnSnap_804A0A10.no_jobj)
 #else
         } else if ((&mnSnap_804A0A10.left_btn)[mnSnap_804A0A10.btn_idx] ==

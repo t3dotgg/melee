@@ -3,10 +3,10 @@
 #include <stdio.h>
 
 /* Include the implementation to test its private sort lists. */
-#include <sysdolphin/baselib/displayfunc.c>
-#include <sysdolphin/baselib/aobj.h>
-
 #include <assert.h>
+
+#include <sysdolphin/baselib/aobj.h>
+#include <sysdolphin/baselib/displayfunc.c>
 
 _Static_assert(sizeof(((HSD_JObj*) 0)->id) == sizeof(void*),
                "Joint IDs must retain the full host pointer");

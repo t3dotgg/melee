@@ -1,6 +1,6 @@
-#include <dolphin/os/OSCache.h>
-
 #include <stdatomic.h>
+
+#include <dolphin/os/OSCache.h>
 
 /* Native transfers use coherent host memory. The renderer owns GPU resource
  * synchronization. Keep the ordering required at a console DMA boundary. */

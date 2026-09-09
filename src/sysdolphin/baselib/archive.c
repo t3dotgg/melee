@@ -5,11 +5,12 @@
 #include <dolphin/os.h>
 
 #ifdef MELEE_NATIVE
-__attribute__((weak)) void* HSD_ArchiveNativePublicAddress(
-    HSD_Archive* archive, const char* symbol)
+__attribute__((weak)) void*
+HSD_ArchiveNativePublicAddress(HSD_Archive* archive, const char* symbol)
 {
     if (archive == NULL || symbol == NULL || archive->symbols == NULL ||
-        archive->public_info == NULL || archive->data == NULL) {
+        archive->public_info == NULL || archive->data == NULL)
+    {
         return NULL;
     }
     for (u32 i = 0; i < archive->header.nb_public; i++) {
@@ -18,13 +19,14 @@ __attribute__((weak)) void* HSD_ArchiveNativePublicAddress(
                             ((u32) info[6] << 8) | info[7];
         u32 target_offset = ((u32) info[0] << 24) | ((u32) info[1] << 16) |
                             ((u32) info[2] << 8) | info[3];
-        size_t symbols_offset = archive->top_ptr == NULL
-                                    ? archive->header.file_size
-                                    : (size_t) (archive->symbols -
-                                                 (char*) archive->top_ptr);
+        size_t symbols_offset =
+            archive->top_ptr == NULL
+                ? archive->header.file_size
+                : (size_t) (archive->symbols - (char*) archive->top_ptr);
         if (symbols_offset > archive->header.file_size ||
             symbol_offset >= archive->header.file_size - symbols_offset ||
-            target_offset > archive->header.data_size) {
+            target_offset > archive->header.data_size)
+        {
             continue;
         }
         if (strcmp(archive->symbols + symbol_offset, symbol) == 0) {
@@ -76,7 +78,9 @@ s32 HSD_ArchiveParse(HSD_Archive* archive, u8* src, size_t file_size)
 {
 #ifdef MELEE_NATIVE
     size_t offset;
-    if (archive == NULL || src == NULL || file_size < sizeof(HSD_ArchiveHeader)) {
+    if (archive == NULL || src == NULL ||
+        file_size < sizeof(HSD_ArchiveHeader))
+    {
         return -1;
     }
     if (archive_be32(src) != file_size) {
@@ -92,7 +96,8 @@ s32 HSD_ArchiveParse(HSD_Archive* archive, u8* src, size_t file_size)
     archive->data = src + sizeof(HSD_ArchiveHeader);
     offset = sizeof(HSD_ArchiveHeader) + archive->header.data_size;
     if (offset > file_size ||
-        archive->header.nb_reloc > (file_size - offset) / 4u) {
+        archive->header.nb_reloc > (file_size - offset) / 4u)
+    {
         return -1;
     }
     archive->reloc_info = (HSD_ArchiveRelocationInfo*) (src + offset);
@@ -169,7 +174,8 @@ void* HSD_ArchiveGetPublicAddress(HSD_Archive* archive,
     u32 public_index;
 
     if (archive == NULL || symbol_name == NULL || archive->symbols == NULL ||
-        archive->public_info == NULL || archive->data == NULL) {
+        archive->public_info == NULL || archive->data == NULL)
+    {
         return NULL;
     }
 
@@ -193,13 +199,14 @@ char* HSD_ArchiveGetExtern(HSD_Archive* archive, int extern_index)
 {
     if (archive == NULL || archive->symbols == NULL ||
         archive->extern_info == NULL || extern_index < 0 ||
-        archive->header.nb_extern <= (unsigned) extern_index) {
+        archive->header.nb_extern <= (unsigned) extern_index)
+    {
         return NULL;
     }
 
 #ifdef MELEE_NATIVE
-    return archive->symbols +
-           archive_be32((u8*) archive->extern_info + (size_t) extern_index * 8u + 4);
+    return archive->symbols + archive_be32((u8*) archive->extern_info +
+                                           (size_t) extern_index * 8u + 4);
 #else
     return archive->symbols + archive->extern_info[extern_index].symbol;
 #endif

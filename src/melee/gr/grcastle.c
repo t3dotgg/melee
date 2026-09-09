@@ -933,8 +933,7 @@ void grCastle_801CE578(Ground_GObj* gobj)
 
                 {
                     Ground* sat =
-                        (Ground*) (new_var = (gp->u.castle11.xD4)
-                                                 ->user_data);
+                        (Ground*) (new_var = (gp->u.castle11.xD4)->user_data);
                     s32 rand;
                     s32 range;
 
@@ -1048,7 +1047,8 @@ void grCastle_801CE9E8(Ground_GObj* gobj)
         gp->u.castle_explosion.material = 0;
         {
             Ground* gp2 = gobj->user_data;
-            CmSubject* subj2 = (CmSubject*) (tmp = gp2)->u.castle_explosion.subject;
+            CmSubject* subj2 =
+                (CmSubject*) (tmp = gp2)->u.castle_explosion.subject;
             if (subj2 != NULL) {
                 Camera_800290D4(subj2);
                 gp2->u.castle_explosion.subject = 0;
@@ -1343,8 +1343,8 @@ void grCastle_801CF308(Ground_GObj* gobj)
                         Event) fn_801CFAFC,
                     (void (*)(Item_GObj*, Ground*, HSD_GObj*))(
                         Event) fn_801CFB68);
-                grMaterial_801C8DE0(gp->u.castle_blink.xD8, 0.0f,
-                                    -1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 4.0f);
+                grMaterial_801C8DE0(gp->u.castle_blink.xD8, 0.0f, -1.0f, 0.0f,
+                                    0.0f, 1.0f, 0.0f, 4.0f);
                 grMaterial_801C8E08(gp->u.castle_blink.xD8);
                 gp->u.castle_blink.xCC = yakumono_param->x54;
             }
@@ -1360,7 +1360,8 @@ void grCastle_801CF308(Ground_GObj* gobj)
             grMaterial_801C8CDC(gp->u.castle_blink.xD8);
             gp->u.castle_blink.xD8 = 0;
         }
-        ((Ground*) (gp->u.castle_blink.xD0)->user_data)->u.castle_blink.xC4 = 1;
+        ((Ground*) (gp->u.castle_blink.xD0)->user_data)->u.castle_blink.xC4 =
+            1;
         gp->u.castle_blink.xC4 = 5;
         grAnime_801C8138((HSD_GObj*) gobj, gp->map_id, 0);
         Ground_801C5440(gp, 0, 0x53027U);
@@ -1375,7 +1376,9 @@ void grCastle_801CF308(Ground_GObj* gobj)
                 HSD_JObjSetFlagsAll(jobj, JOBJ_HIDDEN);
             }
         }
-        if (((Ground*) (gp->u.castle_blink.xD0)->user_data)->u.castle_blink.xC4 == 0) {
+        if (((Ground*) (gp->u.castle_blink.xD0)->user_data)
+                ->u.castle_blink.xC4 == 0)
+        {
             gp->u.castle_blink.xC4 = 0;
             HSD_JObjSetFlagsAll(jobj, JOBJ_HIDDEN);
         }
@@ -1484,8 +1487,7 @@ static inline void grCastle_PickSatellite(Ground* gp, s32* wp)
     }
     gp->u.castle12.xD0 = slot;
 
-    sat_gp = (Ground*) (gp->u.castle12.xC4[gp->u.castle12.xD0])
-                 ->user_data;
+    sat_gp = (Ground*) (gp->u.castle12.xC4[gp->u.castle12.xD0])->user_data;
 
     {
         s32 idx;
@@ -1522,8 +1524,8 @@ void grCastle_801CF868(Ground_GObj* gobj)
          gp->u.castle12.xC4[2] != 0) &&
         (gp->u.castle12.xD0 == -1 ||
          ((gp->u.castle12.xC4[gp->u.castle12.xD0]) != NULL &&
-          ((Ground*) (gp->u.castle12.xC4[gp->u.castle12.xD0])
-               ->user_data) != NULL &&
+          ((Ground*) (gp->u.castle12.xC4[gp->u.castle12.xD0])->user_data) !=
+              NULL &&
           ((Ground*) gp->u.castle12.xC4[gp->u.castle12.xD0]->user_data)
                   ->u.castle7.xC4 == 0)))
     {
@@ -1640,20 +1642,17 @@ s32 grCastle_801CFBD4(Ground_GObj* gobj, s32 arg1)
                             {
                                 cb1 = grCs_803B7F28;
                                 cb2 = grCs_803B7F3C;
-                                gp->u.castle10.x10C[i] =
-                                    grMaterial_801C8CFC(
-                                        0, 2, gp, target, NULL,
-                                        (void (*)(Item_GObj*, Ground*, Vec3*,
-                                                  HSD_GObj*, f32))(
-                                            Event) cb1.callbacks[i],
-                                        (void (*)(Item_GObj*, Ground*,
-                                                  HSD_GObj*))(
-                                            Event) cb2.callbacks[i]);
-                                grMaterial_801C8DE0(
-                                    gp->u.castle10.x10C[i], 0.0f,
-                                    0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 8.0f);
-                                grMaterial_801C8E08(
-                                    gp->u.castle10.x10C[i]);
+                                gp->u.castle10.x10C[i] = grMaterial_801C8CFC(
+                                    0, 2, gp, target, NULL,
+                                    (void (*)(Item_GObj*, Ground*, Vec3*,
+                                              HSD_GObj*,
+                                              f32))(Event) cb1.callbacks[i],
+                                    (void (*)(Item_GObj*, Ground*, HSD_GObj*))(
+                                        Event) cb2.callbacks[i]);
+                                grMaterial_801C8DE0(gp->u.castle10.x10C[i],
+                                                    0.0f, 0.0f, 0.0f, 0.0f,
+                                                    0.0f, 0.0f, 8.0f);
+                                grMaterial_801C8E08(gp->u.castle10.x10C[i]);
                             }
                         }
                         HSD_JObjSetScaleY(target, newScale);

@@ -1,9 +1,8 @@
+#include <assert.h>
 #include <stdint.h>
 #include <stdio.h>
 
 #include <sysdolphin/baselib/jobj.h>
-
-#include <assert.h>
 
 int main(void)
 {

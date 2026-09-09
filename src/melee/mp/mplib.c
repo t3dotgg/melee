@@ -4169,8 +4169,7 @@ again: {
         goto again;
     }
 done: {
-    CollVtx* vtx =
-        &groundCollVtx[groundCollLine[line_offset].x0->v1_idx];
+    CollVtx* vtx = &groundCollVtx[groundCollLine[line_offset].x0->v1_idx];
     pos_out->x = vtx->pos.x;
     pos_out->y = vtx->pos.y;
     pos_out->z = 0.0F;
@@ -4205,8 +4204,7 @@ again: {
         goto again;
     }
 done: {
-    CollVtx* vtx =
-        &groundCollVtx[groundCollLine[line_offset].x0->v0_idx];
+    CollVtx* vtx = &groundCollVtx[groundCollLine[line_offset].x0->v0_idx];
     pos_out->x = vtx->pos.x;
     pos_out->y = vtx->pos.y;
     pos_out->z = 0.0F;
@@ -4244,8 +4242,7 @@ again: {
         goto again;
     }
 done: {
-    CollVtx* vtx =
-        &groundCollVtx[groundCollLine[line_offset].x0->v0_idx];
+    CollVtx* vtx = &groundCollVtx[groundCollLine[line_offset].x0->v0_idx];
     pos_out->x = vtx->pos.x;
     pos_out->y = vtx->pos.y;
     pos_out->z = 0.0F;
@@ -4283,8 +4280,7 @@ again: {
         goto again;
     }
 done: {
-    CollVtx* vtx =
-        &groundCollVtx[groundCollLine[line_offset].x0->v1_idx];
+    CollVtx* vtx = &groundCollVtx[groundCollLine[line_offset].x0->v1_idx];
     pos_out->x = vtx->pos.x;
     pos_out->y = vtx->pos.y;
     pos_out->z = 0.0F;
@@ -4322,8 +4318,7 @@ again: {
         goto again;
     }
 done: {
-    CollVtx* vtx =
-        &groundCollVtx[groundCollLine[line_offset].x0->v1_idx];
+    CollVtx* vtx = &groundCollVtx[groundCollLine[line_offset].x0->v1_idx];
     pos_out->x = vtx->pos.x;
     pos_out->y = vtx->pos.y;
     pos_out->z = 0.0F;
@@ -4361,8 +4356,7 @@ again: {
         goto again;
     }
 done: {
-    CollVtx* vtx =
-        &groundCollVtx[groundCollLine[line_offset].x0->v0_idx];
+    CollVtx* vtx = &groundCollVtx[groundCollLine[line_offset].x0->v0_idx];
     pos_out->x = vtx->pos.x;
     pos_out->y = vtx->pos.y;
     pos_out->z = 0.0F;
@@ -4400,8 +4394,7 @@ again: {
         goto again;
     }
 done: {
-    CollVtx* vtx =
-        &groundCollVtx[groundCollLine[line_offset].x0->v0_idx];
+    CollVtx* vtx = &groundCollVtx[groundCollLine[line_offset].x0->v0_idx];
     pos_out->x = vtx->pos.x;
     pos_out->y = vtx->pos.y;
     pos_out->z = 0.0F;
@@ -4439,8 +4432,7 @@ again: {
         goto again;
     }
 done: {
-    CollVtx* vtx =
-        &groundCollVtx[groundCollLine[line_offset].x0->v1_idx];
+    CollVtx* vtx = &groundCollVtx[groundCollLine[line_offset].x0->v1_idx];
     pos_out->x = vtx->pos.x;
     pos_out->y = vtx->pos.y;
     pos_out->z = 0.0F;

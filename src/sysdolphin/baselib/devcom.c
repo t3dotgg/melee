@@ -332,8 +332,8 @@ static void HSD_DevComDVDCallback(s32 result, DVDFileInfo* unused)
         HSD_ASSERT(0x18D, active_dc->callback);
         if (HSD_DevCom_804D7804 == 0) {
             active_dc->callback(active_dc->dcReq, (intptr_t) active_dc->args,
-                            HSD_DevCom_804C6330_bufs[HSD_DevCom_804D77F6],
-                            active_dc->cancelflag);
+                                HSD_DevCom_804C6330_bufs[HSD_DevCom_804D77F6],
+                                active_dc->cancelflag);
         }
         dvdDC = active_dc;
         HSD_DevComUnlink(active_dc);
@@ -363,7 +363,8 @@ static void HSD_DevComDVDCallback(s32 result, DVDFileInfo* unused)
             ARQPostRequest(
                 devComARQR[HSD_DevCom_804D77F7], 0, 0, 1,
                 (uintptr_t) HSD_DevCom_804C6330_bufs[HSD_DevCom_804D77F7],
-                active_dc->dest, active_dc->size, HSD_DevComDVDARAMEndCallback);
+                active_dc->dest, active_dc->size,
+                HSD_DevComDVDARAMEndCallback);
             HSD_DevComUnlink(active_dc);
 #ifdef MELEE_NATIVE
             enabled = OSDisableInterrupts();
@@ -412,7 +413,8 @@ void HSD_DevComDVDWakeUp(void)
                 if (!DVDReadAsyncPrio(&fileinfo, (void*) dvdDC->dest,
                                       MIN(dvdDC->size, 0x80000),
                                       (s32) dvdDC->src,
-                                      HSD_DevComDVDMemCallback, 2)) {
+                                      HSD_DevComDVDMemCallback, 2))
+                {
                     HSD_DevCom_804D77F5 = 0;
                 }
                 OSRestoreInterrupts(enabled);
@@ -425,7 +427,8 @@ void HSD_DevComDVDWakeUp(void)
                 if (!DVDReadAsyncPrio(&fileinfo,
                                       HSD_DevCom_804C6330_bufs[buf_idx],
                                       MIN(dvdDC->size, DEVCOM_BUF_SIZE),
-                                      dvdDC->src, HSD_DevComDVDCallback, 2)) {
+                                      dvdDC->src, HSD_DevComDVDCallback, 2))
+                {
                     HSD_DevCom_804D77F5 = 0;
                 }
                 OSRestoreInterrupts(enabled);

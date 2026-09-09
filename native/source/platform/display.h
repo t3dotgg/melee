@@ -4,8 +4,8 @@
 #include <stdint.h>
 
 /*
- * Present one GameCube RGB565 XFB on the host display. The copy is synchronous,
- * so callers may reuse the XFB after this function returns.
+ * Present one GameCube RGB565 XFB on the host display. The copy is
+ * synchronous, so callers may reuse the XFB after this function returns.
  *
  * Set MELEE_HEADLESS=1 to skip Cocoa window creation and event handling. In
  * headless mode, MELEE_FRAME_OUTPUT can save one frame as a binary PPM. Use

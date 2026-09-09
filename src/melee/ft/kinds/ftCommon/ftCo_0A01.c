@@ -1578,9 +1578,8 @@ s32 ftCo_800A2C80(Fighter* fp)
     ey = 1000.0f * dir.y + ay;
     line_id = -1;
     blocked = 0;
-    result =
-        mpCheckFloor(ax, ay, ex, ey, 0.0f, &floor_pos, &line_id, &flags,
-                     &floor_normal, -1, -1, -1, NULL, NULL);
+    result = mpCheckFloor(ax, ay, ex, ey, 0.0f, &floor_pos, &line_id, &flags,
+                          &floor_normal, -1, -1, -1, NULL, NULL);
     if (result != 0) {
         line = line_id;
         if (grBigBlue_801EF844(line) || grInishie1_801FCAAC(line) ||
@@ -1984,8 +1983,8 @@ static inline bool ftCo_800A3908_inline0(Fighter* fp, struct CpuFighter* data,
 }
 
 static inline s32 ftCo_800A3908_inline1(float x, float y, Vec3* out_pos,
-                                 Vec3* out_normal, int* out_line,
-                                 u32* out_flags)
+                                        Vec3* out_normal, int* out_line,
+                                        u32* out_flags)
 {
     s32 result;
     s32 valid;
@@ -3635,9 +3634,8 @@ static inline s32 ftCo_800A75DC_CheckFloor(f32 x0, f32 above, f32 x1,
 
     blocked = 0;
     *line_id = -1;
-    result =
-        mpCheckFloor(x0, above, x1, below, 0.0f, floor_pos, line_id, flags,
-                     floor_normal, -1, -1, -1, NULL, NULL);
+    result = mpCheckFloor(x0, above, x1, below, 0.0f, floor_pos, line_id,
+                          flags, floor_normal, -1, -1, -1, NULL, NULL);
     if (result != 0) {
         line = *line_id;
         if (grBigBlue_801EF844(line) || grInishie1_801FCAAC(line) ||
@@ -3681,9 +3679,9 @@ void ftCo_800A75DC(Fighter* fp0, Fighter* fp1)
             line_id = -1;
             below = fy - 1000.0f;
             above = 10.0f + fy;
-            result = mpCheckFloor(fx2, above, fx, below, 0.0f, &floor_pos,
-                                  &line_id, &flags, &floor_normal, -1, -1, -1,
-                                  NULL, NULL);
+            result =
+                mpCheckFloor(fx2, above, fx, below, 0.0f, &floor_pos, &line_id,
+                             &flags, &floor_normal, -1, -1, -1, NULL, NULL);
         }
         if (result != 0) {
             int line = line_id;
@@ -5418,8 +5416,7 @@ void ftCo_800ABBA8(Fighter* fp)
             f32 cx2 = cx;
             f32 floor_y = cy - 1000.0;
             result = mpCheckFloor(cx2, cy, cx, floor_y, 0.0f, &sp74, &line_id,
-                                  &flags, &sp68, -1, -1, -1, NULL,
-                                  NULL);
+                                  &flags, &sp68, -1, -1, -1, NULL, NULL);
         }
         if (result != 0) {
             int line = line_id;
@@ -6098,8 +6095,7 @@ static bool ftCo_800ADE48(Fighter* fp)
     line_id = -1;
     do {
         result = mpCheckFloor(x2, above, x, below, 0.0f, &floor_pos, &line_id,
-                              &flags, &floor_normal, -1, -1, -1, NULL,
-                              NULL);
+                              &flags, &floor_normal, -1, -1, -1, NULL, NULL);
         if (result != 0 && ftCo_800A1B38_noinline(line_id) != 0) {
             (void) result;
         } else {
@@ -6570,8 +6566,7 @@ void ftCo_800AEA8C(Fighter* fp)
         below = y - 1000.0f;
         above = 10.0f + y;
         result = mpCheckFloor(x2, above, x, below, 0.0f, &floor_pos, &line_id,
-                              flags, &floor_normal, -1, -1, -1, NULL,
-                              NULL);
+                              flags, &floor_normal, -1, -1, -1, NULL, NULL);
         if (result == 0) {
             goto do_assign;
         }
@@ -8092,9 +8087,9 @@ void ftCo_800B2AFC(Fighter* fp)
             below = y - 1000.0f;
             above = 10.0f + y;
             line0 = -1;
-            result = mpCheckFloor(x2, above, x, below, 0.0f, &floor_pos0,
-                                  &line0, &flags0, &floor_normal0, -1, -1, -1,
-                                  NULL, NULL);
+            result =
+                mpCheckFloor(x2, above, x, below, 0.0f, &floor_pos0, &line0,
+                             &flags0, &floor_normal0, -1, -1, -1, NULL, NULL);
             if (result == 0) {
                 goto assign0;
             }
@@ -8149,9 +8144,9 @@ void ftCo_800B2AFC(Fighter* fp)
             below = y - 1000.0f;
             above = 10.0f + y;
             line1 = -1;
-            result = mpCheckFloor(x2, above, x, below, 0.0f, &floor_pos1,
-                                  &line1, &flags1, &floor_normal1, -1, -1, -1,
-                                  NULL, NULL);
+            result =
+                mpCheckFloor(x2, above, x, below, 0.0f, &floor_pos1, &line1,
+                             &flags1, &floor_normal1, -1, -1, -1, NULL, NULL);
             if (result == 0) {
                 goto assign1;
             }
@@ -8214,9 +8209,9 @@ void ftCo_800B2AFC(Fighter* fp)
             below = y - 1000.0f;
             above = 10.0f + y;
             line3 = -1;
-            result = mpCheckFloor(x2, above, x, below, 0.0f, &floor_pos3,
-                                  &line3, &flags3, &floor_normal3, -1, -1, -1,
-                                  NULL, NULL);
+            result =
+                mpCheckFloor(x2, above, x, below, 0.0f, &floor_pos3, &line3,
+                             &flags3, &floor_normal3, -1, -1, -1, NULL, NULL);
             if (result == 0) {
                 goto assign3;
             }
@@ -8471,9 +8466,9 @@ void ftCo_800B33B0(Fighter* fp)
         below = sy - 1000.0;
         tmp = 10.0 + sy;
         {
-            result = mpCheckFloor(sx, tmp, sx, below, 0.0f, &floor_pos, &line1,
-                                  &flags1, &floor_normal, -1, -1, -1, NULL,
-                                  NULL);
+            result =
+                mpCheckFloor(sx, tmp, sx, below, 0.0f, &floor_pos, &line1,
+                             &flags1, &floor_normal, -1, -1, -1, NULL, NULL);
         }
     }
     if (result == 0) {
@@ -8553,9 +8548,9 @@ void ftCo_800B33B0(Fighter* fp)
     below = sy - 2.0;
     tmp = 2.0 + sy;
     fx = sx;
-    result = mpCheckFloor(fx, tmp, sx, below, 0.0f, &target_floor_pos, &line2,
-                          &flags2, &target_floor_normal, -1, -1, -1, NULL,
-                          NULL);
+    result =
+        mpCheckFloor(fx, tmp, sx, below, 0.0f, &target_floor_pos, &line2,
+                     &flags2, &target_floor_normal, -1, -1, -1, NULL, NULL);
     if (result != 0) {
         int line = line2;
         if (grBigBlue_801EF844(line) || grInishie1_801FCAAC(line) ||

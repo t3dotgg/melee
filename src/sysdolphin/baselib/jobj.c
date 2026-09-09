@@ -694,7 +694,8 @@ void HSD_JObjResolveRefs(HSD_JObj* jobj, HSD_Joint* joint)
     HSD_RObjResolveRefsAll(jobj->robj, joint->robjdesc);
     if (!!(jobj->flags & JOBJ_INSTANCE)) {
         HSD_JObjUnref(jobj->child);
-        jobj->child = HSD_IDGetDataFromTable(NULL, (uintptr_t) joint->child, NULL);
+        jobj->child =
+            HSD_IDGetDataFromTable(NULL, (uintptr_t) joint->child, NULL);
         HSD_ASSERT(1108, jobj->child);
         HSD_JObjRef(jobj->child);
     }

@@ -173,18 +173,18 @@ struct Toy26B8 {
 #else
     /* 0x00C */ u8 pad_00C[0x195 - 0x00C];
 #endif
-    /* 0x195 */ s8 x195;
-    /* 0x196 */ s8 x196;
-    /* 0x197 */ u8 x197;
-    /* 0x198 */ u8 x198;
-    /* 0x199 */ u8 pad_199;
-    /* 0x19A */ u16 x19A;
-    /* 0x19C */ u16 x19C;
-    /* 0x19E */ u16 trophy_flags[TY_TROPHY_COUNT];
-    /* 0x3E8 */ s16 selectedIdx;
-    /* 0x3EA */ s16 selectedTrophyId;
-    /* 0x3EC */ s16 trophy_count;
-    /* 0x3EE */ u8 pad_3EE[0x3F0 - 0x3EE];
+            /* 0x195 */ s8 x195;
+            /* 0x196 */ s8 x196;
+            /* 0x197 */ u8 x197;
+            /* 0x198 */ u8 x198;
+            /* 0x199 */ u8 pad_199;
+            /* 0x19A */ u16 x19A;
+            /* 0x19C */ u16 x19C;
+            /* 0x19E */ u16 trophy_flags[TY_TROPHY_COUNT];
+            /* 0x3E8 */ s16 selectedIdx;
+            /* 0x3EA */ s16 selectedTrophyId;
+            /* 0x3EC */ s16 trophy_count;
+            /* 0x3EE */ u8 pad_3EE[0x3F0 - 0x3EE];
 #ifdef MELEE_NATIVE
         };
     };

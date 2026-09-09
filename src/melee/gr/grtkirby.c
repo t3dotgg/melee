@@ -13,7 +13,7 @@
 #include <melee/lb/lb_00F9.h>
 #include <sysdolphin/baselib/gobjproc.h>
 
-void grTKirby_80221364(int);                  /* static */
+void grTKirby_80221364(int);                   /* static */
 void grTKirby_80221368(void);                  /* static */
 void grTkirby_UnkStage0_OnLoad(void);          /* static */
 void grTkirby_UnkStage0_OnStart(void);         /* static */

@@ -1236,12 +1236,10 @@ HSD_GObj* mn_80230E38(int arg0)
                         HSD_JObjAddChild(user_data->x34[3].joints[*index_ptr],
                                          text);
                     }
-                    digit_jobj = mn_80231634(
-                        user_data->x34[3].joints[2]);
+                    digit_jobj = mn_80231634(user_data->x34[3].joints[2]);
                     HSD_JObjReqAnimAll(digit_jobj, (f32) (u8) (value / 10));
                     HSD_JObjAnimAll(digit_jobj);
-                    digit_jobj = mn_80231634(
-                        user_data->x34[3].joints[3]);
+                    digit_jobj = mn_80231634(user_data->x34[3].joints[3]);
                     HSD_JObjReqAnimAll(digit_jobj, (f32) (u8) (value % 10));
                     HSD_JObjAnimAll(digit_jobj);
                     break;

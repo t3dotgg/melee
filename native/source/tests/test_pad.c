@@ -1,16 +1,16 @@
-#include "platform/pad.h"
-
 #include <stdio.h>
+
+#include "platform/pad.h"
 
 static int failures;
 
-#define CHECK(condition)                                                       \
-    do {                                                                       \
-        if (!(condition)) {                                                    \
-            fprintf(stderr, "FAIL %s:%d: %s\n", __FILE__, __LINE__,         \
+#define CHECK(condition)                                                      \
+    do {                                                                      \
+        if (!(condition)) {                                                   \
+            fprintf(stderr, "FAIL %s:%d: %s\n", __FILE__, __LINE__,           \
                     #condition);                                              \
-            failures++;                                                        \
-        }                                                                       \
+            failures++;                                                       \
+        }                                                                     \
     } while (0)
 
 int main(void)

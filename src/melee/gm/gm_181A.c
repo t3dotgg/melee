@@ -664,7 +664,7 @@ static inline int gm_80182578_GetIndexFromPointer(const int* idx_ptr)
 }
 
 static inline void gm_80182578_SetTime(RecordBlock* blocks, int idx, int mode,
-                                u16 value)
+                                       u16 value)
 {
     switch (mode) {
     case 33:

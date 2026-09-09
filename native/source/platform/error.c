@@ -1,11 +1,11 @@
-#include <dolphin/db.h>
-#include <dolphin/os/OSError.h>
-
 #include <pthread.h>
 #include <stddef.h>
+#include <unistd.h>
+
+#include <dolphin/db.h>
+#include <dolphin/os/OSError.h>
 #include <sys/proc.h>
 #include <sys/sysctl.h>
-#include <unistd.h>
 
 OSErrorHandler OSErrorTable[OS_ERROR_MAX];
 static pthread_mutex_t error_handler_lock = PTHREAD_MUTEX_INITIALIZER;

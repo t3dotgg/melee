@@ -41,7 +41,7 @@ static inline void ftCo_8009CB40_inline(struct DynamicsData* data)
 }
 
 void ftCo_8009CB40(Fighter* fp, ssize_t bone_idx, bool arg2,
-                    FtDynamicBoneLimit arg3)
+                   FtDynamicBoneLimit arg3)
 {
     ftDynamics* dyn = fp->ft_data->x2C;
     PAD_STACK(8);

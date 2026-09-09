@@ -289,13 +289,15 @@ s32 hsd_803941E8(void* xfb_out_ptr, void* xfb_cur_ptr)
     xfb_out[1] = NULL;
     nb_xfb = HSD_VIData.nb_xfb;
     for (i = 0; i < nb_xfb; i++) {
-        if (i != last_draw && (xfb_out[0] = HSD_VIData.xfb[i].buffer) != NULL) {
+        if (i != last_draw && (xfb_out[0] = HSD_VIData.xfb[i].buffer) != NULL)
+        {
             break;
         }
     }
     i++;
     for (; i < nb_xfb; i++) {
-        if (i != last_draw && (xfb_out[1] = HSD_VIData.xfb[i].buffer) != NULL) {
+        if (i != last_draw && (xfb_out[1] = HSD_VIData.xfb[i].buffer) != NULL)
+        {
             break;
         }
     }

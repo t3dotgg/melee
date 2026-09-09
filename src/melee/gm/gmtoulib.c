@@ -1706,14 +1706,14 @@ void fn_8018E618(int arg0, f32 farg0, int arg1)
     cam = lbl_803B7CA8;
 
 #ifdef MELEE_NATIVE
-        while ((tmp = HSD_GObjPLinkHead(0x1B)) != NULL) {
+    while ((tmp = HSD_GObjPLinkHead(0x1B)) != NULL) {
 #else
     while ((tmp = M2C_FIELD(HSD_GObj_Entities, HSD_GObj**, 0x6C)) != NULL) {
 #endif
         HSD_GObjFree(tmp);
     }
 #ifdef MELEE_NATIVE
-        while ((tmp = HSD_GObjPLinkHead(0x14)) != NULL) {
+    while ((tmp = HSD_GObjPLinkHead(0x14)) != NULL) {
 #else
     while ((tmp = M2C_FIELD(HSD_GObj_Entities, HSD_GObj**, 0x50)) != NULL) {
 #endif
@@ -1767,7 +1767,7 @@ void fn_8018E618(int arg0, f32 farg0, int arg1)
 void fn_8018E85C(DynamicModelDesc* model, s32 flag)
 {
 #ifdef MELEE_NATIVE
-TmData* td = gm_GetTournamentData();
+    TmData* td = gm_GetTournamentData();
     s32 bracket_idx = 0;
     s32 outer_idx;
     s32 inner_idx;
@@ -2218,7 +2218,7 @@ int fn_8018F4A0(void)
 s32 fn_8018F508(s32* out_index)
 {
 #ifdef MELEE_NATIVE
-s32 count = 0;
+    s32 count = 0;
     s32 i;
     s32 bracket_idx = fn_8018F74C();
     BracketEntry* entry;
@@ -2489,7 +2489,7 @@ static inline int fn_8018FA24_inline0(int char_kind)
 void fn_8018FA24(void)
 {
 #ifdef MELEE_NATIVE
-TmData* td = &gm_804771C4;
+    TmData* td = &gm_804771C4;
     s32 bracket_idx = fn_8018F74C();
     BracketEntry* entry;
     s32 player_idx;
@@ -2597,7 +2597,7 @@ void fn_8018FBE0(s32 arg0, s32 arg1, s32 arg2, s32 arg3, s32 arg4, s32 arg5,
                  s32 arg6)
 {
 #ifdef MELEE_NATIVE
-TmData* td = &gm_804771C4;
+    TmData* td = &gm_804771C4;
     s32 i;
     td->cur_option = arg0;
     td->x1C = arg1;
@@ -2735,8 +2735,7 @@ void fn_801902F0(HSD_GObj* sis_param)
     if (gm_804771C4.x1C == 0) {
         value = 0;
     }
-    lbl_804D663C =
-        HSD_SisLib_803A611C(0, value, 9, 0x12, 0, 3, 0, 0x13);
+    lbl_804D663C = HSD_SisLib_803A611C(0, value, 9, 0x12, 0, 3, 0, 0x13);
 }
 #ifdef MUST_MATCH
 #pragma pop

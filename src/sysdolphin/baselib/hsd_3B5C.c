@@ -1,10 +1,31 @@
 #ifdef MELEE_NATIVE
 #include "hsd_3B34.h"
-void hsd_803B5C2C(s32 a) { (void)a; }
-s32 hsd_803B5C4C(s32 a) { (void)a; return 0; }
-s32 hsd_803B5D70(s32 a, s32 b) { (void)a; (void)b; return 0; }
-void hsd_803B5EA0(s32 a) { (void)a; }
-s32 hsd_803B6BE4(char* a, s32 b, void* c) { (void)a; (void)b; (void)c; return -1; }
+void hsd_803B5C2C(s32 a)
+{
+    (void) a;
+}
+s32 hsd_803B5C4C(s32 a)
+{
+    (void) a;
+    return 0;
+}
+s32 hsd_803B5D70(s32 a, s32 b)
+{
+    (void) a;
+    (void) b;
+    return 0;
+}
+void hsd_803B5EA0(s32 a)
+{
+    (void) a;
+}
+s32 hsd_803B6BE4(char* a, s32 b, void* c)
+{
+    (void) a;
+    (void) b;
+    (void) c;
+    return -1;
+}
 #else
 #include <placeholder.h>
 #include <setjmp.h>

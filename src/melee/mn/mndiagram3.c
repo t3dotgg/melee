@@ -107,7 +107,8 @@ void mnDiagram3_PopulateRankings(HSD_GObj* gobj)
                         if (!mnDiagram2_IsIconOnlyStat(stat_type)) {
                             if (i == 0) {
                                 lb_8000B1CC(data->jobjs[6],
-                                            &mnDiagram3_803EEC28.xC, &position);
+                                            &mnDiagram3_803EEC28.xC,
+                                            &position);
                                 title_text = HSD_SisLib_803A6754(0, 1);
                                 data->title_text = title_text;
                                 title_text->font_size.x = 0.035f;
@@ -293,8 +294,8 @@ static inline u8 mnDiagram3_GetRowStat(Diagram3* data, u8 offset, u8 row)
     return (u8) value;
 }
 
-static inline void mnDiagram3_RebuildRowLabels(Diagram3* data,
-                                               Vec3* pos, int count)
+static inline void mnDiagram3_RebuildRowLabels(Diagram3* data, Vec3* pos,
+                                               int count)
 {
     f32 spacing;
     int i;
@@ -312,8 +313,8 @@ static inline void mnDiagram3_RebuildRowLabels(Diagram3* data,
                                    240.0f);
         data->row_labels[i] = text;
         HSD_SisLib_803A6368(
-            text,
-            mnDiagram3_803EEC4C.label_ids[mnDiagram3_GetRowStat(data, base_idx, i)]);
+            text, mnDiagram3_803EEC4C
+                      .label_ids[mnDiagram3_GetRowStat(data, base_idx, i)]);
         i++;
     } while (i < count);
 }

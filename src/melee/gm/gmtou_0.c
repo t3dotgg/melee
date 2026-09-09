@@ -166,8 +166,7 @@ void fn_80190ABC(int mode)
     /* The text IDs are stored as big-endian byte pairs. */
     for (table_idx = 0; table_idx < ARRAY_SIZE(native_table); table_idx++) {
         native_table[table_idx] =
-            (table_bytes[table_idx * 2] << 8) |
-            table_bytes[table_idx * 2 + 1];
+            (table_bytes[table_idx * 2] << 8) | table_bytes[table_idx * 2 + 1];
     }
 #endif
 

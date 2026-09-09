@@ -1,5 +1,8 @@
-#include "../assets/archive.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
+#include "../assets/archive.h"
 #include <melee/lb/lbanim.h>
 #include <sysdolphin/baselib/aobj.h>
 #include <sysdolphin/baselib/cobj.h>
@@ -12,19 +15,19 @@
 #include <sysdolphin/baselib/spline.h>
 #include <sysdolphin/baselib/wobj.h>
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-
-#define CHECK(condition)                                                     \
-    do {                                                                     \
-        if (!(condition)) {                                                  \
-            fprintf(stderr, "%s:%d: %s\n", __FILE__, __LINE__, #condition);     \
-            exit(1);                                                         \
-        }                                                                    \
+#define CHECK(condition)                                                      \
+    do {                                                                      \
+        if (!(condition)) {                                                   \
+            fprintf(stderr, "%s:%d: %s\n", __FILE__, __LINE__, #condition);   \
+            exit(1);                                                          \
+        }                                                                     \
     } while (0)
 
-enum { HEADER_SIZE = 32, FIXTURE_CAPACITY = 4096, TABLE_CAPACITY = 64 };
+enum {
+    HEADER_SIZE = 32,
+    FIXTURE_CAPACITY = 4096,
+    TABLE_CAPACITY = 64
+};
 
 typedef struct FixtureSymbol {
     uint32_t offset;
@@ -92,14 +95,14 @@ static void public_symbol(Fixture* fixture, uint32_t offset, const char* name)
 {
     CHECK(fixture->public_count < TABLE_CAPACITY);
     fixture->publics[fixture->public_count++] =
-        (FixtureSymbol) { offset, symbol_name(fixture, name) };
+        (FixtureSymbol){ offset, symbol_name(fixture, name) };
 }
 
 static void external_symbol(Fixture* fixture, uint32_t field, const char* name)
 {
     CHECK(fixture->external_count < TABLE_CAPACITY);
     fixture->externals[fixture->external_count++] =
-        (FixtureSymbol) { field, symbol_name(fixture, name) };
+        (FixtureSymbol){ field, symbol_name(fixture, name) };
 }
 
 /* Keep disk offsets explicit. No host descriptor layout enters the fixture. */
@@ -139,8 +142,8 @@ static NativeArchive* open_fixture(Fixture* fixture)
     NativeArchive* archive = NULL;
     NativeArchiveError error = { 0 };
     fixture_finish(fixture);
-    NativeArchiveStatus status = NativeArchiveOpen(
-        fixture->bytes, fixture->size, &archive, &error);
+    NativeArchiveStatus status =
+        NativeArchiveOpen(fixture->bytes, fixture->size, &archive, &error);
     if (status != NATIVE_ARCHIVE_OK) {
         fprintf(stderr, "Open failed at %zu: %s\n", error.offset,
                 error.message ? error.message : "no error message");
@@ -154,7 +157,8 @@ static NativeArchiveGraph* open_graph(NativeArchive* archive)
 {
     NativeArchiveGraph* graph = NULL;
     NativeArchiveError error = { 0 };
-    CHECK(NativeArchiveGraphOpen(archive, &graph, &error) == NATIVE_ARCHIVE_OK);
+    CHECK(NativeArchiveGraphOpen(archive, &graph, &error) ==
+          NATIVE_ARCHIVE_OK);
     CHECK(graph != NULL);
     return graph;
 }
@@ -167,7 +171,8 @@ static NativeArchiveError reject_file_at(Fixture* fixture, size_t size,
     NativeArchiveStatus status =
         NativeArchiveOpen(fixture->bytes, size, &archive, &error);
     if (status != NATIVE_ARCHIVE_INVALID && status != NATIVE_ARCHIVE_BOUNDS) {
-        fprintf(stderr, "%s:%d: Expected malformed file, got status %d at %zu: %s\n",
+        fprintf(stderr,
+                "%s:%d: Expected malformed file, got status %d at %zu: %s\n",
                 test, line, status, error.offset,
                 error.message ? error.message : "no error message");
     }
@@ -178,7 +183,8 @@ static NativeArchiveError reject_file_at(Fixture* fixture, size_t size,
     return error;
 }
 
-#define reject_file(fixture, size) reject_file_at(fixture, size, __func__, __LINE__)
+#define reject_file(fixture, size)                                            \
+    reject_file_at(fixture, size, __func__, __LINE__)
 
 static void check_host_pointer(const Fixture* fixture, const void* pointer)
 {
@@ -205,14 +211,16 @@ static void test_archive_symbols_and_copy(void)
     CHECK(NativeArchiveExternalCount(archive) == 1);
     NativeArchiveError error = { 0 };
     NativeArchiveSymbol symbol = { 0 };
-    CHECK(NativeArchivePublic(archive, 0, &symbol, &error) == NATIVE_ARCHIVE_OK);
+    CHECK(NativeArchivePublic(archive, 0, &symbol, &error) ==
+          NATIVE_ARCHIVE_OK);
     CHECK(strcmp(symbol.name, "root") == 0);
     CHECK(symbol.offset == 0);
     CHECK(NativeArchiveExternal(archive, 0, &symbol, &error) ==
           NATIVE_ARCHIVE_OK);
     CHECK(strcmp(symbol.name, "shared") == 0);
     CHECK(symbol.offset == 4);
-    CHECK(NativeArchivePublic(archive, 1, &symbol, &error) != NATIVE_ARCHIVE_OK);
+    CHECK(NativeArchivePublic(archive, 1, &symbol, &error) !=
+          NATIVE_ARCHIVE_OK);
     CHECK(NativeArchiveExternal(archive, 1, &symbol, &error) !=
           NATIVE_ARCHIVE_OK);
     uint32_t offset = UINT32_MAX;
@@ -308,7 +316,8 @@ static void test_joint_graph(void)
     CHECK(other->class_name[0] == 'H');
     CHECK(other->mtx[0][0] == 1.0f);
     HSD_Joint* repeated = NULL;
-    CHECK(NativeArchiveJoint(graph, 0, &repeated, &error) == NATIVE_ARCHIVE_OK);
+    CHECK(NativeArchiveJoint(graph, 0, &repeated, &error) ==
+          NATIVE_ARCHIVE_OK);
     CHECK(repeated == root);
     NativeArchiveGraphClose(other_graph);
     NativeArchiveGraphClose(graph);
@@ -507,7 +516,8 @@ static void test_animation_graph(void)
     NativeArchiveError error = { 0 };
     HSD_AnimJoint* root = NULL;
     HSD_AnimJoint* other = NULL;
-    CHECK(NativeArchiveAnimation(graph, 0, &root, &error) == NATIVE_ARCHIVE_OK);
+    CHECK(NativeArchiveAnimation(graph, 0, &root, &error) ==
+          NATIVE_ARCHIVE_OK);
     CHECK(NativeArchiveAnimation(other_graph, 0, &other, &error) ==
           NATIVE_ARCHIVE_OK);
     CHECK(root->child == root->next);
@@ -553,7 +563,8 @@ static void test_texture_animation_graph(void)
     HSD_MatAnimJoint* root = NULL;
 
     /* mat joint 0, material animation 12, texture animation 28, tables 52/60,
-     * image descriptor 68, TLUT descriptor 92, image bytes 108, TLUT bytes 124. */
+     * image descriptor 68, TLUT descriptor 92, image bytes 108, TLUT bytes
+     * 124. */
     reference(&fixture, 8, 12);
     reference(&fixture, 12, 12);
     reference(&fixture, 20, 28);
@@ -581,7 +592,8 @@ static void test_texture_animation_graph(void)
 
     archive = open_fixture(&fixture);
     graph = open_graph(archive);
-    CHECK(NativeArchiveMatAnimJoint(graph, 0, &root, &error) == NATIVE_ARCHIVE_OK);
+    CHECK(NativeArchiveMatAnimJoint(graph, 0, &root, &error) ==
+          NATIVE_ARCHIVE_OK);
     CHECK(root != NULL && root->matanim != NULL);
     CHECK(root->matanim->texanim != NULL);
     CHECK(root->matanim->texanim->id == GX_TEXMAP1);
@@ -618,8 +630,8 @@ static void test_wobj(void)
     Fixture fixture = fixture_new(32);
     reference(&fixture, 0, 20);
     memcpy(fixture.bytes + HEADER_SIZE + 20, "HSD_WObj", 9);
-    word(&fixture, 4, 0x3f000000); /* 0.5 */
-    word(&fixture, 8, 0xc1200000); /* -10 */
+    word(&fixture, 4, 0x3f000000);  /* 0.5 */
+    word(&fixture, 8, 0xc1200000);  /* -10 */
     word(&fixture, 12, 0x42000000); /* 32 */
     NativeArchive* archive = open_fixture(&fixture);
     NativeArchiveGraph* graph = open_graph(archive);
@@ -627,7 +639,8 @@ static void test_wobj(void)
     HSD_WObjDesc* root = NULL;
     CHECK(NativeArchiveWObj(graph, 0, &root, &error) == NATIVE_ARCHIVE_OK);
     CHECK(strcmp(root->class_name, "HSD_WObj") == 0);
-    CHECK(root->pos.x == 0.5f && root->pos.y == -10.0f && root->pos.z == 32.0f);
+    CHECK(root->pos.x == 0.5f && root->pos.y == -10.0f &&
+          root->pos.z == 32.0f);
     CHECK(root->robjdesc == NULL);
     check_host_pointer(&fixture, root);
     check_host_pointer(&fixture, root->class_name);
@@ -688,10 +701,12 @@ static void test_cobj(void)
     CHECK(root->common.flags == 1);
     CHECK(root->common.projection_type == PROJ_PERSPECTIVE);
     CHECK(root->common.viewport.xmin == -10 &&
-          root->common.viewport.xmax == 640 && root->common.viewport.ymin == 0 &&
+          root->common.viewport.xmax == 640 &&
+          root->common.viewport.ymin == 0 &&
           root->common.viewport.ymax == 480);
-    CHECK(root->common.scissor.left == 10 && root->common.scissor.right == 646 &&
-          root->common.scissor.top == 20 && root->common.scissor.bottom == 500);
+    CHECK(
+        root->common.scissor.left == 10 && root->common.scissor.right == 646 &&
+        root->common.scissor.top == 20 && root->common.scissor.bottom == 500);
     CHECK(root->common.eyepos == root->common.interest);
     CHECK(root->common.eyepos->pos.x == 1.0f &&
           root->common.eyepos->pos.y == 2.0f &&
@@ -707,12 +722,14 @@ static void test_cobj(void)
     NativeArchiveGraphClose(graph);
     NativeArchiveClose(archive);
 
-    /* Unknown projection tags must fail before returning a partial descriptor. */
+    /* Unknown projection tags must fail before returning a partial descriptor.
+     */
     fixture.bytes[HEADER_SIZE + 7] = 7;
     archive = open_fixture(&fixture);
     graph = open_graph(archive);
     root = (HSD_CObjDesc*) (uintptr_t) 1;
-    CHECK(NativeArchiveCObj(graph, 0, &root, &error) == NATIVE_ARCHIVE_INVALID);
+    CHECK(NativeArchiveCObj(graph, 0, &root, &error) ==
+          NATIVE_ARCHIVE_INVALID);
     CHECK(root == NULL && error.offset == HEADER_SIZE + 6);
     NativeArchiveGraphClose(graph);
     NativeArchiveClose(archive);
@@ -752,7 +769,9 @@ static void test_truncation_and_counts(void)
 static void test_bad_relocations(void)
 {
     const uint32_t invalid_fields[] = { 1, 13, 16, UINT32_MAX };
-    for (size_t i = 0; i < sizeof(invalid_fields) / sizeof(*invalid_fields); i++) {
+    for (size_t i = 0; i < sizeof(invalid_fields) / sizeof(*invalid_fields);
+         i++)
+    {
         Fixture fixture = fixture_new(16);
         fixture.relocations[fixture.relocation_count++] = invalid_fields[i];
         fixture_finish(&fixture);
@@ -790,7 +809,8 @@ static void test_bad_symbols(void)
             public_symbol(&fixture, 0, "name");
         }
         fixture_finish(&fixture);
-        size_t table = external ? fixture.external_start : fixture.public_start;
+        size_t table =
+            external ? fixture.external_start : fixture.public_start;
         be32(fixture.bytes + table + 4, (uint32_t) fixture.string_size);
         reject_file(&fixture, fixture.size);
         be32(fixture.bytes + table + 4, UINT32_MAX);
@@ -848,7 +868,9 @@ static void test_spline_graph(void)
         reference(&fixture, 72, 88);
         word(&fixture, 76, 0x41a00000); /* total length 20 */
         reference(&fixture, 80, 172);
-        if (type != 0) reference(&fixture, 84, 184);
+        if (type != 0) {
+            reference(&fixture, 84, 184);
+        }
         word(&fixture, 88 + (uint32_t) (points[type] * 12) - 4, 0xc0200000);
         word(&fixture, 176, 0x3f000000); /* segment boundary 0.5 */
         word(&fixture, 180, 0x3f800000); /* segment boundary 1 */
@@ -858,16 +880,21 @@ static void test_spline_graph(void)
         NativeArchiveError error = { 0 };
         HSD_Joint* joint = NULL;
         HSD_Spline* spline = NULL;
-        CHECK(NativeArchiveJoint(graph, 0, &joint, &error) == NATIVE_ARCHIVE_OK);
-        CHECK(NativeArchiveSpline(graph, 64, &spline, &error) == NATIVE_ARCHIVE_OK);
+        CHECK(NativeArchiveJoint(graph, 0, &joint, &error) ==
+              NATIVE_ARCHIVE_OK);
+        CHECK(NativeArchiveSpline(graph, 64, &spline, &error) ==
+              NATIVE_ARCHIVE_OK);
         CHECK(joint->u.spline == spline);
         CHECK(spline->type == type && spline->numcv == 3);
         CHECK(spline->tension == 0.5f && spline->totalLength == 20.0f);
         CHECK(spline->cv[points[type] - 1].z == -2.5f);
         CHECK(spline->segLength[0] == 0.0f && spline->segLength[1] == 0.5f);
         CHECK(spline->segLength[2] == 1.0f);
-        if (type == 0) CHECK(spline->segPoly == NULL);
-        else CHECK(spline->segPoly[1][4] == 1.25f);
+        if (type == 0) {
+            CHECK(spline->segPoly == NULL);
+        } else {
+            CHECK(spline->segPoly[1][4] == 1.25f);
+        }
         check_host_pointer(&fixture, spline);
         check_host_pointer(&fixture, spline->cv);
         check_host_pointer(&fixture, spline->segLength);
@@ -882,7 +909,8 @@ static void test_spline_graph(void)
     NativeArchiveGraph* graph = open_graph(archive);
     NativeArchiveError error = { 0 };
     HSD_Spline* spline = NULL;
-    CHECK(NativeArchiveSpline(graph, 0, &spline, &error) == NATIVE_ARCHIVE_BOUNDS);
+    CHECK(NativeArchiveSpline(graph, 0, &spline, &error) ==
+          NATIVE_ARCHIVE_BOUNDS);
     CHECK(spline == NULL && error.offset == HEADER_SIZE + 60);
     NativeArchiveGraphClose(graph);
     NativeArchiveClose(archive);
@@ -908,7 +936,9 @@ static Fixture shape_fixture(u16 mode)
     word(&fixture, 156, GX_VA_NULL);
     reference(&fixture, 180, 192);
     reference(&fixture, 184, 200);
-    if (mode == SHAPESET_ADDITIVE) reference(&fixture, 188, 208);
+    if (mode == SHAPESET_ADDITIVE) {
+        reference(&fixture, 188, 208);
+    }
     word(&fixture, 200, 1u << 16);
     word(&fixture, 208, 2u << 16);
     word(&fixture, 216, 0x3fc00000); /* 1.5 */
@@ -926,9 +956,11 @@ static void test_shape_sets(void)
         NativeArchiveGraph* graph = open_graph(archive);
         NativeArchiveError error = { 0 };
         HSD_Joint* joint = NULL;
-        CHECK(NativeArchiveJoint(graph, 0, &joint, &error) == NATIVE_ARCHIVE_OK);
+        CHECK(NativeArchiveJoint(graph, 0, &joint, &error) ==
+              NATIVE_ARCHIVE_OK);
         HSD_ShapeSetDesc* shape = joint->u.dobjdesc->pobjdesc->u.shape_set;
-        CHECK(shape != NULL && shape->flags == modes[i] && shape->nb_shape == 2);
+        CHECK(shape != NULL && shape->flags == modes[i] &&
+              shape->nb_shape == 2);
         CHECK(shape->nb_vertex_index == 1 && shape->nb_normal_index == 0);
         CHECK(shape->normal_desc == NULL && shape->normal_idx_list == NULL);
         CHECK(shape->vertex_desc->stride == 12);
@@ -953,7 +985,8 @@ static void test_shape_sets(void)
     NativeArchiveGraph* graph = open_graph(archive);
     NativeArchiveError error = { 0 };
     HSD_Joint* joint = NULL;
-    CHECK(NativeArchiveJoint(graph, 0, &joint, &error) == NATIVE_ARCHIVE_BOUNDS);
+    CHECK(NativeArchiveJoint(graph, 0, &joint, &error) ==
+          NATIVE_ARCHIVE_BOUNDS);
     CHECK(joint == NULL && error.offset == HEADER_SIZE + 200);
     NativeArchiveGraphClose(graph);
     NativeArchiveClose(archive);
@@ -999,7 +1032,8 @@ static void test_envelope_graph(void)
     word(&fixture, 176, 0x3f800000);
     archive = open_fixture(&fixture);
     graph = open_graph(archive);
-    CHECK(NativeArchiveJoint(graph, 0, &joint, &error) == NATIVE_ARCHIVE_BOUNDS);
+    CHECK(NativeArchiveJoint(graph, 0, &joint, &error) ==
+          NATIVE_ARCHIVE_BOUNDS);
     CHECK(joint == NULL && error.offset == HEADER_SIZE + 172);
     NativeArchiveGraphClose(graph);
     NativeArchiveClose(archive);
@@ -1037,7 +1071,8 @@ static void test_figatree(void)
     FigaTree* again = NULL;
     CHECK(NativeArchiveFigaTreeByName(graph, "figatree", &tree, &error) ==
           NATIVE_ARCHIVE_OK);
-    CHECK(tree->type == 1 && tree->flags == AOBJ_LOOP && tree->frames == 50.0f);
+    CHECK(tree->type == 1 && tree->flags == AOBJ_LOOP &&
+          tree->frames == 50.0f);
     CHECK(tree->nodes[0] == 2 && tree->nodes[1] == 0 && tree->nodes[2] == 2);
     CHECK(tree->nodes[3] == -1);
     for (size_t i = 0; i < 4; ++i) {
@@ -1045,11 +1080,13 @@ static void test_figatree(void)
         CHECK(tree->tracks[i].obj_type == i + 1);
         CHECK(tree->tracks[i].frac_value == HSD_A_FRAC_FLOAT);
         CHECK(tree->tracks[i].frac_slope == HSD_A_FRAC_FLOAT);
-        CHECK(memcmp(tree->tracks[i].ad_head, fixture.bytes + HEADER_SIZE, 6) == 0);
+        CHECK(memcmp(tree->tracks[i].ad_head, fixture.bytes + HEADER_SIZE,
+                     6) == 0);
     }
     CHECK(tree->tracks[0].ad_head == tree->tracks[1].ad_head);
     CHECK(tree->tracks[2].ad_head == tree->tracks[3].ad_head);
-    CHECK(NativeArchiveFigaTree(graph, 8, &again, &error) == NATIVE_ARCHIVE_OK);
+    CHECK(NativeArchiveFigaTree(graph, 8, &again, &error) ==
+          NATIVE_ARCHIVE_OK);
     CHECK(again == tree);
     check_host_pointer(&fixture, tree);
     check_host_pointer(&fixture, tree->nodes);
@@ -1062,7 +1099,8 @@ static void test_figatree(void)
     word(&fixture, 28, 0x040002ff);
     archive = open_fixture(&fixture);
     graph = open_graph(archive);
-    CHECK(NativeArchiveFigaTree(graph, 8, &tree, &error) == NATIVE_ARCHIVE_BOUNDS);
+    CHECK(NativeArchiveFigaTree(graph, 8, &tree, &error) ==
+          NATIVE_ARCHIVE_BOUNDS);
     CHECK(tree == NULL && error.offset == HEADER_SIZE + 32);
     NativeArchiveGraphClose(graph);
     NativeArchiveClose(archive);
@@ -1123,7 +1161,8 @@ static void test_constraint_bytecode(void)
     reference(&fixture, 88, 0);
     archive = open_fixture(&fixture);
     graph = open_graph(archive);
-    CHECK(NativeArchiveJoint(graph, 0, &joint, &error) == NATIVE_ARCHIVE_BOUNDS);
+    CHECK(NativeArchiveJoint(graph, 0, &joint, &error) ==
+          NATIVE_ARCHIVE_BOUNDS);
     CHECK(joint == NULL && error.offset == HEADER_SIZE + 84);
     NativeArchiveGraphClose(graph);
     NativeArchiveClose(archive);
@@ -1196,7 +1235,8 @@ static void test_unsupported_animation_and_wobj(void)
     NativeArchiveGraph* graph = open_graph(archive);
     NativeArchiveError error = { 0 };
     HSD_AnimJoint* animation = NULL;
-    CHECK(NativeArchiveAnimation(graph, 0, &animation, &error) == NATIVE_ARCHIVE_OK);
+    CHECK(NativeArchiveAnimation(graph, 0, &animation, &error) ==
+          NATIVE_ARCHIVE_OK);
     CHECK(animation != NULL && animation->robj_anim != NULL);
     CHECK(animation->robj_anim->next == NULL);
     CHECK(animation->robj_anim->aobjdesc == NULL);
@@ -1260,7 +1300,8 @@ static void test_descriptor_bounds_and_strings(void)
     NativeArchiveGraph* graph = open_graph(archive);
     NativeArchiveError error = { 0 };
     HSD_Joint* root = (HSD_Joint*) (uintptr_t) 1;
-    CHECK(NativeArchiveJoint(graph, 0, &root, &error) == NATIVE_ARCHIVE_BOUNDS);
+    CHECK(NativeArchiveJoint(graph, 0, &root, &error) ==
+          NATIVE_ARCHIVE_BOUNDS);
     CHECK(root == NULL);
     CHECK(error.offset == HEADER_SIZE);
     NativeArchiveGraphClose(graph);
@@ -1281,7 +1322,8 @@ static void test_descriptor_bounds_and_strings(void)
     archive = open_fixture(&fixture);
     graph = open_graph(archive);
     root = (HSD_Joint*) (uintptr_t) 1;
-    CHECK(NativeArchiveJoint(graph, 0, &root, &error) == NATIVE_ARCHIVE_BOUNDS);
+    CHECK(NativeArchiveJoint(graph, 0, &root, &error) ==
+          NATIVE_ARCHIVE_BOUNDS);
     CHECK(root == NULL);
     CHECK(error.offset == HEADER_SIZE + 64);
     NativeArchiveGraphClose(graph);
@@ -1301,7 +1343,8 @@ static void test_missing_relocation(void)
     CHECK(error.offset == HEADER_SIZE + 8);
     NativeArchiveGraph* graph = open_graph(archive);
     HSD_Joint* root = (HSD_Joint*) (uintptr_t) 1;
-    CHECK(NativeArchiveJoint(graph, 0, &root, &error) == NATIVE_ARCHIVE_INVALID);
+    CHECK(NativeArchiveJoint(graph, 0, &root, &error) ==
+          NATIVE_ARCHIVE_INVALID);
     CHECK(root == NULL);
     NativeArchiveGraphClose(graph);
     NativeArchiveClose(archive);
@@ -1371,7 +1414,8 @@ static void test_aobj_object_id(void)
         CHECK(status == NATIVE_ARCHIVE_OK);
         CHECK(root != NULL);
         HSD_Joint* joint = NULL;
-        CHECK(NativeArchiveJoint(graph, 16, &joint, &error) == NATIVE_ARCHIVE_OK);
+        CHECK(NativeArchiveJoint(graph, 16, &joint, &error) ==
+              NATIVE_ARCHIVE_OK);
         CHECK(root->obj_id == (uintptr_t) joint);
         check_host_pointer(&fixture, joint);
     }
@@ -1390,10 +1434,11 @@ static void test_stream_validation(void)
         { { 0 }, 1, HSD_A_FRAC_FLOAT, NATIVE_ARCHIVE_INVALID },
         { { 0x01, 0, 0, 0 }, 4, HSD_A_FRAC_FLOAT, NATIVE_ARCHIVE_INVALID },
         { { 0x81 }, 1, HSD_A_FRAC_FLOAT, NATIVE_ARCHIVE_INVALID },
-        { { 0x01, 0, 0, 0, 0, 0x80 }, 6, HSD_A_FRAC_FLOAT,
+        { { 0x01, 0, 0, 0, 0, 0x80 },
+          6,
+          HSD_A_FRAC_FLOAT,
           NATIVE_ARCHIVE_INVALID },
-        { { 0x81, 0xff, 0x7f }, 3, HSD_A_FRAC_FLOAT,
-          NATIVE_ARCHIVE_INVALID },
+        { { 0x81, 0xff, 0x7f }, 3, HSD_A_FRAC_FLOAT, NATIVE_ARCHIVE_INVALID },
         { { 0x01, 0, 0, 0, 0, 1 }, 6, 0xe0, NATIVE_ARCHIVE_UNSUPPORTED },
     };
     for (size_t i = 0; i < sizeof(invalid) / sizeof(*invalid); i++) {
@@ -1429,7 +1474,8 @@ static void test_stream_validation(void)
     archive = open_fixture(&fixture);
     graph = open_graph(archive);
     root = (HSD_AObjDesc*) (uintptr_t) 1;
-    CHECK(NativeArchiveAObj(graph, 0, &root, &error) == NATIVE_ARCHIVE_INVALID);
+    CHECK(NativeArchiveAObj(graph, 0, &root, &error) ==
+          NATIVE_ARCHIVE_INVALID);
     CHECK(root == NULL);
     CHECK(error.offset == HEADER_SIZE + 32);
     NativeArchiveGraphClose(graph);
@@ -1438,7 +1484,8 @@ static void test_stream_validation(void)
 
 int main(void)
 {
-    _Static_assert(sizeof(void*) == 8, "These tests require native 64-bit pointers");
+    _Static_assert(sizeof(void*) == 8,
+                   "These tests require native 64-bit pointers");
     test_archive_symbols_and_copy();
     test_joint_graph();
     test_shape_animation_graph();

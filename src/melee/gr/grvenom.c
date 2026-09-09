@@ -1500,7 +1500,9 @@ void grVenom_80205F30(Ground_GObj* gobj)
             venom_80205F30_anim_done:;
             }
 
-            if ((other = grVe_803E5348.arwing.arwing_gobj[gp->u.venom.xC8]) != NULL) {
+            if ((other = grVe_803E5348.arwing.arwing_gobj[gp->u.venom.xC8]) !=
+                NULL)
+            {
                 other_gp = other->user_data;
                 Ground_GetMapGObj(5);
                 lb_8000B1CC(Ground_801C3FA4(other, 5), NULL, &sp64);
@@ -1582,7 +1584,8 @@ void grVenom_80205F30(Ground_GObj* gobj)
                 HSD_GObj* far_other;
                 Ground* far_other_gp;
 
-                if ((far_other = grVe_803E5348.arwing.arwing_gobj[gp->u.venom.xC8]) !=
+                if ((far_other =
+                         grVe_803E5348.arwing.arwing_gobj[gp->u.venom.xC8]) !=
                     NULL)
                 {
                     far_other_gp = far_other->user_data;

@@ -842,8 +842,7 @@ void fn_8016A4C8(void)
                     Player_SetUnk4D(spawn_slot, tmp);
                     Player_SetFlagsAEBit1(spawn_slot, 1);
                 }
-                if (gp->event_player_init_cb != NULL)
-                {
+                if (gp->event_player_init_cb != NULL) {
                     gp->event_player_init_cb(spawn_slot, lbl_8046B488.x7);
                 }
                 Player_SetStructFunc(spawn_slot, fn_8016A488);

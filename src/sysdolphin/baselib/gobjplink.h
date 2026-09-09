@@ -21,6 +21,6 @@ void HSD_GObjFree(HSD_GObj* gobj);
 // Move the owner and reinsert its processes. Uses CreateGObj's placement
 // modes.
 void HSD_GObjPLink_ChangeGObjPri_Unk(u32 where, HSD_GObj* gobj, u8 p_link,
-                                  u8 priority, HSD_GObj* position);
+                                     u8 priority, HSD_GObj* position);
 
 #endif

@@ -1693,7 +1693,8 @@ void fn_8019A158(void)
             if (slot->x4E == 3) {
                 slot->x4C = 3;
             } else {
-                MatchEndStanding* standing = &((MatchEndStanding*) *x48_ptr)[i];
+                MatchEndStanding* standing =
+                    &((MatchEndStanding*) *x48_ptr)[i];
                 u8 v = standing->is_small_loser;
                 standing->is_big_loser = v;
                 slot->x4C = v;

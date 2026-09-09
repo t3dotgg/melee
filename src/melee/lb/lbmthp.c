@@ -275,8 +275,7 @@ static void fn_8001ECF4(THPDecComp* data, void* buf)
     count = data->unk_104;
     data->unk_64 = 0;
     uv_size = (width * height) >> 2U;
-    var_r29 = (u8*) buf +
-              ALIGN_32(count * sizeof(*data->frame_buffers));
+    var_r29 = (u8*) buf + ALIGN_32(count * sizeof(*data->frame_buffers));
     if ((data->unk_6C != 0) && (data->unk_11C != 0)) {
         var_r24 = data->first_frame_size;
         csizep = (u8*) &data->first_frame_size;
@@ -308,8 +307,8 @@ static void fn_8001ECF4(THPDecComp* data, void* buf)
                 HSD_ASSERT(266, 0);
             }
             lbFile_800161C4(data->file_entrynum, data->curr_file_offset,
-                            (uintptr_t) var_r29,
-                            (var_r24 + 0x1F) & 0xFFFFFFE0, 0x21, 1);
+                            (uintptr_t) var_r29, (var_r24 + 0x1F) & 0xFFFFFFE0,
+                            0x21, 1);
             csizep = var_r29;
             data->curr_file_offset += var_r24;
             var_r24 = *(u32*) var_r29;

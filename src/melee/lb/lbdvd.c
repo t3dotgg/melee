@@ -264,7 +264,8 @@ static inline int lbDvd_CleanupPreloadHeap(int heap, PreloadCache* cache)
                 entry = &cache->entries[i];
                 if (entry->archive != NULL) {
 #ifdef MELEE_NATIVE
-                    HSD_ArchiveNativeRelease((HSD_Archive*) entry->archive->addr);
+                    HSD_ArchiveNativeRelease(
+                        (HSD_Archive*) entry->archive->addr);
 #endif
                     lbHeap_80015CA8(entry->heap, entry->archive->addr);
                 }
@@ -354,7 +355,8 @@ void lbDvd_80017CC4(void)
     }
 }
 
-void lbDvd_80017E64(int request_id, intptr_t index, void* buffer, bool cancelflag)
+void lbDvd_80017E64(int request_id, intptr_t index, void* buffer,
+                    bool cancelflag)
 {
     PreloadEntry* entry = &preloadCache.entries[index];
     if (cancelflag != 0) {
@@ -540,7 +542,8 @@ static inline void inline_cleanup_entries(void)
             if (cleanup_entry->state == PRELOAD_STATE_QUEUED) {
                 if (preloadCache.entries[j].archive != NULL) {
 #ifdef MELEE_NATIVE
-                    HSD_ArchiveNativeRelease((HSD_Archive*) cleanup_entry->archive->addr);
+                    HSD_ArchiveNativeRelease(
+                        (HSD_Archive*) cleanup_entry->archive->addr);
 #endif
                     lbHeap_80015CA8(cleanup_entry->heap,
                                     cleanup_entry->archive->addr);

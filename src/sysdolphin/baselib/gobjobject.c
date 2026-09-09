@@ -6,9 +6,7 @@
 HSD_GObj* HSD_GObjObject_80390A3C(u16 classifier, u8 p_link)
 {
     HSD_GObj* gobj;
-    for (gobj = HSD_GObjPLinkHead(p_link); gobj != NULL;
-         gobj = gobj->next)
-    {
+    for (gobj = HSD_GObjPLinkHead(p_link); gobj != NULL; gobj = gobj->next) {
         if (gobj->classifier == classifier) {
             break;
         }

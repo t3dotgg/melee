@@ -2424,13 +2424,12 @@ void _Toy_803075E8(s32 arg0)
             HSD_GObjObject_80390A70(td->gobj, kind, jobj);
             GObj_SetupGXLink(td->gobj, HSD_GObj_JObjCallback, 0x33, 0);
 
-            joint = HSD_ArchiveGetPublicAddress(
-                td->archive, _Toy_803FDFA8[arg0].animjoint);
+            joint = HSD_ArchiveGetPublicAddress(td->archive,
+                                                _Toy_803FDFA8[arg0].animjoint);
             data = HSD_ArchiveGetPublicAddress(
                 td->archive, _Toy_803FDFA8[arg0].matanim_joint);
-            shapanim =
-                HSD_ArchiveGetPublicAddress(
-                    td->archive, _Toy_803FDFA8[arg0].shapeanim_joint);
+            shapanim = HSD_ArchiveGetPublicAddress(
+                td->archive, _Toy_803FDFA8[arg0].shapeanim_joint);
 
             if (joint != NULL || data != NULL || shapanim != NULL) {
                 HSD_JObjAddAnimAll(jobj, (HSD_AnimJoint*) joint,
@@ -2748,8 +2747,8 @@ void Toy_80308250(ToyListEntry* entry, s16 arg1, s32 arg2)
     entry->trophy_id = arg1;
 
     if (arg2 == 0) {
-        entry->archive = lbArchive_LoadSymbols(
-            entry->archive_name, &sym, entry->symbol_name, 0);
+        entry->archive = lbArchive_LoadSymbols(entry->archive_name, &sym,
+                                               entry->symbol_name, 0);
     }
 }
 
@@ -5519,7 +5518,8 @@ static inline void _Toy_8030FE48_init_sort_key(s16** ptr)
     (void) sort_mode;
 }
 
-static inline void _Toy_8030FE48_setup_entry(ToyListEntry* entry, s16 trophy_idx)
+static inline void _Toy_8030FE48_setup_entry(ToyListEntry* entry,
+                                             s16 trophy_idx)
 {
     char* result = Toy_8030813C(trophy_idx);
 
@@ -5532,7 +5532,8 @@ static inline void _Toy_8030FE48_setup_entry(ToyListEntry* entry, s16 trophy_idx
     entry->trophy_id = trophy_idx;
 }
 
-static inline void _Toy_8030FE48_link_entries(ToyDisplayList* data, s32 entry_count)
+static inline void _Toy_8030FE48_link_entries(ToyDisplayList* data,
+                                              s32 entry_count)
 {
     s32 i;
     ToyListEntry* last_entry;

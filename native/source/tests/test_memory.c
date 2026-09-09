@@ -1,3 +1,9 @@
+#include <limits.h>
+#include <stdarg.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
 #include <sysdolphin/baselib/class.h>
 #include <sysdolphin/baselib/id.h>
 #include <sysdolphin/baselib/initialize.h>
@@ -5,18 +11,12 @@
 #include <sysdolphin/baselib/memory.h>
 #include <sysdolphin/baselib/object.h>
 
-#include <limits.h>
-#include <stdarg.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-
-#define CHECK(condition)                                                     \
-    do {                                                                     \
-        if (!(condition)) {                                                  \
-            fprintf(stderr, "%s:%d: %s\n", __FILE__, __LINE__, #condition);  \
-            abort();                                                         \
-        }                                                                    \
+#define CHECK(condition)                                                      \
+    do {                                                                      \
+        if (!(condition)) {                                                   \
+            fprintf(stderr, "%s:%d: %s\n", __FILE__, __LINE__, #condition);   \
+            abort();                                                          \
+        }                                                                     \
     } while (0)
 
 static void* allocations[1024];

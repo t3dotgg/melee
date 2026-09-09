@@ -305,8 +305,7 @@ HSD_Text* HSD_SisLib_803A5ACC(int font_idx, s32 context_id, f32 pos_x,
 #else
                          HSD_SisLib_803A84BC,
 #endif
-                         cam_entry->xE,
-                         cam_entry->xF);
+                         cam_entry->xE, cam_entry->xF);
     }
     while (list_cur != NULL) {
         list_tail = list_cur;
@@ -628,9 +627,8 @@ void HSD_SisLib_803A6368(HSD_Text* text, s32 sis_idx)
         size_t count = HSD_ArchiveNativeSisCount(sis_table);
         if (sis_idx >= 0 && (count == 0 || (size_t) sis_idx < count)) {
             SIS* entry = &sis_table[sis_idx / 2];
-            void* selected = (sis_idx & 1) != 0
-                                 ? (void*) entry->textures
-                                 : (void*) entry->kerning;
+            void* selected = (sis_idx & 1) != 0 ? (void*) entry->textures
+                                                : (void*) entry->kerning;
             text->sis_buffer = (SIS*) selected;
         } else {
             text->sis_buffer = NULL;

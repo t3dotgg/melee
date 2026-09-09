@@ -1,10 +1,10 @@
 #include "scheduler.h"
 
-#include <dolphin/os.h>
-
 #include <pthread.h>
 #include <stdint.h>
 #include <time.h>
+
+#include <dolphin/os.h>
 
 typedef struct NativeSchedulerState {
     pthread_mutex_t lock;
@@ -25,8 +25,8 @@ static NativeSchedulerState s_scheduler = {
 
 static OSTime timespec_to_ticks(const struct timespec* value)
 {
-    uint64_t nanoseconds = (uint64_t) value->tv_sec * 1000000000u +
-                           (uint64_t) value->tv_nsec;
+    uint64_t nanoseconds =
+        (uint64_t) value->tv_sec * 1000000000u + (uint64_t) value->tv_nsec;
     return (OSTime) ((nanoseconds * (uint64_t) OS_TIMER_CLOCK) / 1000000000u);
 }
 
@@ -45,7 +45,8 @@ static OSTime monotonic_ticks_locked(void)
 
     ensure_clock_locked();
     clock_gettime(CLOCK_MONOTONIC, &now);
-    elapsed = timespec_to_ticks(&now) - timespec_to_ticks(&s_scheduler.clock_start);
+    elapsed =
+        timespec_to_ticks(&now) - timespec_to_ticks(&s_scheduler.clock_start);
     return elapsed < 0 ? 0 : elapsed;
 }
 
@@ -69,8 +70,8 @@ void NativeSchedulerInit(void)
     if (!s_scheduler.initialized) {
         ensure_clock_locked();
         s_scheduler.initialized = TRUE;
-        s_scheduler.next_retrace = monotonic_ticks_locked() +
-                                    s_scheduler.frame_period;
+        s_scheduler.next_retrace =
+            monotonic_ticks_locked() + s_scheduler.frame_period;
     }
     pthread_mutex_unlock(&s_scheduler.lock);
 }
@@ -103,8 +104,8 @@ void NativeSchedulerSetDeterministic(BOOL enabled)
         s_scheduler.test_time = 0;
         s_scheduler.next_retrace = s_scheduler.frame_period;
     } else {
-        s_scheduler.next_retrace = monotonic_ticks_locked() +
-                                    s_scheduler.frame_period;
+        s_scheduler.next_retrace =
+            monotonic_ticks_locked() + s_scheduler.frame_period;
     }
     pthread_mutex_unlock(&s_scheduler.lock);
 }
@@ -150,9 +151,10 @@ void NativeSchedulerSetFramePeriod(OSTime ticks)
     }
     pthread_mutex_lock(&s_scheduler.lock);
     s_scheduler.frame_period = ticks;
-    s_scheduler.next_retrace = (s_scheduler.deterministic
-                                    ? s_scheduler.test_time
-                                    : monotonic_ticks_locked()) + ticks;
+    s_scheduler.next_retrace =
+        (s_scheduler.deterministic ? s_scheduler.test_time
+                                   : monotonic_ticks_locked()) +
+        ticks;
     pthread_mutex_unlock(&s_scheduler.lock);
 }
 
@@ -220,7 +222,9 @@ void NativeSchedulerRemoveAlarm(OSAlarm* alarm)
         return;
     }
     pthread_mutex_lock(&s_scheduler.lock);
-    for (current = s_scheduler.alarms; current != NULL; current = current->next) {
+    for (current = s_scheduler.alarms; current != NULL;
+         current = current->next)
+    {
         if (current == alarm) {
             unlink_alarm_locked(alarm);
             break;
@@ -237,7 +241,9 @@ BOOL NativeSchedulerAlarmQueued(const OSAlarm* alarm)
     if (alarm == NULL) {
         found = s_scheduler.alarms != NULL;
     }
-    for (current = s_scheduler.alarms; current != NULL; current = current->next) {
+    for (current = s_scheduler.alarms; current != NULL;
+         current = current->next)
+    {
         if (alarm != NULL && current == alarm) {
             found = TRUE;
             break;
@@ -256,7 +262,8 @@ void NativeSchedulerPump(OSTime now)
 
         pthread_mutex_lock(&s_scheduler.lock);
         for (OSAlarm* current = s_scheduler.alarms; current != NULL;
-             current = current->next) {
+             current = current->next)
+        {
             if (current->handler != NULL && current->fire <= now) {
                 alarm = current;
                 break;
@@ -278,7 +285,8 @@ void NativeSchedulerPump(OSTime now)
         handler(alarm, OSGetCurrentContext());
 
         if (period != 0 && alarm->handler == handler &&
-            !NativeSchedulerAlarmQueued(alarm)) {
+            !NativeSchedulerAlarmQueued(alarm))
+        {
             alarm->fire += period;
             NativeSchedulerQueueAlarm(alarm);
         }

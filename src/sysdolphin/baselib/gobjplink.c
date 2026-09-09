@@ -134,7 +134,7 @@ void HSD_GObjFree(HSD_GObj* gobj)
 }
 
 void HSD_GObjPLink_ChangeGObjPri_Unk(u32 where, HSD_GObj* gobj, u8 p_link,
-                                  u8 priority, HSD_GObj* position)
+                                     u8 priority, HSD_GObj* position)
 {
     HSD_GObjProc* detached_processes;
     HSD_GObjProc* next_owned_process;

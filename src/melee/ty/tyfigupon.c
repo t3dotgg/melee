@@ -852,8 +852,7 @@ void _tyFigupon_80316420(s32 arg0)
     Toy_803083D8(ef4->jobjs[0xC], id);
     if (((TyModeState*) Toy_804A284C)->x0 == 2) {
         if (data->x10 == NULL) {
-            data->x10 = HSD_GObj_SetupProc(
-                data->x0, _tyFigupon_80315574, 0);
+            data->x10 = HSD_GObj_SetupProc(data->x0, _tyFigupon_80315574, 0);
         }
         data->x24 = 0x12C;
         _tyFigupon_804D6EF0->x18->hidden = 0;
@@ -1097,15 +1096,12 @@ void _tyFigupon_80316C24(HSD_GObj* arg0)
             if ((s8) temp != 0) {
                 ef4->x5D = temp;
                 ef4->x56 = 0x1E;
-                HSD_GObj_SetupProc(ef4->x00, _tyFigupon_80315C44,
-                                   0);
+                HSD_GObj_SetupProc(ef4->x00, _tyFigupon_80315C44, 0);
                 HSD_GObj_80390CD4(ef4->x00);
-                HSD_GObj_SetupProc(ef4->x0C, _tyFigupon_803152BC,
-                                   0);
+                HSD_GObj_SetupProc(ef4->x0C, _tyFigupon_803152BC, 0);
                 HSD_GObj_80390CD4(ef4->x0C);
                 ef4->x5C = 1;
-                HSD_GObj_SetupProc(
-                    arg0, _tyFigupon_803155C8, 0);
+                HSD_GObj_SetupProc(arg0, _tyFigupon_803155C8, 0);
                 HSD_GObj_80390CD4(arg0);
                 return;
             }
@@ -1275,8 +1271,7 @@ void _tyFigupon_8031753C(void)
         s32 total;
         ef4->x00 = GObj_Create(9, 9, 0);
         jobj = HSD_JObjLoadJoint(panel.joint);
-        HSD_GObjObject_80390A70(ef4->x00, temp = HSD_GObj_JObjKind,
-                                jobj);
+        HSD_GObjObject_80390A70(ef4->x00, temp = HSD_GObj_JObjKind, jobj);
         panel.render_cb = HSD_GObj_JObjCallback;
         GObj_SetupGXLink(ef4->x00, panel.render_cb, 0x3C, 1);
         lb_8001204C(jobj, ef4->jobjs, _tyFigupon_803FEB88, 0xD);
@@ -1346,8 +1341,7 @@ void _tyFigupon_8031753C(void)
                                             "ToyFigurePonLever_Top_joint");
         ef4->x08 = GObj_Create(9, 9, 0);
         jobj = HSD_JObjLoadJoint(joint);
-        HSD_GObjObject_80390A70(ef4->x08, temp = HSD_GObj_JObjKind,
-                                jobj);
+        HSD_GObjObject_80390A70(ef4->x08, temp = HSD_GObj_JObjKind, jobj);
         GObj_SetupGXLink(ef4->x08, HSD_GObj_JObjCallback, 0x3C, 0);
         _tyFigupon_80314AA8(jobj, "ToyFigurePonLever_Top_animjoint",
                             "ToyFigurePonLever_Top_matanim_joint",
@@ -1587,8 +1581,7 @@ void tyFigupon_Scene_OnEnter(void* arg0)
             HSD_LObj* lobj;
             ed4->x0 = GObj_Create(2, 3, 0);
             lobj = Toy_LoadLObjList(temp, 0);
-            HSD_GObjObject_80390A70(ed4->x0,
-                                    kind = HSD_GObj_LightKind, lobj);
+            HSD_GObjObject_80390A70(ed4->x0, kind = HSD_GObj_LightKind, lobj);
             {
                 HSD_GObj* gobj = ed4->x0;
                 GObj_SetupGXLink(gobj, HSD_GObj_LObjCallback, 0x34, 0);

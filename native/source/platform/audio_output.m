@@ -1,11 +1,14 @@
-#import <AudioToolbox/AudioToolbox.h>
-
 #include "audio_output.h"
 
 #include <pthread.h>
 #include <string.h>
 
-enum { NATIVE_AUDIO_CHANNELS = 2, NATIVE_AUDIO_CAPACITY = 48000 * 2 };
+#import <AudioToolbox/AudioToolbox.h>
+
+enum {
+    NATIVE_AUDIO_CHANNELS = 2,
+    NATIVE_AUDIO_CAPACITY = 48000 * 2
+};
 
 static AudioUnit s_unit;
 static bool s_running;
@@ -15,7 +18,8 @@ static size_t s_read;
 static size_t s_write;
 static size_t s_count;
 
-static OSStatus render_callback(void* refcon, AudioUnitRenderActionFlags* flags,
+static OSStatus render_callback(void* refcon,
+                                AudioUnitRenderActionFlags* flags,
                                 const AudioTimeStamp* timestamp, UInt32 bus,
                                 UInt32 frames, AudioBufferList* buffers)
 {
@@ -42,9 +46,11 @@ static OSStatus render_callback(void* refcon, AudioUnitRenderActionFlags* flags,
     pthread_mutex_unlock(&s_lock);
     if (available < wanted) {
         memset(destination + available * NATIVE_AUDIO_CHANNELS, 0,
-                (wanted - available) * NATIVE_AUDIO_CHANNELS * sizeof(*destination));
+               (wanted - available) * NATIVE_AUDIO_CHANNELS *
+                   sizeof(*destination));
     }
-    output->mDataByteSize = (UInt32) (wanted * NATIVE_AUDIO_CHANNELS * sizeof(*destination));
+    output->mDataByteSize =
+        (UInt32) (wanted * NATIVE_AUDIO_CHANNELS * sizeof(*destination));
     return noErr;
 }
 
@@ -64,25 +70,29 @@ bool NativeAudioOutputStart(uint32_t sample_rate)
         return s_running;
     }
     component = AudioComponentFindNext(NULL, &description);
-    if (component == NULL || AudioComponentInstanceNew(component, &s_unit) != noErr) {
+    if (component == NULL ||
+        AudioComponentInstanceNew(component, &s_unit) != noErr)
+    {
         s_unit = NULL;
         return false;
     }
-    /* DefaultOutput already has output enabled. EnableIO belongs to HALOutput. */
+    /* DefaultOutput already has output enabled. EnableIO belongs to HALOutput.
+     */
     memset(&format, 0, sizeof(format));
     format.mSampleRate = sample_rate;
     format.mFormatID = kAudioFormatLinearPCM;
     format.mFormatFlags = kAudioFormatFlagIsSignedInteger |
-                            kAudioFormatFlagIsPacked |
-                            kAudioFormatFlagsNativeEndian;
+                          kAudioFormatFlagIsPacked |
+                          kAudioFormatFlagsNativeEndian;
     format.mFramesPerPacket = 1;
     format.mChannelsPerFrame = NATIVE_AUDIO_CHANNELS;
     format.mBitsPerChannel = 16;
     format.mBytesPerFrame = NATIVE_AUDIO_CHANNELS * sizeof(int16_t);
     format.mBytesPerPacket = format.mBytesPerFrame;
     if (AudioUnitSetProperty(s_unit, kAudioUnitProperty_StreamFormat,
-                                kAudioUnitScope_Input, 0, &format,
-                                sizeof(format)) != noErr) {
+                             kAudioUnitScope_Input, 0, &format,
+                             sizeof(format)) != noErr)
+    {
         AudioComponentInstanceDispose(s_unit);
         s_unit = NULL;
         return false;
@@ -92,9 +102,11 @@ bool NativeAudioOutputStart(uint32_t sample_rate)
     pthread_mutex_unlock(&s_lock);
     AURenderCallbackStruct callback = { render_callback, NULL };
     if (AudioUnitSetProperty(s_unit, kAudioUnitProperty_SetRenderCallback,
-                                kAudioUnitScope_Input, 0, &callback,
-                                sizeof(callback)) != noErr ||
-        AudioUnitInitialize(s_unit) != noErr || AudioOutputUnitStart(s_unit) != noErr) {
+                             kAudioUnitScope_Input, 0, &callback,
+                             sizeof(callback)) != noErr ||
+        AudioUnitInitialize(s_unit) != noErr ||
+        AudioOutputUnitStart(s_unit) != noErr)
+    {
         AudioComponentInstanceDispose(s_unit);
         s_unit = NULL;
         return false;
@@ -105,7 +117,9 @@ bool NativeAudioOutputStart(uint32_t sample_rate)
 
 void NativeAudioOutputStop(void)
 {
-    if (!s_running) return;
+    if (!s_running) {
+        return;
+    }
     AudioOutputUnitStop(s_unit);
     AudioUnitUninitialize(s_unit);
     AudioComponentInstanceDispose(s_unit);
@@ -118,7 +132,9 @@ void NativeAudioOutputStop(void)
 
 size_t NativeAudioOutputSubmit(const int16_t* samples, size_t frames)
 {
-    if (!s_running || samples == NULL || frames == 0) return 0;
+    if (!s_running || samples == NULL || frames == 0) {
+        return 0;
+    }
     pthread_mutex_lock(&s_lock);
     size_t accepted = frames;
     if (accepted > NATIVE_AUDIO_CAPACITY - s_count) {

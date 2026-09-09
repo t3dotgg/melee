@@ -38,7 +38,8 @@ s32 HSD_ObjAllocAddFree(HSD_ObjAllocData* data, u32 num)
     HSD_ASSERT(0xEE, data);
 #ifdef MELEE_NATIVE
     if (num == 0 || num > S32_MAX || data->size == 0 ||
-        num > SIZE_MAX / data->size) {
+        num > SIZE_MAX / data->size)
+    {
         return 0;
     }
 #endif
@@ -46,7 +47,8 @@ s32 HSD_ObjAllocAddFree(HSD_ObjAllocData* data, u32 num)
     if (obj_heap.top != 0) {
 #ifdef MELEE_NATIVE
         if (obj_heap.size > UINTPTR_MAX - obj_heap.top ||
-            data->align > UINTPTR_MAX - obj_heap.curr) {
+            data->align > UINTPTR_MAX - obj_heap.curr)
+        {
             return 0;
         }
 #endif

@@ -7,8 +7,9 @@
 #include <limits.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/stat.h>
 #include <unistd.h>
+
+#include <sys/stat.h>
 
 #define NATIVE_DVD_MAX_ENTRIES 16384
 
@@ -41,7 +42,8 @@ static void dvd_reset_entries(void)
     g_entry_count = 0;
 }
 
-static int dvd_add_entry(const char* path, u32 offset, u32 length, BOOL directory)
+static int dvd_add_entry(const char* path, u32 offset, u32 length,
+                         BOOL directory)
 {
     if (g_entry_count >= NATIVE_DVD_MAX_ENTRIES) {
         return -1;
@@ -100,13 +102,17 @@ static void dvd_scan_dir(const char* host, const char* game)
     }
     struct dirent* item;
     while ((item = readdir(dir)) != NULL) {
-        if (strcmp(item->d_name, ".") == 0 || strcmp(item->d_name, "..") == 0) {
+        if (strcmp(item->d_name, ".") == 0 || strcmp(item->d_name, "..") == 0)
+        {
             continue;
         }
         char host_path[PATH_MAX];
         char game_path[PATH_MAX];
-        if (snprintf(host_path, sizeof(host_path), "%s/%s", host, item->d_name) >= (int) sizeof(host_path) ||
-            snprintf(game_path, sizeof(game_path), "%s/%s", game, item->d_name) >= (int) sizeof(game_path)) {
+        if (snprintf(host_path, sizeof(host_path), "%s/%s", host,
+                     item->d_name) >= (int) sizeof(host_path) ||
+            snprintf(game_path, sizeof(game_path), "%s/%s", game,
+                     item->d_name) >= (int) sizeof(game_path))
+        {
             continue;
         }
         struct stat st;
@@ -114,7 +120,8 @@ static void dvd_scan_dir(const char* host, const char* game)
             continue;
         }
         BOOL directory = S_ISDIR(st.st_mode);
-        dvd_add_entry(game_path, 0, directory ? 0 : (u32) st.st_size, directory);
+        dvd_add_entry(game_path, 0, directory ? 0 : (u32) st.st_size,
+                      directory);
         if (directory) {
             dvd_scan_dir(host_path, game_path);
         }
@@ -125,7 +132,8 @@ static void dvd_scan_dir(const char* host, const char* game)
 static int dvd_load_iso(void)
 {
     u8 header[0x430];
-    if (pread(g_iso_fd, header, sizeof(header), 0) != (ssize_t) sizeof(header)) {
+    if (pread(g_iso_fd, header, sizeof(header), 0) != (ssize_t) sizeof(header))
+    {
         return 0;
     }
     memcpy(&g_disk_id, header, sizeof(g_disk_id));
@@ -135,12 +143,15 @@ static int dvd_load_iso(void)
         return 0;
     }
     u8* fst = malloc(fst_size);
-    if (fst == NULL || pread(g_iso_fd, fst, fst_size, (off_t) fst_offset) != (ssize_t) fst_size) {
+    if (fst == NULL || pread(g_iso_fd, fst, fst_size, (off_t) fst_offset) !=
+                           (ssize_t) fst_size)
+    {
         free(fst);
         return 0;
     }
     u32 count = be32(fst + 8);
-    if (count == 0 || count > NATIVE_DVD_MAX_ENTRIES || count * 12 > fst_size) {
+    if (count == 0 || count > NATIVE_DVD_MAX_ENTRIES || count * 12 > fst_size)
+    {
         free(fst);
         return 0;
     }
@@ -177,18 +188,26 @@ static int dvd_load_iso(void)
             for (u32 d = 0; d < i; d++) {
                 u32 d_type = be32(fst + d * 12);
                 u32 d_next = be32(fst + d * 12 + 8);
-                if ((d_type & 0xff000000) != 0 && d_next > i && d >= best) best = d;
+                if ((d_type & 0xff000000) != 0 && d_next > i && d >= best) {
+                    best = d;
+                }
             }
             parent = best;
         }
         const char* parent_path = paths[parent < i ? parent : 0];
-        if (parent_path == NULL) parent_path = "/";
+        if (parent_path == NULL) {
+            parent_path = "/";
+        }
         char path[PATH_MAX];
-        snprintf(path, sizeof(path), "%s%s%s", parent_path, strcmp(parent_path, "/") == 0 ? "" : "/", name);
+        snprintf(path, sizeof(path), "%s%s%s", parent_path,
+                 strcmp(parent_path, "/") == 0 ? "" : "/", name);
         paths[i] = strdup(path);
-        dvd_add_entry(path, directory ? 0 : parent_or_offset, directory ? 0 : next_or_length, directory);
+        dvd_add_entry(path, directory ? 0 : parent_or_offset,
+                      directory ? 0 : next_or_length, directory);
     }
-    for (u32 i = 0; i < count; i++) free(paths[i]);
+    for (u32 i = 0; i < count; i++) {
+        free(paths[i]);
+    }
     free(paths);
     free(fst);
     return 1;
@@ -196,7 +215,9 @@ static int dvd_load_iso(void)
 
 static void dvd_init(void)
 {
-    if (g_ready) return;
+    if (g_ready) {
+        return;
+    }
     g_ready = 1;
     const char* root = dvd_root_path();
     snprintf(g_root, sizeof(g_root), "%s", root);
@@ -204,8 +225,12 @@ static void dvd_init(void)
     if (stat(g_root, &st) == 0 && S_ISREG(st.st_mode)) {
         g_is_iso = 1;
         g_iso_fd = open(g_root, O_RDONLY);
-        if (g_iso_fd >= 0 && dvd_load_iso()) return;
-        if (g_iso_fd >= 0) close(g_iso_fd);
+        if (g_iso_fd >= 0 && dvd_load_iso()) {
+            return;
+        }
+        if (g_iso_fd >= 0) {
+            close(g_iso_fd);
+        }
         g_iso_fd = -1;
         g_is_iso = 0;
     }
@@ -218,7 +243,8 @@ static void dvd_init(void)
         if (snprintf(boot_path, sizeof(boot_path), "%s/sys/boot.bin", g_root) <
                 (int) sizeof(boot_path) ||
             snprintf(boot_path, sizeof(boot_path), "%s/boot.bin", g_root) <
-                (int) sizeof(boot_path)) {
+                (int) sizeof(boot_path))
+        {
             fd = open(boot_path, O_RDONLY);
             if (fd >= 0) {
                 got = read(fd, &g_disk_id, sizeof(g_disk_id));
@@ -236,7 +262,9 @@ static void dvd_init(void)
 static NativeDVDEntry* dvd_entry(s32 entrynum)
 {
     dvd_init();
-    if (entrynum < 0 || (u32) entrynum >= g_entry_count) return NULL;
+    if (entrynum < 0 || (u32) entrynum >= g_entry_count) {
+        return NULL;
+    }
     return &g_entries[entrynum];
 }
 
@@ -245,15 +273,27 @@ static NativeDVDEntry* dvd_file_for(const DVDFileInfo* info)
     dvd_init();
     if (info->cb.userData != NULL) {
         NativeDVDEntry* entry = (NativeDVDEntry*) info->cb.userData;
-        if (entry >= g_entries && entry < g_entries + g_entry_count && !entry->directory) return entry;
+        if (entry >= g_entries && entry < g_entries + g_entry_count &&
+            !entry->directory)
+        {
+            return entry;
+        }
     }
     for (u32 i = 0; i < g_entry_count; i++) {
-        if (!g_entries[i].directory && g_entries[i].offset == info->startAddr && g_entries[i].length == info->length) return &g_entries[i];
+        if (!g_entries[i].directory &&
+            g_entries[i].offset == info->startAddr &&
+            g_entries[i].length == info->length)
+        {
+            return &g_entries[i];
+        }
     }
     return NULL;
 }
 
-void DVDInit(void) { dvd_init(); }
+void DVDInit(void)
+{
+    dvd_init();
+}
 
 BOOL DVDCheckDisk(void)
 {
@@ -272,15 +312,18 @@ DVDDiskID* DVDGetCurrentDiskID(void)
     return &g_disk_id;
 }
 
-
 s32 DVDConvertPathToEntrynum(const char* path)
 {
     dvd_init();
-    if (path == NULL) return -1;
+    if (path == NULL) {
+        return -1;
+    }
     char normalized[PATH_MAX];
     dvd_normalize(path, normalized, sizeof(normalized));
     for (u32 i = 0; i < g_entry_count; i++) {
-        if (strcasecmp(g_entries[i].path, normalized) == 0) return (s32) i;
+        if (strcasecmp(g_entries[i].path, normalized) == 0) {
+            return (s32) i;
+        }
     }
     return -1;
 }
@@ -288,7 +331,9 @@ s32 DVDConvertPathToEntrynum(const char* path)
 BOOL DVDFastOpen(s32 entrynum, DVDFileInfo* info)
 {
     NativeDVDEntry* entry = dvd_entry(entrynum);
-    if (entry == NULL || info == NULL || entry->directory) return FALSE;
+    if (entry == NULL || info == NULL || entry->directory) {
+        return FALSE;
+    }
     memset(info, 0, sizeof(*info));
     info->startAddr = entry->offset;
     info->length = entry->length;
@@ -305,52 +350,76 @@ BOOL DVDOpen(char* path, DVDFileInfo* info)
 
 BOOL DVDClose(DVDFileInfo* info)
 {
-    if (info == NULL) return FALSE;
+    if (info == NULL) {
+        return FALSE;
+    }
     info->cb.state = DVD_STATE_END;
     info->callback = NULL;
     return TRUE;
 }
 
-static ssize_t dvd_read(const DVDFileInfo* info, void* dst, size_t length, off_t offset)
+static ssize_t dvd_read(const DVDFileInfo* info, void* dst, size_t length,
+                        off_t offset)
 {
     NativeDVDEntry* entry = dvd_file_for(info);
-    if (entry == NULL || offset < 0 || (u64) offset > info->length) return -1;
-    if (length > info->length - (u32) offset) length = info->length - (u32) offset;
-    if (g_is_iso) return pread(g_iso_fd, dst, length, (off_t) entry->offset + offset);
+    if (entry == NULL || offset < 0 || (u64) offset > info->length) {
+        return -1;
+    }
+    if (length > info->length - (u32) offset) {
+        length = info->length - (u32) offset;
+    }
+    if (g_is_iso) {
+        return pread(g_iso_fd, dst, length, (off_t) entry->offset + offset);
+    }
     char host_path[PATH_MAX];
     snprintf(host_path, sizeof(host_path), "%s%s", g_root, entry->path);
     int fd = open(host_path, O_RDONLY);
-    if (fd < 0) return -1;
+    if (fd < 0) {
+        return -1;
+    }
     ssize_t result = pread(fd, dst, length, offset);
     close(fd);
     return result;
 }
 
-BOOL DVDReadAsyncPrio(DVDFileInfo* info, void* addr, s32 length, s32 offset, DVDCallback callback, s32 prio)
+BOOL DVDReadAsyncPrio(DVDFileInfo* info, void* addr, s32 length, s32 offset,
+                      DVDCallback callback, s32 prio)
 {
     (void) prio;
-    if (info == NULL || addr == NULL || length < 0) return FALSE;
+    if (info == NULL || addr == NULL || length < 0) {
+        return FALSE;
+    }
     info->cb.state = DVD_STATE_BUSY;
     ssize_t got = dvd_read(info, addr, (size_t) length, offset);
     info->cb.transferredSize = got < 0 ? 0 : (u32) got;
     info->cb.state = got < 0 ? DVD_STATE_FATAL_ERROR : DVD_STATE_END;
-    if (callback != NULL) callback(got < 0 ? DVD_RESULT_FATAL_ERROR : (s32) got, info);
+    if (callback != NULL) {
+        callback(got < 0 ? DVD_RESULT_FATAL_ERROR : (s32) got, info);
+    }
     return got >= 0;
 }
 
-s32 DVDReadPrio(DVDFileInfo* info, void* addr, s32 length, s32 offset, s32 prio)
+s32 DVDReadPrio(DVDFileInfo* info, void* addr, s32 length, s32 offset,
+                s32 prio)
 {
-    if (!DVDReadAsyncPrio(info, addr, length, offset, NULL, prio)) return -1;
+    if (!DVDReadAsyncPrio(info, addr, length, offset, NULL, prio)) {
+        return -1;
+    }
     return (s32) info->cb.transferredSize;
 }
 
-int DVDSeekAsyncPrio(DVDFileInfo* info, s32 offset, void (*callback)(s32, DVDFileInfo*), s32 prio)
+int DVDSeekAsyncPrio(DVDFileInfo* info, s32 offset,
+                     void (*callback)(s32, DVDFileInfo*), s32 prio)
 {
     (void) prio;
-    if (info == NULL || offset < 0 || (u32) offset > info->length) return FALSE;
+    if (info == NULL || offset < 0 || (u32) offset > info->length) {
+        return FALSE;
+    }
     info->cb.offset = (u32) offset;
     info->cb.state = DVD_STATE_END;
-    if (callback != NULL) callback(DVD_RESULT_GOOD, info);
+    if (callback != NULL) {
+        callback(DVD_RESULT_GOOD, info);
+    }
     return TRUE;
 }
 
@@ -359,33 +428,57 @@ s32 DVDSeekPrio(DVDFileInfo* info, s32 offset, s32 prio)
     return DVDSeekAsyncPrio(info, offset, NULL, prio) ? 0 : -1;
 }
 
-s32 DVDGetFileInfoStatus(DVDFileInfo* info) { return info == NULL ? DVD_STATE_FATAL_ERROR : info->cb.state; }
+s32 DVDGetFileInfoStatus(DVDFileInfo* info)
+{
+    return info == NULL ? DVD_STATE_FATAL_ERROR : info->cb.state;
+}
 
 BOOL DVDGetCurrentDir(char* path, u32 maxlen)
 {
-    if (path == NULL || maxlen == 0) return FALSE;
+    if (path == NULL || maxlen == 0) {
+        return FALSE;
+    }
     snprintf(path, maxlen, "%s", g_current_dir);
     return TRUE;
 }
 
 BOOL DVDChangeDir(char* path)
 {
-    if (path == NULL) return FALSE;
-    char normalized[PATH_MAX]; dvd_normalize(path, normalized, sizeof(normalized));
+    if (path == NULL) {
+        return FALSE;
+    }
+    char normalized[PATH_MAX];
+    dvd_normalize(path, normalized, sizeof(normalized));
     s32 entry = DVDConvertPathToEntrynum(normalized);
-    if (entry < 0 || !g_entries[entry].directory) return FALSE;
+    if (entry < 0 || !g_entries[entry].directory) {
+        return FALSE;
+    }
     snprintf(g_current_dir, sizeof(g_current_dir), "%s", normalized);
     return TRUE;
 }
 
-BOOL DVDPrepareStreamAsync(DVDFileInfo* info, u32 length, u32 offset, DVDCallback callback)
+BOOL DVDPrepareStreamAsync(DVDFileInfo* info, u32 length, u32 offset,
+                           DVDCallback callback)
 {
-    if (info == NULL || offset > info->length || length > info->length - offset) return FALSE;
-    info->cb.offset = offset; info->cb.state = DVD_STATE_END;
-    if (callback != NULL) callback(DVD_RESULT_GOOD, info);
+    if (info == NULL || offset > info->length ||
+        length > info->length - offset)
+    {
+        return FALSE;
+    }
+    info->cb.offset = offset;
+    info->cb.state = DVD_STATE_END;
+    if (callback != NULL) {
+        callback(DVD_RESULT_GOOD, info);
+    }
     return TRUE;
 }
-s32 DVDPrepareStream(DVDFileInfo* info, u32 length, u32 offset) { return DVDPrepareStreamAsync(info, length, offset, NULL) ? 0 : -1; }
-s32 DVDGetTransferredSize(DVDFileInfo* info) { return info == NULL ? 0 : (s32) info->cb.transferredSize; }
+s32 DVDPrepareStream(DVDFileInfo* info, u32 length, u32 offset)
+{
+    return DVDPrepareStreamAsync(info, length, offset, NULL) ? 0 : -1;
+}
+s32 DVDGetTransferredSize(DVDFileInfo* info)
+{
+    return info == NULL ? 0 : (s32) info->cb.transferredSize;
+}
 
 #endif

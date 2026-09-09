@@ -1,9 +1,9 @@
-#include <dolphin/os.h>
-
-#include <stdint.h>
 #include <stdbool.h>
+#include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
+
+#include <dolphin/os.h>
 
 typedef struct NativeBlock {
     struct NativeBlock* next;
@@ -18,7 +18,8 @@ typedef struct NativeHeap {
     NativeBlock* first;
 } NativeHeap;
 
-_Static_assert(sizeof(NativeBlock) == 32, "Heap headers must retain alignment");
+_Static_assert(sizeof(NativeBlock) == 32,
+               "Heap headers must retain alignment");
 
 static NativeHeap* heaps;
 static int heap_count;
@@ -70,7 +71,8 @@ void* OSInitAlloc(void* start, void* end, int max_heaps)
     uintptr_t low;
     uintptr_t high;
     if (max_heaps <= 0 || (uintptr_t) start >= (uintptr_t) end ||
-        !round_up_uintptr((uintptr_t) start, 32, &low)) {
+        !round_up_uintptr((uintptr_t) start, 32, &low))
+    {
         return NULL;
     }
     high = (uintptr_t) end & ~(uintptr_t) 31;
@@ -100,12 +102,14 @@ int OSCreateHeap(void* start, void* end)
     int i;
     if ((uintptr_t) start < (uintptr_t) arena_base_lo ||
         (uintptr_t) end > (uintptr_t) arena_base_hi ||
-        (uintptr_t) start > UINTPTR_MAX - 31) {
+        (uintptr_t) start > UINTPTR_MAX - 31)
+    {
         return -1;
     }
     low = OSRoundUp32B(start);
     if (low >= high || high - low < sizeof(NativeBlock) + 32 ||
-        high - low > INTPTR_MAX) {
+        high - low > INTPTR_MAX)
+    {
         return -1;
     }
     for (i = 0; i < heap_count; i++) {
@@ -119,8 +123,8 @@ int OSCreateHeap(void* start, void* end)
     }
     if (handle >= 0) {
         NativeBlock* block = (NativeBlock*) low;
-        *block = (NativeBlock) { .size = high - low - sizeof(*block) };
-        heaps[handle] = (NativeHeap) { low, high, block };
+        *block = (NativeBlock){ .size = high - low - sizeof(*block) };
+        heaps[handle] = (NativeHeap){ low, high, block };
     }
     return handle;
 }
@@ -157,8 +161,9 @@ void* OSAllocFromHeap(int handle, size_t size)
         }
         if (block->size - size >= sizeof(*block) + 32) {
             NativeBlock* rest = (NativeBlock*) ((u8*) (block + 1) + size);
-            *rest = (NativeBlock) {
-                .next = block->next, .prev = block,
+            *rest = (NativeBlock){
+                .next = block->next,
+                .prev = block,
                 .size = block->size - size - sizeof(*block),
             };
             if (rest->next != NULL) {
@@ -205,7 +210,8 @@ intptr_t OSCheckHeap(int handle)
     for (block = heap->first; block != NULL; block = block->next) {
         if ((uintptr_t) block != cursor || cursor > heap->end ||
             heap->end - cursor < sizeof(*block) || block->prev != previous ||
-            block->size > heap->end - cursor - sizeof(*block)) {
+            block->size > heap->end - cursor - sizeof(*block))
+        {
             return -1;
         }
         if (!block->allocated) {
@@ -223,7 +229,8 @@ size_t OSReferentSize(void* pointer)
     uintptr_t address = (uintptr_t) pointer;
     for (i = 0; i < heap_count; i++) {
         if (heaps[i].first != NULL && address > heaps[i].start &&
-            address < heaps[i].end) {
+            address < heaps[i].end)
+        {
             return find_block(&heaps[i], pointer)->size;
         }
     }
@@ -250,10 +257,22 @@ void OSDumpHeap(int handle)
              (size_t) OSCheckHeap(handle));
 }
 
-void* OSGetArenaLo(void) { return arena_lo; }
-void* OSGetArenaHi(void) { return arena_hi; }
-void OSSetArenaLo(void* pointer) { arena_lo = pointer; }
-void OSSetArenaHi(void* pointer) { arena_hi = pointer; }
+void* OSGetArenaLo(void)
+{
+    return arena_lo;
+}
+void* OSGetArenaHi(void)
+{
+    return arena_hi;
+}
+void OSSetArenaLo(void* pointer)
+{
+    arena_lo = pointer;
+}
+void OSSetArenaHi(void* pointer)
+{
+    arena_hi = pointer;
+}
 
 void* OSAllocFromArenaLo(size_t size, size_t align)
 {

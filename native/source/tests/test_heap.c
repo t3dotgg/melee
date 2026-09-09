@@ -1,10 +1,10 @@
-#include <dolphin/os.h>
-#include <sysdolphin/baselib/random.h>
-
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+#include <dolphin/os.h>
+#include <sysdolphin/baselib/random.h>
 
 #define CHECK(condition)                                                      \
     do {                                                                      \

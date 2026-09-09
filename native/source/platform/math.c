@@ -2,12 +2,12 @@
  * C equations come from extern/dolphin/src/dolphin/mtx. Both the C_ and PS
  * names operate on host float arrays. They have no CPU or guest-memory state.
  */
-#include <dolphin/mtx.h>
-
 #include <assert.h>
 #include <math.h>
 #include <stddef.h>
 #include <string.h>
+
+#include <dolphin/mtx.h>
 
 #ifndef MELEE_NATIVE
 #error This file belongs to the native source build.
@@ -656,17 +656,20 @@ void C_MTXLookAt(Mtx m, Vec* camPos, Vec* camUp, Vec* target)
     m[0][0] = vRight.x;
     m[0][1] = vRight.y;
     m[0][2] = vRight.z;
-    m[0][3] = -((camPos->z * vRight.z) + ((camPos->x * vRight.x) + (camPos->y * vRight.y)));
+    m[0][3] = -((camPos->z * vRight.z) +
+                ((camPos->x * vRight.x) + (camPos->y * vRight.y)));
 
     m[1][0] = vUp.x;
     m[1][1] = vUp.y;
     m[1][2] = vUp.z;
-    m[1][3] = -((camPos->z * vUp.z) + ((camPos->x * vUp.x) + (camPos->y * vUp.y)));
+    m[1][3] =
+        -((camPos->z * vUp.z) + ((camPos->x * vUp.x) + (camPos->y * vUp.y)));
 
     m[2][0] = vLook.x;
     m[2][1] = vLook.y;
     m[2][2] = vLook.z;
-    m[2][3] = -((camPos->z * vLook.z) + ((camPos->x * vLook.x) + (camPos->y * vLook.y)));
+    m[2][3] = -((camPos->z * vLook.z) +
+                ((camPos->x * vLook.x) + (camPos->y * vLook.y)));
 }
 
 void MTXLightFrustum(Mtx m, f32 t, f32 b, f32 l, f32 r, f32 n, f32 scaleS,
@@ -1073,7 +1076,7 @@ void PSMTXROMultVecArray(ROMtx* m, Vec* srcBase, Vec* dstBase, u32 count)
 }
 
 void PSMTXROSkin2VecArray(ROMtx* m0, ROMtx* m1, f32* wtBase, Vec* srcBase,
-                        Vec* dstBase, u32 count)
+                          Vec* dstBase, u32 count)
 {
     for (u32 i = 0; i < count; ++i) {
         /* The SDK gives m1 weight w and m0 weight 1 - w. */
@@ -1082,8 +1085,7 @@ void PSMTXROSkin2VecArray(ROMtx* m0, ROMtx* m1, f32* wtBase, Vec* srcBase,
         for (size_t column = 0; column < 4; ++column) {
             for (size_t row = 0; row < 3; ++row) {
                 const f32 a = (*m0)[column][row];
-                blended[column][row] =
-                    a + weight * ((*m1)[column][row] - a);
+                blended[column][row] = a + weight * ((*m1)[column][row] - a);
             }
         }
         dstBase[i] = transform_reordered(blended, srcBase[i]);
@@ -1117,9 +1119,9 @@ void MTXInitStack(MTXStack* stack, u32 count)
 static Mtx* next_stack_entry(MTXStack* stack)
 {
     assert(stack && stack->stackBase);
-    size_t count = stack->stackPtr ?
-                       (size_t) (stack->stackPtr - stack->stackBase) + 1 :
-                       0;
+    size_t count = stack->stackPtr
+                       ? (size_t) (stack->stackPtr - stack->stackBase) + 1
+                       : 0;
     if (count >= stack->numMtx) {
         return NULL;
     }
@@ -1179,9 +1181,8 @@ Mtx* MTXPop(MTXStack* stack)
 {
     assert(stack && stack->stackBase);
     if (stack->stackPtr) {
-        stack->stackPtr = stack->stackPtr == stack->stackBase ?
-                              NULL :
-                              stack->stackPtr - 1;
+        stack->stackPtr =
+            stack->stackPtr == stack->stackBase ? NULL : stack->stackPtr - 1;
     }
     return stack->stackPtr;
 }

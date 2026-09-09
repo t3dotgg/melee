@@ -1,16 +1,16 @@
 #include <Runtime/platform.h>
 
-#include <sysdolphin/baselib/bytecode.h>
-#include <sysdolphin/baselib/debug.h>
-#include <sysdolphin/baselib/memory.h>
-#include <sysdolphin/baselib/random.h>
-
 #include <assert.h>
 #include <math.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+#include <sysdolphin/baselib/bytecode.h>
+#include <sysdolphin/baselib/debug.h>
+#include <sysdolphin/baselib/memory.h>
+#include <sysdolphin/baselib/random.h>
 
 /* These stubs isolate the production evaluator from platform services. */
 static size_t live_allocations;
@@ -46,7 +46,7 @@ void HSD_Panic(char* file, u32 line, char* message)
     abort();
 }
 
-void (__assert)(char* file, u32 line, char* message)
+void(__assert)(char* file, u32 line, char* message)
 {
     HSD_Panic(file, line, message);
 }
@@ -110,12 +110,10 @@ static void test_unary(void)
         f32 value;
         f32 expected;
     } floats[] = {
-        { 0x09, 2.5f, -2.5f }, { 0x0C, 99.0f, 0.25f },
-        { 0x0D, 30.0f, 0.5f }, { 0x0E, 60.0f, 0.5f },
-        { 0x0F, 45.0f, 1.0f }, { 0x10, 0.5f, 30.0f },
-        { 0x11, 0.5f, 60.0f }, { 0x12, 1.0f, 45.0f },
-        { 0x13, 1.0f, 0.0f },  { 0x14, 0.0f, 1.0f },
-        { 0x15, -2.5f, 2.5f }, { 0x15, 2.5f, 2.5f },
+        { 0x09, 2.5f, -2.5f }, { 0x0C, 99.0f, 0.25f }, { 0x0D, 30.0f, 0.5f },
+        { 0x0E, 60.0f, 0.5f }, { 0x0F, 45.0f, 1.0f },  { 0x10, 0.5f, 30.0f },
+        { 0x11, 0.5f, 60.0f }, { 0x12, 1.0f, 45.0f },  { 0x13, 1.0f, 0.0f },
+        { 0x14, 0.0f, 1.0f },  { 0x15, -2.5f, 2.5f },  { 0x15, 2.5f, 2.5f },
         { 0x16, 9.0f, 3.0f },
     };
     static const struct {
@@ -123,9 +121,8 @@ static void test_unary(void)
         s32 value;
         f32 expected;
     } integers[] = {
-        { 0x0A, -9, 9.0f }, { 0x0B, 99, 1.0f },
-        { 0x28, -9, 9.0f }, { 0x28, 9, 9.0f },
-        { 0x31, 0, 1.0f },  { 0x31, -3, 0.0f },
+        { 0x0A, -9, 9.0f }, { 0x0B, 99, 1.0f }, { 0x28, -9, 9.0f },
+        { 0x28, 9, 9.0f },  { 0x31, 0, 1.0f },  { 0x31, -3, 0.0f },
     };
     for (size_t i = 0; i < sizeof(floats) / sizeof(floats[0]); i++) {
         Program program = { 0 };
@@ -163,24 +160,15 @@ static void test_binary(void)
         f32 right;
         f32 expected;
     } floats[] = {
-        { 0x17, -9.0f, 4.0f, -5.0f },
-        { 0x18, -9.0f, 4.0f, -13.0f },
-        { 0x19, -9.0f, 4.0f, -36.0f },
-        { 0x1A, -9.0f, 4.0f, -2.25f },
-        { 0x1B, -9.0f, 4.0f, -1.0f },
-        { 0x21, 3.0f, 4.0f, 81.0f },
-        { 0x22, 7.0f, -2.0f, -2.0f },
-        { 0x22, -2.0f, 7.0f, -2.0f },
-        { 0x23, -2.0f, 7.0f, 7.0f },
-        { 0x23, 7.0f, -2.0f, 7.0f },
-        { 0x26, 1.0f, 1.0f, 45.0f },
-        { 0x26, 1.0f, 0.0f, 90.0f },
-        { 0x26, -1.0f, 0.0f, -90.0f },
-        { 0x33, 1.0f, 2.0f, 1.0f },
-        { 0x34, 1.0f, 2.0f, 0.0f },
-        { 0x35, 1.0f, 1.0f, 1.0f },
-        { 0x36, 1.0f, 1.0f, 1.0f },
-        { 0x37, 1.0f, 2.0f, 0.0f },
+        { 0x17, -9.0f, 4.0f, -5.0f },  { 0x18, -9.0f, 4.0f, -13.0f },
+        { 0x19, -9.0f, 4.0f, -36.0f }, { 0x1A, -9.0f, 4.0f, -2.25f },
+        { 0x1B, -9.0f, 4.0f, -1.0f },  { 0x21, 3.0f, 4.0f, 81.0f },
+        { 0x22, 7.0f, -2.0f, -2.0f },  { 0x22, -2.0f, 7.0f, -2.0f },
+        { 0x23, -2.0f, 7.0f, 7.0f },   { 0x23, 7.0f, -2.0f, 7.0f },
+        { 0x26, 1.0f, 1.0f, 45.0f },   { 0x26, 1.0f, 0.0f, 90.0f },
+        { 0x26, -1.0f, 0.0f, -90.0f }, { 0x33, 1.0f, 2.0f, 1.0f },
+        { 0x34, 1.0f, 2.0f, 0.0f },    { 0x35, 1.0f, 1.0f, 1.0f },
+        { 0x36, 1.0f, 1.0f, 1.0f },    { 0x37, 1.0f, 2.0f, 0.0f },
         { 0x38, 1.0f, 2.0f, 1.0f },
     };
     static const struct {
@@ -242,7 +230,7 @@ static void test_arguments_and_stack(void)
     emit(&program, 0x17);
     expect(&program, args, 257, 2.0f);
 
-    program = (Program) { 0 };
+    program = (Program){ 0 };
     push_float(&program, 42.0f);
     for (int i = 0; i < 50; i++) {
         push_float(&program, i);
@@ -251,7 +239,7 @@ static void test_arguments_and_stack(void)
     emit(&program, 50);
     expect(&program, NULL, 0, 42.0f);
 
-    program = (Program) { 0 };
+    program = (Program){ 0 };
     push_float(&program, 5.0f);
     emit(&program, 5);
     emit(&program, 2);

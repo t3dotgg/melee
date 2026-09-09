@@ -419,8 +419,8 @@ ASSERT_SIZE(struct gmm_x0, 0x8518);
 /// @todo ::MatchEnd
 struct lbl_8046B6A0_24C_t {
     u32 x0; ///< timer
-    u8 x4; ///< MatchOutcome
-    u8 x5; ///< match mode
+    u8 x4;  ///< MatchOutcome
+    u8 x5;  ///< match mode
     u8 is_teams;
     u8 x7;
     u32 x8;

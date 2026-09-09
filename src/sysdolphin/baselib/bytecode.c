@@ -48,10 +48,10 @@ static ByteCodeStack* ByteCodePop(ByteCodeStack* stack)
 }
 
 #define BYTECODE_VALUE(node) (&(node)->data)
-#define BYTECODE_PUSH_ARG(stack, arg) \
-    ByteCodePush(stack, (ByteCodeVal) { .f = (arg) })
-#define BYTECODE_PUSH_BITS(stack, value) \
-    ByteCodePush(stack, (ByteCodeVal) { .bits = (value) })
+#define BYTECODE_PUSH_ARG(stack, arg)                                         \
+    ByteCodePush(stack, (ByteCodeVal){ .f = (arg) })
+#define BYTECODE_PUSH_BITS(stack, value)                                      \
+    ByteCodePush(stack, (ByteCodeVal){ .bits = (value) })
 #define BYTECODE_PUSH_COPY(stack, node) ByteCodePush(stack, (node)->data)
 #define BYTECODE_SET_FLOAT(node, value) ((node)->data.f = (value))
 #define BYTECODE_SET_BITS(node, value) ((node)->data.bits = (u32) (value))
@@ -67,11 +67,11 @@ typedef HSD_SList ByteCodeStack;
 
 #define ByteCodePop(stack) HSD_SListRemove(stack)
 #define BYTECODE_VALUE(node) ((ByteCodeVal*) &(node)->data)
-#define BYTECODE_PUSH_ARG(stack, arg) \
+#define BYTECODE_PUSH_ARG(stack, arg)                                         \
     HSD_SListAllocAndPrepend(stack, (void*) ((ByteCodeVal*) &(arg))->i)
-#define BYTECODE_PUSH_BITS(stack, value) \
+#define BYTECODE_PUSH_BITS(stack, value)                                      \
     HSD_SListAllocAndPrepend(stack, (void*) (value))
-#define BYTECODE_PUSH_COPY(stack, node) \
+#define BYTECODE_PUSH_COPY(stack, node)                                       \
     HSD_SListAllocAndPrepend(stack, (node)->data)
 #define BYTECODE_SET_FLOAT(node, value) ((node)->data = *(void**) &(value))
 #define BYTECODE_SET_BITS(node, value) ((node)->data = (void*) (value))

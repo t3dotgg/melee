@@ -1594,7 +1594,8 @@ void grBigBlue_801E93D8(Ground_GObj* gobj)
 
         switch (state) {
         case 0:
-            if (GET_GROUND(Ground_GetMapGObj(32))->u.bigblue.manager.event_data[1] != NULL)
+            if (GET_GROUND(Ground_GetMapGObj(32))
+                    ->u.bigblue.manager.event_data[1] != NULL)
             {
                 s32 count = grBigBlue_CountCars();
 
@@ -1655,7 +1656,8 @@ void grBigBlue_801E93D8(Ground_GObj* gobj)
             case 1:
                 if (pos.x > 0.0f) {
                     gp->u.bigblue.platform.xD8 = 0.0f;
-                    gp->u.bigblue.platform.xC8_timer = (s32) yakumono_param->xD8;
+                    gp->u.bigblue.platform.xC8_timer =
+                        (s32) yakumono_param->xD8;
                     gp->u.bigblue.platform.xC4 = 2;
                 } else {
                     f32 range_scale;
@@ -1709,13 +1711,16 @@ void grBigBlue_801E93D8(Ground_GObj* gobj)
                     HSD_JObjSetFlagsAll(jobj, JOBJ_HIDDEN);
                     gp->u.bigblue.platform.xD8 = 0.0f;
                     {
-                        GET_GROUND(Ground_GetMapGObj(32))->u.bigblue.manager.event_data[1] = NULL;
+                        GET_GROUND(Ground_GetMapGObj(32))
+                            ->u.bigblue.manager.event_data[1] = NULL;
                     }
                     {
                         if (jobj != NULL) {
-                            ((Ground*) Ground_GetMapGObj(32)->user_data)->u.bigblue.manager.event_extra = jobj;
+                            ((Ground*) Ground_GetMapGObj(32)->user_data)
+                                ->u.bigblue.manager.event_extra = jobj;
                         }
-                        ((Ground*) Ground_GetMapGObj(32)->user_data)->u.bigblue.manager.event_data[0] = (void*) 1;
+                        ((Ground*) Ground_GetMapGObj(32)->user_data)
+                            ->u.bigblue.manager.event_data[0] = (void*) 1;
                     }
                     gp->u.bigblue.platform.target_z = 0.0f;
                     HSD_JObjSetRotationZ(jobj, 0.0f);
@@ -1732,12 +1737,14 @@ void grBigBlue_801E93D8(Ground_GObj* gobj)
 
                 target_z = euler.z;
                 gp->u.bigblue.platform.target_z = target_z;
-                if (HSD_JObjGetRotationZ(jobj) < gp->u.bigblue.platform.target_z) {
+                if (HSD_JObjGetRotationZ(jobj) <
+                    gp->u.bigblue.platform.target_z)
+                {
                     f32 target;
                     f32 delta =
-                        0.017453292f *
-                        (yakumono_param->xD4 *
-                         (gp->u.bigblue.platform.target_z - HSD_JObjGetRotationZ(jobj)));
+                        0.017453292f * (yakumono_param->xD4 *
+                                        (gp->u.bigblue.platform.target_z -
+                                         HSD_JObjGetRotationZ(jobj)));
                     HSD_JObjAddRotationZ(jobj, delta);
                     if (HSD_JObjGetRotationZ(jobj) >=
                         (target = gp->u.bigblue.platform.target_z))
@@ -1747,9 +1754,9 @@ void grBigBlue_801E93D8(Ground_GObj* gobj)
                 } else {
                     f32 target;
                     f32 delta =
-                        0.017453292f *
-                        (yakumono_param->xD4 *
-                         (gp->u.bigblue.platform.target_z - HSD_JObjGetRotationZ(jobj)));
+                        0.017453292f * (yakumono_param->xD4 *
+                                        (gp->u.bigblue.platform.target_z -
+                                         HSD_JObjGetRotationZ(jobj)));
                     HSD_JObjAddRotationZ(jobj, delta);
                     if (HSD_JObjGetRotationZ(jobj) <=
                         (target = gp->u.bigblue.platform.target_z))
@@ -1772,10 +1779,12 @@ void grBigBlue_801E93D8(Ground_GObj* gobj)
                     if (check_h == -3.4028235e38f) {
                         gp->u.bigblue.platform.target_y = fwd.y;
                     } else {
-                        gp->u.bigblue.platform.target_y = check_h + yakumono_param->xCC;
+                        gp->u.bigblue.platform.target_y =
+                            check_h + yakumono_param->xCC;
                     }
                 } else {
-                    gp->u.bigblue.platform.target_y = bound_y + yakumono_param->xCC;
+                    gp->u.bigblue.platform.target_y =
+                        bound_y + yakumono_param->xCC;
                 }
 
                 diff_y = pos.y - gp->u.bigblue.platform.target_y;
@@ -1785,12 +1794,14 @@ void grBigBlue_801E93D8(Ground_GObj* gobj)
                 if (diff_y < 0.5f) {
                     vy = 0.0f;
                 } else if (pos.y < gp->u.bigblue.platform.target_y) {
-                    vy = (gp->u.bigblue.platform.target_y - pos.y) / yakumono_param->xE4;
+                    vy = (gp->u.bigblue.platform.target_y - pos.y) /
+                         yakumono_param->xE4;
                     if (vy > yakumono_param->xE8) {
                         vy = yakumono_param->xE8;
                     }
                 } else {
-                    vy = (gp->u.bigblue.platform.target_y - pos.y) / yakumono_param->xEC;
+                    vy = (gp->u.bigblue.platform.target_y - pos.y) /
+                         yakumono_param->xEC;
                     if (vy < -yakumono_param->xF0) {
                         vy = -yakumono_param->xF0;
                     }
@@ -1884,7 +1895,9 @@ void grBigBlue_801EA05C(Ground_GObj* gobj)
 
     switch ((s8) gp->u.bigblue.x0) {
     case 0:
-        if (GET_GROUND(Ground_GetMapGObj(32))->u.bigblue.platform.xD0_timer != 0) {
+        if (GET_GROUND(Ground_GetMapGObj(32))->u.bigblue.platform.xD0_timer !=
+            0)
+        {
             gp->u.bigblue.platform.xC8_timer = 0;
             gp->u.bigblue.platform.xD0_timer = 0;
             gp->u.bigblue.platform.xCC_timer = 0;
@@ -2137,7 +2150,8 @@ void grBigBlue_801EA05C(Ground_GObj* gobj)
             gp->u.bigblue.platform.xEC = 0.0f;
             gp->u.bigblue.platform.velocity.z = 0.0f;
             gp->u.bigblue.platform.velocity.y = 0.0f;
-            GET_GROUND(Ground_GetMapGObj(32))->u.bigblue.platform.xD0_timer = 0;
+            GET_GROUND(Ground_GetMapGObj(32))->u.bigblue.platform.xD0_timer =
+                0;
             gp->u.bigblue.x0 = 0;
         }
         break;
@@ -3385,8 +3399,8 @@ void grBigBlue_801ED694(Ground_GObj* gobj, s32 lane)
     }
 
     /* Setup per-lane data */
-    jobj = gp->u.bigblue.car.collision_jobjs[
-        gp->u.bigblue.car.lanes[lane].collision_slot];
+    jobj = gp->u.bigblue.car
+               .collision_jobjs[gp->u.bigblue.car.lanes[lane].collision_slot];
 
     f31_rot = HSD_JObjGetRotationZ(jobj);
 
@@ -3404,8 +3418,8 @@ void grBigBlue_801ED694(Ground_GObj* gobj, s32 lane)
                 u32 st = gp->u.bigblue.car.lanes[idx].state;
                 if (st != 1 && st != 7 && st != 8) {
                     active++;
-                    if (idx != lane &&
-                        gp->u.bigblue.car.lanes[idx].pos.x < gp->u.bigblue.car.lanes[lane].pos.x)
+                    if (idx != lane && gp->u.bigblue.car.lanes[idx].pos.x <
+                                           gp->u.bigblue.car.lanes[lane].pos.x)
                     {
                         behind++;
                     }
@@ -3442,7 +3456,8 @@ void grBigBlue_801ED694(Ground_GObj* gobj, s32 lane)
 
     /* Velocity update: vel += accel */
     {
-        gp->u.bigblue.car.lanes[lane].velocity += gp->u.bigblue.car.lanes[lane].accel;
+        gp->u.bigblue.car.lanes[lane].velocity +=
+            gp->u.bigblue.car.lanes[lane].accel;
 
         /* Clamp velocity to +-max_speed*scale */
         {
@@ -3461,9 +3476,11 @@ void grBigBlue_801ED694(Ground_GObj* gobj, s32 lane)
 
         /* Position update: xDC += vel, xE0 = xD8 + xDC */
         {
-            gp->u.bigblue.car.lanes[lane].delta += gp->u.bigblue.car.lanes[lane].velocity;
+            gp->u.bigblue.car.lanes[lane].delta +=
+                gp->u.bigblue.car.lanes[lane].velocity;
             gp->u.bigblue.car.lanes[lane].pos.x =
-                gp->u.bigblue.car.lanes[lane].target + gp->u.bigblue.car.lanes[lane].delta;
+                gp->u.bigblue.car.lanes[lane].target +
+                gp->u.bigblue.car.lanes[lane].delta;
         }
     }
 
@@ -3471,7 +3488,8 @@ void grBigBlue_801ED694(Ground_GObj* gobj, s32 lane)
     if (!(gp->u.bigblue.car.lanes[lane].direction)) {
         gp->u.bigblue.car.lanes[lane].gravity +=
             yakumono_param->x48 * Ground_801C0498();
-        gp->u.bigblue.car.lanes[lane].height += gp->u.bigblue.car.lanes[lane].gravity;
+        gp->u.bigblue.car.lanes[lane].height +=
+            gp->u.bigblue.car.lanes[lane].gravity;
 
         if (gp->u.bigblue.car.lanes[lane].height > 0.0F) {
             gp->u.bigblue.car.lanes[lane].height = 0.0F;
@@ -3520,17 +3538,19 @@ void grBigBlue_801ED694(Ground_GObj* gobj, s32 lane)
 
     /* Heading target interpolation */
     gp->u.bigblue.car.lanes[lane].amplitude +=
-        yakumono_param->x3C * (heading_val - gp->u.bigblue.car.lanes[lane].amplitude);
+        yakumono_param->x3C *
+        (heading_val - gp->u.bigblue.car.lanes[lane].amplitude);
 
     /* Rotation angle update */
-    gp->u.bigblue.car.lanes[lane].rotation += 0.017453292F * yakumono_param->x40;
+    gp->u.bigblue.car.lanes[lane].rotation +=
+        0.017453292F * yakumono_param->x40;
     if (gp->u.bigblue.car.lanes[lane].rotation > M_TAU) {
         gp->u.bigblue.car.lanes[lane].rotation =
             (f32) ((f64) gp->u.bigblue.car.lanes[lane].rotation - M_TAU);
     }
 
-    heading_osc =
-        gp->u.bigblue.car.lanes[lane].amplitude * sinf(gp->u.bigblue.car.lanes[lane].rotation);
+    heading_osc = gp->u.bigblue.car.lanes[lane].amplitude *
+                  sinf(gp->u.bigblue.car.lanes[lane].rotation);
 
     /* Compute ground reference level */
     rank_factor = (gp->u.bigblue.car.lanes[lane].pos.y -
@@ -3540,8 +3560,8 @@ void grBigBlue_801ED694(Ground_GObj* gobj, s32 lane)
     /* Collision/grounding check */
     if (gp->u.bigblue.car.lanes[lane].direction) {
         /* Grounded path */
-        ground_y = grBigBlue_801EC58C(&gp->u.bigblue.car.lanes[lane].pos, &sp_vec,
-                                      (f32) 500.0f);
+        ground_y = grBigBlue_801EC58C(&gp->u.bigblue.car.lanes[lane].pos,
+                                      &sp_vec, (f32) 500.0f);
 
         if (-F32_MAX != ground_y && ground_y > rank_factor) {
             if (gp->u.bigblue.car.lanes[lane].angular_velocity < 0.0F) {
@@ -3561,7 +3581,8 @@ void grBigBlue_801ED694(Ground_GObj* gobj, s32 lane)
         }
 
         /* Lateral position += angular velocity */
-        gp->u.bigblue.car.lanes[lane].pos.y += gp->u.bigblue.car.lanes[lane].angular_velocity;
+        gp->u.bigblue.car.lanes[lane].pos.y +=
+            gp->u.bigblue.car.lanes[lane].angular_velocity;
 
         /* Track reference adjustment */
         {
@@ -3578,8 +3599,8 @@ void grBigBlue_801ED694(Ground_GObj* gobj, s32 lane)
     } else {
         /* Non-grounded path */
         f32 s = Ground_801C0498();
-        ground_y =
-            grBigBlue_801EC58C(&gp->u.bigblue.car.lanes[lane].pos, &sp_vec, 20.0F * s);
+        ground_y = grBigBlue_801EC58C(&gp->u.bigblue.car.lanes[lane].pos,
+                                      &sp_vec, 20.0F * s);
 
         if (-F32_MAX != ground_y) {
             gp->u.bigblue.car.lanes[lane].pos.y =
@@ -3590,7 +3611,8 @@ void grBigBlue_801ED694(Ground_GObj* gobj, s32 lane)
             gp->u.bigblue.car.lanes[lane].direction = 1;
             rank_factor = yakumono_param->x84 * Ground_801C0498();
             heading_osc = sinf(f31_rot);
-            gp->u.bigblue.car.lanes[lane].angular_velocity = heading_osc * rank_factor;
+            gp->u.bigblue.car.lanes[lane].angular_velocity =
+                heading_osc * rank_factor;
         }
     }
 
@@ -4078,12 +4100,16 @@ bool grBigBlue_801EEF00(Ground_GObj* gobj, s32 index)
             }
             scale = Ground_801C0498();
             norm = abs_speed / (yakumono_param->x28 * scale);
-            if (((void) norm, (f32) gp->u.bigblue.car.lanes[index].threshold) > norm) {
+            if (((void) norm, (f32) gp->u.bigblue.car.lanes[index].threshold) >
+                norm)
+            {
                 scale = Ground_801C0498();
-                gp->u.bigblue.car.lanes[index].accel = -(yakumono_param->x28 * scale);
+                gp->u.bigblue.car.lanes[index].accel =
+                    -(yakumono_param->x28 * scale);
             } else {
                 scale = Ground_801C0498();
-                gp->u.bigblue.car.lanes[index].accel = yakumono_param->x28 * scale;
+                gp->u.bigblue.car.lanes[index].accel =
+                    yakumono_param->x28 * scale;
             }
         } else {
             if ((abs_speed = gp->u.bigblue.car.lanes[index].velocity) < 0.0F) {
@@ -4091,12 +4117,16 @@ bool grBigBlue_801EEF00(Ground_GObj* gobj, s32 index)
             }
             scale = Ground_801C0498();
             norm = abs_speed / (yakumono_param->x28 * scale);
-            if (((void) norm, (f32) gp->u.bigblue.car.lanes[index].threshold) > norm) {
+            if (((void) norm, (f32) gp->u.bigblue.car.lanes[index].threshold) >
+                norm)
+            {
                 scale = Ground_801C0498();
-                gp->u.bigblue.car.lanes[index].accel = yakumono_param->x28 * scale;
+                gp->u.bigblue.car.lanes[index].accel =
+                    yakumono_param->x28 * scale;
             } else {
                 scale = Ground_801C0498();
-                gp->u.bigblue.car.lanes[index].accel = -(yakumono_param->x28 * scale);
+                gp->u.bigblue.car.lanes[index].accel =
+                    -(yakumono_param->x28 * scale);
             }
         }
         break;
@@ -4112,11 +4142,15 @@ bool grBigBlue_801EEF00(Ground_GObj* gobj, s32 index)
         }
         scale = Ground_801C0498();
         norm = abs_speed / (yakumono_param->x28 * scale);
-        if (((void) norm, (f32) gp->u.bigblue.car.lanes[index].threshold) > norm) {
-            if (gp->u.bigblue.car.lanes[index].pos.x < Stage_GetCamBoundsRightOffset())
+        if (((void) norm, (f32) gp->u.bigblue.car.lanes[index].threshold) >
+            norm)
+        {
+            if (gp->u.bigblue.car.lanes[index].pos.x <
+                Stage_GetCamBoundsRightOffset())
             {
                 scale = Ground_801C0498();
-                gp->u.bigblue.car.lanes[index].accel = yakumono_param->x28 * scale;
+                gp->u.bigblue.car.lanes[index].accel =
+                    yakumono_param->x28 * scale;
                 break;
             }
         }
@@ -4135,10 +4169,15 @@ bool grBigBlue_801EEF00(Ground_GObj* gobj, s32 index)
         }
         scale = Ground_801C0498();
         norm = abs_speed / (yakumono_param->x28 * scale);
-        if (((void) norm, (f32) gp->u.bigblue.car.lanes[index].threshold) > norm) {
-            if (gp->u.bigblue.car.lanes[index].pos.x > Stage_GetCamBoundsLeftOffset()) {
+        if (((void) norm, (f32) gp->u.bigblue.car.lanes[index].threshold) >
+            norm)
+        {
+            if (gp->u.bigblue.car.lanes[index].pos.x >
+                Stage_GetCamBoundsLeftOffset())
+            {
                 scale = Ground_801C0498();
-                gp->u.bigblue.car.lanes[index].accel = -(yakumono_param->x28 * scale);
+                gp->u.bigblue.car.lanes[index].accel =
+                    -(yakumono_param->x28 * scale);
                 break;
             }
         }
@@ -4168,7 +4207,8 @@ bool grBigBlue_801EEF00(Ground_GObj* gobj, s32 index)
         if (target > gp->u.bigblue.car.lanes[index].pos.x) {
             if (gp->u.bigblue.car.lanes[index].velocity < 0.0F) {
                 scale = Ground_801C0498();
-                gp->u.bigblue.car.lanes[index].accel = yakumono_param->x28 * scale;
+                gp->u.bigblue.car.lanes[index].accel =
+                    yakumono_param->x28 * scale;
             } else {
                 scale = Ground_801C0498();
                 predicted =
@@ -4178,7 +4218,8 @@ bool grBigBlue_801EEF00(Ground_GObj* gobj, s32 index)
 
                 if (predicted < target) {
                     scale = Ground_801C0498();
-                    gp->u.bigblue.car.lanes[index].accel = yakumono_param->x28 * scale;
+                    gp->u.bigblue.car.lanes[index].accel =
+                        yakumono_param->x28 * scale;
                 } else {
                     scale = Ground_801C0498();
                     gp->u.bigblue.car.lanes[index].accel =
@@ -4188,7 +4229,8 @@ bool grBigBlue_801EEF00(Ground_GObj* gobj, s32 index)
         } else {
             if (gp->u.bigblue.car.lanes[index].velocity > 0.0F) {
                 scale = Ground_801C0498();
-                gp->u.bigblue.car.lanes[index].accel = -(yakumono_param->x28 * scale);
+                gp->u.bigblue.car.lanes[index].accel =
+                    -(yakumono_param->x28 * scale);
             } else {
                 scale = Ground_801C0498();
                 predicted =
@@ -4198,7 +4240,8 @@ bool grBigBlue_801EEF00(Ground_GObj* gobj, s32 index)
 
                 if (predicted < target) {
                     scale = Ground_801C0498();
-                    gp->u.bigblue.car.lanes[index].accel = yakumono_param->x28 * scale;
+                    gp->u.bigblue.car.lanes[index].accel =
+                        yakumono_param->x28 * scale;
                 } else {
                     scale = Ground_801C0498();
                     gp->u.bigblue.car.lanes[index].accel =

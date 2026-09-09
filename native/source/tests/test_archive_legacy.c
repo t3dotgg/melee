@@ -1,6 +1,6 @@
-#include <sysdolphin/baselib/archive.h>
-
 #include <stdio.h>
+
+#include <sysdolphin/baselib/archive.h>
 
 int main(void)
 {

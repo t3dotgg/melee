@@ -26,8 +26,9 @@
 #include <sysdolphin/baselib/random.h>
 #include <sysdolphin/baselib/tobj.h>
 
-/* 2F491C */ static void ifStatus_PercentOnDeathAnimationThink(
-    IfDamageState* value, s32, IfDamageState*);
+/* 2F491C */ static void
+ifStatus_PercentOnDeathAnimationThink(IfDamageState* value, s32,
+                                      IfDamageState*);
 
 /* Color endpoints for damage percentage interpolation (extern from .sdata2) */
 /* Start color (low damage) */
@@ -114,7 +115,8 @@ static inline void* jobj_get(HSD_JObj* jobj_r30, IfDamageState* value, s32 i)
     return value->jobjs[i];
 }
 
-void ifStatus_PercentOnDeathAnimationThink(IfDamageState* value, s32 arg1, IfDamageState* arg2)
+void ifStatus_PercentOnDeathAnimationThink(IfDamageState* value, s32 arg1,
+                                           IfDamageState* arg2)
 {
     s32 i;
 
