@@ -38,6 +38,13 @@ static void pump_events(void)
     } while (event != nil);
 }
 
+void NativeDisplayPumpEvents(void)
+{
+    @autoreleasepool {
+        pump_events();
+    }
+}
+
 static void ensure_window(uint16_t width, uint16_t height)
 {
     if (s_window != nil) {

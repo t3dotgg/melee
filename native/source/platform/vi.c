@@ -91,6 +91,10 @@ void VIWaitForRetrace(void)
         uint16_t stride = (uint16_t) ((s_vi.mode.fbWidth + 15u) & ~15u);
         NativeDisplayPresent(s_vi.next_frame_buffer, width, height, stride);
     }
+    /* Input events must continue to reach the pad shim while the VI is
+     * presenting frames. NativeDisplayPresent also pumps events, but this
+     * call keeps the input path explicit for a future asynchronous renderer. */
+    NativeDisplayPumpEvents();
 #endif
 }
 

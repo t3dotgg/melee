@@ -7,5 +7,6 @@
  * so callers may reuse the XFB after this function returns. */
 void NativeDisplayPresent(const void* xfb, uint16_t width, uint16_t height,
                           uint16_t stride_pixels);
+void NativeDisplayPumpEvents(void);
 
 #endif
