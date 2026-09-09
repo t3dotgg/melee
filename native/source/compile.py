@@ -35,7 +35,7 @@ def main():
             parser.error(f"No C source at {name}")
     flags = [
         "clang", "-arch", "arm64", "-std=gnu11", "-DMELEE_NATIVE", "-DTARGET_PC",
-        "-Isrc", "-Iextern/dolphin/include", "-include", "math.h",
+        "-Isrc", "-Iextern/dolphin/include", "-Inative/source", "-include", "math.h",
         "-fno-strict-aliasing", "-ffp-contract=off", "-fno-common",
         "-Werror=pointer-to-int-cast", "-Werror=int-to-pointer-cast",
         "-Werror=implicit-function-declaration", "-Werror=int-conversion",
