@@ -37,7 +37,7 @@ python3 native/source/compile.py --jobs 8
 
 This compiles 984 game and engine files plus the native support files under
 `native/source` and the required MSL floating point constants. The current
-inventory is 1004/1004 ARM64 files. It returns a failure status if any file
+inventory is 1005/1005 ARM64 files. It returns a failure status if any file
 fails. The JSON report and compiler logs are under `build/native-source`.
 It requires no game image and does not fetch or run a translator.
 
@@ -77,21 +77,22 @@ files. The same paths can be supplied with `MELEE_GAME_ROOT` and
 
 The full direct-source target now links successfully with no undefined
 symbols. The host services include 64-bit heap and context storage, typed
-archive loading, filesystem or ISO disc reads, ARAM, controller state,
+archive loading for the supported descriptor schemas, filesystem or ISO disc reads, ARAM, controller state,
 headless 60 Hz retraces with OS alarm callbacks, headless GX state,
 deterministic audio stubs, cache operations, card stubs, and an explicit
 unavailable THP decoder. The scheduler uses the host monotonic clock by
 default. Tests can advance a deterministic clock without sleeping.
 
 The executable has not run a real match. An empty game directory reaches the
-SIS initialization path and then stops because the game data is absent. The
-runtime still needs Metal rendering, audio output, persistent card storage,
-and real archive and font data from the disc image.
+SIS initialization path and waits in the startup loop because the game data is
+absent. The runtime still needs a SIS archive bridge for common DAT files,
+Metal rendering, audio output, persistent card storage, and real archive and
+font data from the disc image.
 Do not treat a successful link as playable behavior.
 
 ## Work order
 
-1. Add asynchronous ARQ completion.
+1. Add asynchronous ARQ completion and the SIS archive bridge.
 2. Load a real model and animation from the supplied Melee image.
 3. Add a Metal renderer, audio output, and persistent card storage.
 4. Boot menus, enter a match, check controls and match end, and return to the menu.
