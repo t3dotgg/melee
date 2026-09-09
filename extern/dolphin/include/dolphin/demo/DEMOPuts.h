@@ -1,6 +1,8 @@
 #ifndef _DOLPHIN_DEMOPUTS_H_
 #define _DOLPHIN_DEMOPUTS_H_
 
+#include <dolphin/types.h>
+
 typedef enum
 {
     DMTF_POINTSAMPLE,
@@ -16,8 +18,8 @@ typedef enum
 
 void DEMOSetFontType(DMFontType attr);
 void DEMOLoadFont(enum _GXTexMapID texMap, enum _GXTexMtx texMtx, DMTexFlt texFlt);
-void DEMOSetupScrnSpc(long width, long height, float depth);
-void DEMOInitCaption(long font_type, long width, long height);
+void DEMOSetupScrnSpc(s32 width, s32 height, float depth);
+void DEMOInitCaption(s32 font_type, s32 width, s32 height);
 void DEMOPuts(s16 x, s16 y, s16 z, char * string);
 void DEMOPrintf(s16 x, s16 y, s16 z, char * fmt, ...);
 struct OSFontHeader * DEMOInitROMFont();

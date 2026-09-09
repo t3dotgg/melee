@@ -1,6 +1,8 @@
 #ifndef _DOLPHIN_DEMOWIN_H_
 #define _DOLPHIN_DEMOWIN_H_
 
+#include <dolphin/types.h>
+
 enum DEMOWinItem {
     DEMOWIN_ITEM_CAP,
     DEMOWIN_ITEM_BKGND,
@@ -13,12 +15,12 @@ enum DEMOWinItem {
 #define DEMOWIN_FLAGS_OPENED (1 << 1)
 
 struct STRUCT_DEMOWIN {
-    /* 0x00 */ long x1;
-    /* 0x04 */ long y1;
-    /* 0x08 */ long x2;
-    /* 0x0C */ long y2;
-    /* 0x10 */ unsigned long priority;
-    /* 0x14 */ unsigned long flags;
+    /* 0x00 */ s32 x1;
+    /* 0x04 */ s32 y1;
+    /* 0x08 */ s32 x2;
+    /* 0x0C */ s32 y2;
+    /* 0x10 */ u32 priority;
+    /* 0x14 */ u32 flags;
     /* 0x18 */ unsigned short x_cal;
     /* 0x1A */ unsigned short y_cal;
     /* 0x1C */ unsigned short pixel_width;
@@ -63,12 +65,12 @@ void DEMOWinDestroyMenuWindow(struct STRUCT_MENU * menu);
 u32 DEMOWinMenuChild(struct STRUCT_MENU * menu, int child_flag);
 void DEMOWinPadInit(DEMOWinPadInfo *p);
 void DEMOWinPadRead(DEMOWinPadInfo *p);
-void DEMOWinSetRepeat(unsigned long threshold, unsigned long rate);
+void DEMOWinSetRepeat(u32 threshold, u32 rate);
 void DEMOWinResetRepeat();
 struct STRUCT_LISTBOX * DEMOWinCreateListWindow(struct STRUCT_LISTBOX * list, unsigned short x, unsigned short y);
 void DEMOWinDestroyListWindow(struct STRUCT_LISTBOX * list);
 void DEMOWinListSetCursor(struct STRUCT_LISTBOX * list, int x);
-long DEMOWinListScrollList(struct STRUCT_LISTBOX * list, unsigned long dir);
-long DEMOWinListMoveCursor(struct STRUCT_LISTBOX * list, unsigned long dir);
+s32 DEMOWinListScrollList(struct STRUCT_LISTBOX * list, u32 dir);
+s32 DEMOWinListMoveCursor(struct STRUCT_LISTBOX * list, u32 dir);
 
 #endif // _DOLPHIN_DEMOWIN_H_

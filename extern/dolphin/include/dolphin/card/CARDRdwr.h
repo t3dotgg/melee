@@ -1,6 +1,8 @@
 #ifndef _DOLPHIN_CARDRDWR_H_
 #define _DOLPHIN_CARDRDWR_H_
 
-long CARDGetXferredBytes(long chan);
+#include <dolphin/types.h>
+
+s32 CARDGetXferredBytes(s32 chan);
 
 #endif // _DOLPHIN_CARDRDWR_H_

@@ -1,6 +1,8 @@
 #ifndef _DOLPHIN_CARDSTAT_H_
 #define _DOLPHIN_CARDSTAT_H_
 
+#include <dolphin/types.h>
+
 typedef struct CARDStat
 {
     /*0x00*/ char fileName[CARD_FILENAME_MAX];
@@ -22,6 +24,6 @@ typedef struct CARDStat
 
 s32 CARDGetStatus(s32 chan, s32 fileNo, CARDStat *stat);
 s32 CARDSetStatusAsync(s32 chan, s32 fileNo, CARDStat *stat, CARDCallback callback);
-long CARDSetStatus(long chan, long fileNo, struct CARDStat * stat);
+s32 CARDSetStatus(s32 chan, s32 fileNo, struct CARDStat * stat);
 
 #endif // _DOLPHIN_CARDSTAT_H_

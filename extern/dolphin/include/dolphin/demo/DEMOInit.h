@@ -1,6 +1,8 @@
 #ifndef _DOLPHIN_DEMOINIT_H_
 #define _DOLPHIN_DEMOINIT_H_
 
+#include <dolphin/types.h>
+
 #include <dolphin/gx.h>
 
 extern void * DemoFrameBuffer1;
@@ -15,7 +17,7 @@ void DEMOSetTevColorIn(enum _GXTevStageID stage, enum _GXTevColorArg a, enum _GX
 void DEMOSetTevOp(enum _GXTevStageID id, enum _GXTevMode mode);
 struct _GXRenderModeObj * DEMOGetRenderModeObj();
 u32 DEMOGetCurrentBuffer(void);
-void DEMOEnableBypassWorkaround(unsigned long timeoutFrames);
+void DEMOEnableBypassWorkaround(u32 timeoutFrames);
 void DEMOReInit(struct _GXRenderModeObj * mode);
 
 #endif // _DOLPHIN_DEMOINIT_H_

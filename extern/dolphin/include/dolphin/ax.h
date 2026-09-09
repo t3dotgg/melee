@@ -187,9 +187,9 @@ typedef struct _AXPROFILE {
 } AXPROFILE;
 
 struct AX_AUX_DATA {
-    /* 0x00 */ long* l;
-    /* 0x00 */ long* r;
-    /* 0x00 */ long* s;
+    /* 0x00 */ s32* l;
+    /* 0x00 */ s32* r;
+    /* 0x00 */ s32* s;
 };
 
 #define AX_DSP_SLAVE_LENGTH 3312

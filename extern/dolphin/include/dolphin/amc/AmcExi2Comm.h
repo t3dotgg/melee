@@ -1,6 +1,8 @@
 #ifndef _DOLPHIN_AMC_AMCEXI2COMM_H_
 #define _DOLPHIN_AMC_AMCEXI2COMM_H_
 
+#include <dolphin/types.h>
+
 #include <dolphin/amc/AmcTypes.h>
 #include <dolphin/os.h>
 
@@ -48,25 +50,25 @@ int EXI2_Poll(void);
 
 // ---------------------------------------------------------------------------
 //
-// AmcExiError EXI2_ReadN( void *bytes, unsigned long length );
+// AmcExiError EXI2_ReadN( void *bytes, u32 length );
 //
 // Description: Read length bytes and return in bytes[] array.
 //
 //     Returns: One of AMC_EXI_*.
 //
 // ---------------------------------------------------------------------------
-AmcExiError EXI2_ReadN(void* bytes, unsigned long length);
+AmcExiError EXI2_ReadN(void* bytes, u32 length);
 
 // ---------------------------------------------------------------------------
 //
-// AmcExiError EXI2_WriteN( const void *bytes, unsigned long length );
+// AmcExiError EXI2_WriteN( const void *bytes, u32 length );
 //
 // Description: Write length bytes stored in bytes[] array.
 //
 //     Returns: One of AMC_EXI_*.
 //
 // ---------------------------------------------------------------------------
-AmcExiError EXI2_WriteN(const void* bytes, unsigned long length);
+AmcExiError EXI2_WriteN(const void* bytes, u32 length);
 
 // ---------------------------------------------------------------------------
 //

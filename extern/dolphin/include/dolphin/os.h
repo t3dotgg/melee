@@ -94,7 +94,7 @@ int __EXIProbeStartTime[2] : (OS_BASE_CACHED | 0x30C0);
     (((nsec) * (OS_TIMER_CLOCK / 125000)) / 8000)
 #define OSMicrosecondsToTicks(usec) (((usec) * (OS_TIMER_CLOCK / 125000)) / 8)
 
-unsigned long OSGetConsoleType(void);
+u32 OSGetConsoleType(void);
 void OSInit(void);
 
 void* OSGetArenaHi(void);
@@ -127,14 +127,14 @@ typedef struct OSCalendarTime {
 typedef struct OSBootInfo_s {
     // total size: 0x40
     DVDDiskID DVDDiskID;        // offset 0x0, size 0x20
-    unsigned long magic;        // offset 0x20, size 0x4
-    unsigned long version;      // offset 0x24, size 0x4
-    unsigned long memorySize;   // offset 0x28, size 0x4
-    unsigned long consoleType;  // offset 0x2C, size 0x4
+    u32 magic;        // offset 0x20, size 0x4
+    u32 version;      // offset 0x24, size 0x4
+    u32 memorySize;   // offset 0x28, size 0x4
+    u32 consoleType;  // offset 0x2C, size 0x4
     void* arenaLo;              // offset 0x30, size 0x4
     void* arenaHi;              // offset 0x34, size 0x4
     void* FSTLocation;          // offset 0x38, size 0x4
-    unsigned long FSTMaxLength; // offset 0x3C, size 0x4
+    u32 FSTMaxLength; // offset 0x3C, size 0x4
 } OSBootInfo;
 
 OSTick OSGetTick(void);
