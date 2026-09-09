@@ -62,27 +62,43 @@ void NativeTrainingGame::update(const NativeInput& input, double dt_seconds)
     state_.player_y = first.y;
 }
 
+NativeGameLoop::NativeGameLoop(NativeGame& game, NativeInputSource& input,
+                               NativeRenderer& renderer)
+    : game_(game), input_(input), renderer_(renderer),
+      previous_snapshot_(game.render_snapshot()), current_snapshot_(previous_snapshot_)
+{
+}
+
+TimingStepResult NativeGameLoop::advance(double elapsed_seconds)
+{
+    const auto result = scheduler_.advance(elapsed_seconds, [this](double dt, std::uint64_t) {
+        previous_snapshot_ = current_snapshot_;
+        game_.update(input_.poll(), dt);
+        current_snapshot_ = game_.render_snapshot();
+    });
+    if (result.render_frames != 0 && renderer_.running()) {
+        const auto snapshot = interpolate(previous_snapshot_, current_snapshot_,
+                                           static_cast<float>(result.interpolation_alpha));
+        renderer_.render(game_.state(), snapshot);
+        ++presented_frames_;
+    }
+    return result;
+}
+
 int run_native_loop(NativeGame& game, NativeInputSource& input,
                    NativeRenderer& renderer, std::uint64_t max_frames)
 {
     using clock = std::chrono::steady_clock;
-    NativeTimingScheduler scheduler;
+    NativeGameLoop loop(game, input, renderer);
     auto previous = clock::now();
     auto next_wake = previous;
     std::uint64_t simulation_frames = 0;
-    while (max_frames == 0 || simulation_frames < max_frames) {
+    while ((max_frames == 0 || simulation_frames < max_frames) && renderer.running()) {
         const auto now = clock::now();
         const double elapsed = std::chrono::duration<double>(now - previous).count();
         previous = now;
-        const auto result = scheduler.advance(elapsed, [&](double dt, std::uint64_t) {
-            game.update(input.poll(), dt);
-            ++simulation_frames;
-        });
-        // Rendering can run twice for each 60 Hz simulation tick. The state is
-        // immutable for this shell; a production renderer will interpolate
-        // snapshots using result.interpolation_alpha.
-        for (std::uint32_t i = 0; i < result.render_frames; ++i)
-            renderer.render(game.state(), game.render_snapshot());
+        const auto result = loop.advance(elapsed);
+        simulation_frames += result.simulation_steps;
         next_wake += std::chrono::microseconds(8333);
         std::this_thread::sleep_until(next_wake);
         if (clock::now() - next_wake > std::chrono::milliseconds(100))

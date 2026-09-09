@@ -6,6 +6,7 @@
 #include "native_match.h"
 #include "native_render.h"
 #include "native_scene.h"
+#include "native_timing.h"
 
 #include <cstdint>
 
@@ -92,6 +93,7 @@ public:
 class NativeRenderer {
 public:
     virtual ~NativeRenderer() = default;
+    virtual bool running() const noexcept { return true; }
     virtual void render(const NativeFrameState& state) = 0;
     virtual void render(const NativeFrameState& state,
                         const RenderSnapshot& snapshot)
@@ -99,6 +101,25 @@ public:
         (void)snapshot;
         render(state);
     }
+};
+
+// Drives the same simulation/presentation path from either measured host time
+// or explicit replay time. Render snapshots interpolate adjacent simulation
+// ticks; missed presentation slots coalesce into one latest frame.
+class NativeGameLoop final {
+public:
+    NativeGameLoop(NativeGame& game, NativeInputSource& input, NativeRenderer& renderer);
+    TimingStepResult advance(double elapsed_seconds);
+    std::uint64_t presented_frames() const noexcept { return presented_frames_; }
+
+private:
+    NativeGame& game_;
+    NativeInputSource& input_;
+    NativeRenderer& renderer_;
+    NativeTimingScheduler scheduler_;
+    RenderSnapshot previous_snapshot_;
+    RenderSnapshot current_snapshot_;
+    std::uint64_t presented_frames_ = 0;
 };
 
 int run_native_loop(NativeGame& game, NativeInputSource& input,

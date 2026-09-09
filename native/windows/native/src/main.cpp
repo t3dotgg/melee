@@ -33,16 +33,18 @@ public:
         };
         const auto first = convert(0, mapper_);
         const auto second = convert(1, mapper_two_);
+        // Gameplay actions are edge-triggered at the 60 Hz boundary. Sticks
+        // remain level-triggered, matching the controller queue semantics.
         return {first.stick_x, first.stick_y,
-                first.held(melee::native::PadButton::Attack),
-                first.held(melee::native::PadButton::Special),
-                first.held(melee::native::PadButton::Jump),
-                first.held(melee::native::PadButton::Start),
+                first.pressed(melee::native::PadButton::Attack),
+                first.pressed(melee::native::PadButton::Special),
+                first.pressed(melee::native::PadButton::Jump),
+                first.pressed(melee::native::PadButton::Start),
                 second.stick_x, second.stick_y,
-                second.held(melee::native::PadButton::Attack),
-                second.held(melee::native::PadButton::Special),
-                second.held(melee::native::PadButton::Jump),
-                second.held(melee::native::PadButton::Start)};
+                second.pressed(melee::native::PadButton::Attack),
+                second.pressed(melee::native::PadButton::Special),
+                second.pressed(melee::native::PadButton::Jump),
+                second.pressed(melee::native::PadButton::Start)};
     }
 
 private:

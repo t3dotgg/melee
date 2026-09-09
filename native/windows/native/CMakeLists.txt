@@ -151,3 +151,7 @@ add_test(NAME native_render_geometry COMMAND melee_native_render_geometry_tests)
 add_executable(melee_native_material_tests tests/material_tests.cpp)
 target_link_libraries(melee_native_material_tests PRIVATE melee_native_core)
 add_test(NAME native_material COMMAND melee_native_material_tests)
+
+add_executable(melee_native_loop_tests tests/loop_tests.cpp)
+target_link_libraries(melee_native_loop_tests PRIVATE melee_native_core)
+add_test(NAME native_game_loop COMMAND melee_native_loop_tests)
