@@ -8,6 +8,7 @@
 #include "lbfile.h"
 #include "lbheap.h"
 #include "types.h"
+#include <melee/sc/types.h>
 #include <dolphin/os.h>
 #include <sysdolphin/baselib/archive.h>
 #include <sysdolphin/baselib/debug.h>
@@ -20,6 +21,7 @@
 #ifdef MELEE_NATIVE
 typedef struct NativeArchiveBinding NativeArchiveBinding;
 typedef struct NativeSisRoot NativeSisRoot;
+typedef struct NativeSceneAllocation NativeSceneAllocation;
 
 struct NativeSisRoot {
     SIS* table;
@@ -33,10 +35,32 @@ struct NativeArchiveBinding {
     NativeArchive* archive;
     NativeArchiveGraph* graph;
     NativeSisRoot* sis_roots;
+    NativeSceneAllocation* scene_allocations;
     NativeArchiveBinding* next;
 };
 
+struct NativeSceneAllocation {
+    void* pointer;
+    NativeSceneAllocation* next;
+};
+
 static NativeArchiveBinding* native_archive_bindings;
+
+static void* native_scene_alloc(NativeArchiveBinding* binding, size_t size)
+{
+    NativeSceneAllocation* allocation;
+    void* pointer = calloc(1, size);
+    if (pointer == NULL) return NULL;
+    allocation = calloc(1, sizeof(*allocation));
+    if (allocation == NULL) {
+        free(pointer);
+        return NULL;
+    }
+    allocation->pointer = pointer;
+    allocation->next = binding->scene_allocations;
+    binding->scene_allocations = allocation;
+    return pointer;
+}
 
 static NativeArchiveBinding* native_binding(HSD_Archive* archive)
 {
@@ -198,6 +222,117 @@ static struct Fighter_804D653C_t* native_rumble_root(
     return table;
 }
 
+static bool native_scene_reference(NativeArchiveBinding* binding,
+                                   uint32_t field, uint32_t* target,
+                                   bool* present, NativeArchiveError* error)
+{
+    return NativeArchiveReference(binding->archive, field, target, present,
+                                   error) == NATIVE_ARCHIVE_OK;
+}
+
+static DynamicModelDesc* native_scene_model(NativeArchiveBinding* binding,
+                                            uint32_t offset,
+                                            NativeArchiveError* error)
+{
+    DynamicModelDesc* model = native_scene_alloc(binding, sizeof(*model));
+    uint32_t target;
+    bool present;
+    if (model == NULL) return NULL;
+    if (!native_scene_reference(binding, offset, &target, &present, error))
+        return NULL;
+    if (present && NativeArchiveJoint(binding->graph, target, &model->joint,
+                                      error) != NATIVE_ARCHIVE_OK)
+        return NULL;
+    /* Animation branches are optional for the message window.  They remain
+     * null until their schema is added to the native scene converter. */
+    return model;
+}
+
+static DynamicModelDesc** native_scene_models(NativeArchiveBinding* binding,
+                                              uint32_t offset, size_t* count,
+                                              NativeArchiveError* error)
+{
+    size_t i;
+    DynamicModelDesc** models;
+    *count = 0;
+    for (i = 0; i < 256; ++i) {
+        uint32_t target;
+        bool present;
+        if (!native_scene_reference(binding, offset + (uint32_t) (i * 4u),
+                                    &target, &present, error))
+            return NULL;
+        if (!present) break;
+        ++*count;
+    }
+    if (*count == 0) return NULL;
+    models = native_scene_alloc(binding, (*count + 1) * sizeof(*models));
+    if (models == NULL) return NULL;
+    for (i = 0; i < *count; ++i) {
+        uint32_t target;
+        bool present;
+        if (!native_scene_reference(binding, offset + (uint32_t) (i * 4u),
+                                    &target, &present, error) || !present)
+            return NULL;
+        models[i] = native_scene_model(binding, target, error);
+        if (models[i] == NULL) return NULL;
+    }
+    return models;
+}
+
+static struct SceneCameraDesc* native_scene_cameras(
+    NativeArchiveBinding* binding, uint32_t offset, NativeArchiveError* error)
+{
+    size_t i;
+    struct SceneCameraDesc* cameras;
+    for (i = 0; i < 32; ++i) {
+        uint32_t target;
+        bool present;
+        if (!native_scene_reference(binding, offset + (uint32_t) (i * 8u),
+                                    &target, &present, error))
+            return NULL;
+        if (!present) break;
+    }
+    if (i == 0) return NULL;
+    cameras = native_scene_alloc(binding, (i + 1) * sizeof(*cameras));
+    if (cameras == NULL) return NULL;
+    for (size_t j = 0; j < i; ++j) {
+        uint32_t target;
+        bool present;
+        if (!native_scene_reference(binding, offset + (uint32_t) (j * 8u),
+                                    &target, &present, error) || !present)
+            return NULL;
+        if (NativeArchiveCObj(binding->graph, target, &cameras[j].desc,
+                              error) != NATIVE_ARCHIVE_OK)
+            return NULL;
+    }
+    return cameras;
+}
+
+static SceneDesc* native_scene_root(NativeArchiveBinding* binding,
+                                    uint32_t offset,
+                                    NativeArchiveError* error)
+{
+    SceneDesc* scene = native_scene_alloc(binding, sizeof(*scene));
+    uint32_t models_offset, cameras_offset;
+    bool models_present, cameras_present;
+    size_t model_count;
+    if (scene == NULL || !native_scene_reference(binding, offset, &models_offset,
+                                                 &models_present, error) ||
+        !native_scene_reference(binding, offset + 4, &cameras_offset,
+                                &cameras_present, error))
+        return NULL;
+    if (models_present) {
+        scene->models = native_scene_models(binding, models_offset, &model_count,
+                                             error);
+        if (scene->models == NULL) return NULL;
+    }
+    if (cameras_present) {
+        scene->cameras = native_scene_cameras(binding, cameras_offset, error);
+        if (scene->cameras == NULL) return NULL;
+    }
+    return scene;
+}
+
 void* HSD_ArchiveNativePublicAddress(HSD_Archive* archive, const char* symbol)
 {
     NativeArchiveBinding* binding = native_binding(archive);
@@ -228,6 +363,10 @@ void* HSD_ArchiveNativePublicAddress(HSD_Archive* archive, const char* symbol)
     if (strcmp(symbol, "MemCardIconData") == 0 &&
         NativeArchiveDataRange(binding->archive, offset, 1)) {
         return (void*) (binding->archive->data + offset);
+    }
+    if (strcmp(symbol, "ScNtcCommon_scene_data") == 0) {
+        root = native_scene_root(binding, offset, &error);
+        if (root != NULL) return root;
     }
     if (native_name_ends_with(symbol, "_animjoint") ||
         native_name_ends_with(symbol, "_animation")) {
@@ -262,6 +401,7 @@ void HSD_ArchiveNativeRelease(HSD_Archive* archive)
     NativeArchiveBinding** cursor = &native_archive_bindings;
     NativeArchiveBinding* binding;
     NativeSisRoot* sis;
+    NativeSceneAllocation* allocation;
     while (*cursor != NULL && (*cursor)->legacy != archive) cursor = &(*cursor)->next;
     binding = *cursor;
     if (binding == NULL) return;
@@ -272,6 +412,13 @@ void HSD_ArchiveNativeRelease(HSD_Archive* archive)
         free(sis->table);
         free(sis);
         sis = next;
+    }
+    allocation = binding->scene_allocations;
+    while (allocation != NULL) {
+        NativeSceneAllocation* next = allocation->next;
+        free(allocation->pointer);
+        free(allocation);
+        allocation = next;
     }
     NativeArchiveGraphClose(binding->graph);
     NativeArchiveClose(binding->archive);

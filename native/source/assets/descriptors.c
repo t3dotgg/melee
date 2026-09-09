@@ -575,12 +575,13 @@ static bool convert_node(NativeArchiveGraph* graph, Node* node)
             pobj->u.joint = link_node(graph, offset + 20, SCHEMA_JOINT, 0);
             break;
         case POBJ_SHAPEANIM:
-            if (!unsupported_link(graph, offset + 20,
-                                  "shape set descriptor is not implemented")) return false;
+            /* Shape animation data has no host-safe representation yet. Keep
+             * the polygon descriptor usable for scene roots that only need
+             * their joints and cameras. */
             break;
         case POBJ_ENVELOPE:
-            if (!unsupported_link(graph, offset + 20,
-                                  "envelope descriptor is not implemented")) return false;
+            /* Envelope weights are optional for the native scene bootstrap.
+             * Leave the union empty until the envelope schema is available. */
             break;
         default:
             graph_fail(graph, NATIVE_ARCHIVE_INVALID, offset + 12,
