@@ -19,9 +19,9 @@ struct LBMgr {
     OSAlarm alarm; // 0x00
     u8* src;       // 0x28
     u8* dst;       // 0x2C
-    u32 size;      // 0x30
-    u32 offset;    // 0x34
-    u32 cb_arg;    // 0x38
+    size_t size;   // 0x30
+    size_t offset; // 0x34
+    intptr_t cb_arg; // 0x38
     HSD_DevComCallback cb;
 };
 
@@ -42,7 +42,7 @@ struct Allocator {
     u8 x6EC[0x6F0 - 0x6EC];
 };
 
-/* 015320 */ static void lbMemory_80015320(int request_id, int callback_arg,
+/* 015320 */ static void lbMemory_80015320(int request_id, intptr_t callback_arg,
                                            void* buffer, bool cancelflag);
 
 struct Allocator lbMemory_804318B0;
@@ -66,8 +66,15 @@ static inline Handle* new_handle(void* arenaLo, void* arenaHi)
     Handle* h;
     HSD_ASSERT(0x7B, _p(free_heap));
 
-    if (((u32) arenaLo < 0x80000000U) && ((u32) arenaHi < 0x80000000U)) {
-        HSD_ASSERT(0x80, (u32)arenaLo >= (u32)_p(a_arenaLo) && (u32)arenaHi <= (u32)_p(a_arenaHi));
+#ifdef MELEE_NATIVE
+    HSD_ASSERT(0x80, (uintptr_t) arenaLo <= (uintptr_t) arenaHi);
+    if ((uintptr_t) arenaLo < ARGetSize()) {
+#else
+    if (((uintptr_t) arenaLo < 0x80000000U) &&
+        ((uintptr_t) arenaHi < 0x80000000U)) {
+#endif
+        HSD_ASSERT(0x80, (uintptr_t) arenaLo >= (uintptr_t) _p(a_arenaLo) &&
+                             (uintptr_t) arenaHi <= (uintptr_t) _p(a_arenaHi));
     }
 
     POP_HANDLE(&_p(free_heap), h);
@@ -97,23 +104,24 @@ void lbMemory_80014EEC(Handle* handle)
     PUSH_HANDLE(&_p(free_heap), handle);
 }
 
-u32 lbMemory_80014F7C(Handle* heap)
+size_t lbMemory_80014F7C(Handle* heap)
 {
-    u32 gap_end;
-    u32 gap_start = (u32) heap->x4_lo;
+    uintptr_t gap_end;
+    uintptr_t gap_start = (uintptr_t) heap->x4_lo;
     /* Only x0_next is read through this view of the list head. */
     Handle* allocation = (Handle*) &heap->xC_prev;
-    u32 free_bytes = 0;
+    size_t free_bytes = 0;
 
     while (1) {
         allocation = allocation->x0_next;
         gap_end =
-            (u32) ((allocation != NULL) ? allocation->x4_lo : heap->x8_hi);
+            (uintptr_t) ((allocation != NULL) ? allocation->x4_lo : heap->x8_hi);
         free_bytes += gap_end - gap_start;
         if (allocation == NULL) {
             break;
         }
-        gap_start = (u32) allocation->x4_lo + (u32) allocation->x8_hi;
+        gap_start =
+            (uintptr_t) allocation->x4_lo + (uintptr_t) allocation->x8_hi;
     }
     return free_bytes;
 }
@@ -123,13 +131,18 @@ Handle* lbMemory_80014FC8(Handle* heap, size_t size)
     void* allocation_start;
     Handle* memp_kouho;
     void* gap_end;
-    u32 best_leftover;
-    u32 leftover;
-    u32 gap_size;
+    size_t best_leftover;
+    size_t leftover;
+    size_t gap_size;
     void* gap_start;
     Handle* previous;
 
+#ifdef MELEE_NATIVE
+    best_leftover = SIZE_MAX;
+    HSD_ASSERT(0xCC, size > 0 && size <= SIZE_MAX - 31);
+#else
     best_leftover = 0x40000000U;
+#endif
     HSD_ASSERT(0xCC, _p(free_mem));
     size = OSRoundUp32B(size);
     gap_start = heap->x4_lo;
@@ -141,7 +154,7 @@ Handle* lbMemory_80014FC8(Handle* heap, size_t size)
     while (1) {
         gap_end = (previous->x0_next != NULL) ? previous->x0_next->x4_lo
                                               : heap->x8_hi;
-        gap_size = (u32) gap_end - (u32) gap_start;
+        gap_size = (uintptr_t) gap_end - (uintptr_t) gap_start;
         if (gap_size >= size) {
             leftover = gap_size;
             leftover = leftover - size;
@@ -155,7 +168,8 @@ Handle* lbMemory_80014FC8(Handle* heap, size_t size)
             break;
         }
         previous = previous->x0_next;
-        gap_start = (void*) ((u32) previous->x4_lo + (u32) previous->x8_hi);
+        gap_start = (void*) ((uintptr_t) previous->x4_lo +
+                             (uintptr_t) previous->x8_hi);
     }
     HSD_ASSERT(0xE9, memp_kouho);
     {
@@ -189,16 +203,20 @@ void lbMemFreeToHeap(Handle* heap, void* address)
         allocation_link = &allocation->x0_next;
         allocation = allocation->x0_next;
     }
+#ifdef MELEE_NATIVE
+    OSReport("[LbMem] Error: lbMemFreeToHeap %p.\n", address);
+#else
     OSReport("[LbMem] Error: lbMemFreeToHeap %x.\n", address);
+#endif
     HSD_ASSERT(283, 0);
 }
 
 static void fn_80015184(OSAlarm* alarm, OSContext* context)
 {
     struct LBMgr* p;
-    u32 remaining_bytes;
-    u32 copied_bytes;
-    u32 chunk_size;
+    size_t remaining_bytes;
+    size_t copied_bytes;
+    size_t chunk_size;
 
     p = &_p(x6A0_mgr);
     HSD_ASSERT(0x127, p->size);
@@ -208,7 +226,11 @@ static void fn_80015184(OSAlarm* alarm, OSContext* context)
     if (remaining_bytes > 0x19000U) {
         chunk_size = 0x19000;
     }
+#ifdef MELEE_NATIVE
+    memmove(p->dst + copied_bytes, p->src + copied_bytes, chunk_size);
+#else
     memcpy(p->dst + copied_bytes, p->src + copied_bytes, chunk_size);
+#endif
     p->offset += chunk_size;
     if (p->offset == p->size) {
         p->size = 0U;
@@ -237,16 +259,16 @@ u32 lbMemory_8001529C(Handle* heap, void (*callback)(u32), u32 callback_arg)
     {
         allocation_start = allocation->x4_lo;
         if (allocation_start != *compact_end) {
-            lbMemory_80015320(0, (int) allocation, NULL, false);
+            lbMemory_80015320(0, (intptr_t) allocation, NULL, false);
             return 1;
         }
-        *compact_end =
-            (void*) ((u32) allocation_start + (u32) allocation->x8_hi);
+        *compact_end = (void*) ((uintptr_t) allocation_start +
+                                (uintptr_t) allocation->x8_hi);
     }
     return 0;
 }
 
-static void start_ram_copy(u32 source, u32 destination, u32 size,
+static void start_ram_copy(uintptr_t source, uintptr_t destination, size_t size,
                            Handle* next_allocation)
 {
     struct LBMgr* p = &_p(x6A0_mgr);
@@ -257,26 +279,26 @@ static void start_ram_copy(u32 source, u32 destination, u32 size,
     p->dst = (u8*) destination;
     p->size = size;
     p->offset = 0;
-    p->cb_arg = (u32) next_allocation;
+    p->cb_arg = (intptr_t) next_allocation;
     p->cb = lbMemory_80015320;
     OSRestoreInterrupts(interrupts_enabled);
     OSCreateAlarm(&p->alarm);
     OSSetAlarm(&p->alarm, OSMillisecondsToTicks(3), fn_80015184);
 }
 
-static void lbMemory_80015320(int request_id, int callback_arg, void* buffer,
+static void lbMemory_80015320(int request_id, intptr_t callback_arg, void* buffer,
                               bool cancelflag)
 {
     void* null_or_source;
     Handle* handle = (Handle*) callback_arg;
     void** compact_end;
     void* source;
-    u32 destination;
+    uintptr_t destination;
     void* copy_source;
     void* allocation_start;
 
     compact_end = &_p(x6E4);
-    destination = (u32) _p(x6E4);
+    destination = (uintptr_t) _p(x6E4);
     null_or_source = NULL;
 
     HSD_ASSERT(0x188, !cancelflag);
@@ -287,23 +309,28 @@ static void lbMemory_80015320(int request_id, int callback_arg, void* buffer,
             null_or_source = source;
             /* Store the new address before the asynchronous copy starts. */
             handle->x4_lo = (void*) destination;
-            *compact_end = (void*) ((u32) handle->x4_lo + (u32) handle->x8_hi);
+            *compact_end = (void*) ((uintptr_t) handle->x4_lo +
+                                    (uintptr_t) handle->x8_hi);
             copy_source = null_or_source;
 
-            if ((u32) handle->x4_lo < 0x80000000U) {
-                HSD_DevComRequest(0, (u32) copy_source, destination,
+#ifdef MELEE_NATIVE
+            if ((uintptr_t) handle->x4_lo < ARGetSize()) {
+#else
+            if ((uintptr_t) handle->x4_lo < 0x80000000U) {
+#endif
+                HSD_DevComRequest(0, (uintptr_t) copy_source, destination,
                                   OSRoundUp32B(handle->x8_hi), 0x1B, 1,
                                   lbMemory_80015320, handle->x0_next);
                 return;
             } else {
-                start_ram_copy((u32) copy_source, destination,
+                start_ram_copy((uintptr_t) copy_source, destination,
                                OSRoundUp32B(handle->x8_hi), handle->x0_next);
                 return;
             }
         }
 
-        *compact_end = (void*) ((u32) source + (u32) handle->x8_hi);
-        lbMemory_80015320(0, (int) handle->x0_next, null_or_source, false);
+        *compact_end = (void*) ((uintptr_t) source + (uintptr_t) handle->x8_hi);
+        lbMemory_80015320(0, (intptr_t) handle->x0_next, null_or_source, false);
         return;
     }
 
@@ -351,10 +378,11 @@ void lbMemory_8001564C(void)
     int i;
     u8* base = (u8*) &lbMemory_804318B0;
 
-    _p(a_arenaLo) = (void*) ARAlloc(0x20);
+    _p(a_arenaLo) = (void*) (uintptr_t) ARAlloc(0x20);
     ARFree(&size[2]);
-    _p(a_arenaHi) =
-        (void*) ((ARGetSize() > 0x01000000U) ? 0x01000000U : ARGetSize());
+    _p(a_arenaHi) = (void*) (uintptr_t) ((ARGetSize() > 0x01000000U)
+                                          ? 0x01000000U
+                                          : ARGetSize());
 
     _p(free_mem) = (Handle*) &_p(x8_mem)[0];
     for (i = 0; i < 0x82; i++) {
@@ -364,6 +392,13 @@ void lbMemory_8001564C(void)
 
     _p(x634_max_num_allocs) = 0;
     _p(x630_num_allocs) = 0;
+#ifdef MELEE_NATIVE
+    _p(free_heap) = &_p(x638_heap)[0];
+    for (i = 0; i < ARRAY_SIZE(_p(x638_heap)) - 1; i++) {
+        _p(x638_heap)[i].x0_next = &_p(x638_heap)[i + 1];
+    }
+    _p(x638_heap)[i].x0_next = NULL;
+#else
     // The chain below walks _p(x638_heap)[0..5], one Handle (0x10) apart.
     // Writing it through the array instead does not match.
     _p(free_heap) = &_p(x638_heap)[0];
@@ -373,6 +408,7 @@ void lbMemory_8001564C(void)
     *(void**) (base + 0x668) = base + 0x678;
     *(void**) (base + 0x678) = base + 0x688;
     *(void**) (base + 0x688) = NULL;
+#endif
     _p(x69C) = NULL;
     {
         void* hi = _p(a_arenaHi);

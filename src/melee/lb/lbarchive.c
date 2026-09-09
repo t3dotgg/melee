@@ -278,6 +278,14 @@ static inline void Locate(HSD_Archive* archive, intptr_t base_addr)
 int lbArchiveRelocate(HSD_Archive* archive, u8* src, size_t file_size,
                       intptr_t base_addr)
 {
+#ifdef MELEE_NATIVE
+    (void) archive;
+    (void) src;
+    (void) file_size;
+    (void) base_addr;
+    OSReport("lbArchiveRelocate is unavailable on native hosts; use NativeArchive.\n");
+    return -1;
+#else
     size_t file_offset;
 
     if (archive == NULL) {
@@ -321,4 +329,5 @@ int lbArchiveRelocate(HSD_Archive* archive, u8* src, size_t file_size,
     Locate(archive, base_addr);
 
     return 0;
+#endif
 }

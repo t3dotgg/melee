@@ -14,7 +14,7 @@ typedef struct Handle {
 
 /* 014E24 */ Handle* lbMemory_80014E24(void* lo, void* hi);
 /* 014EEC */ void lbMemory_80014EEC(Handle* handle);
-/* 014F7C */ u32 lbMemory_80014F7C(Handle* heap);
+/* 014F7C */ size_t lbMemory_80014F7C(Handle* heap);
 // Return an allocation descriptor. Its x4_lo field holds the data address.
 /* 014FC8 */ Handle* lbMemory_80014FC8(Handle* heap, size_t size);
 /* 0150F0 */ void lbMemFreeToHeap(Handle* heap, void* address);

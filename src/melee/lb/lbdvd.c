@@ -124,7 +124,7 @@ static inline int sameHeap(int entry_heap, s32 requested_heap)
 }
 
 void* lbDvd_80017740(int type, int entry_num, int transient_heap, int heap,
-                     u32 size, int load_state, int load_score, u8 flags,
+                     size_t size, int load_state, int load_score, u8 flags,
                      int effect_index)
 {
     PreloadEntry* entry;
@@ -300,7 +300,7 @@ void lbDvd_CachePreloadedFile(s32 index)
             entry->load_score = 9999;
             lbFile_800164A4(entry->entry_num,
                             (uintptr_t) entry->raw_data->addr, &entry->size, 2,
-                            lbDvd_80017E64, (void*) index);
+                            lbDvd_80017E64, (void*) (intptr_t) index);
         }
     }
 }
@@ -345,7 +345,7 @@ void lbDvd_80017CC4(void)
     }
 }
 
-void lbDvd_80017E64(int request_id, int index, void* buffer, bool cancelflag)
+void lbDvd_80017E64(int request_id, intptr_t index, void* buffer, bool cancelflag)
 {
     PreloadEntry* entry = &preloadCache.entries[index];
     if (cancelflag != 0) {
