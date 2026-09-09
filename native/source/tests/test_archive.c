@@ -1,5 +1,6 @@
 #include "../assets/archive.h"
 
+#include <melee/lb/lbanim.h>
 #include <sysdolphin/baselib/aobj.h>
 #include <sysdolphin/baselib/cobj.h>
 #include <sysdolphin/baselib/dobj.h>
@@ -1004,6 +1005,79 @@ static void test_envelope_graph(void)
     NativeArchiveClose(archive);
 }
 
+static Fixture figatree_fixture(void)
+{
+    Fixture fixture = fixture_new(86);
+    const unsigned char stream[] = { HSD_A_OP_CON, 0, 0, 0xc0, 0x3f, 0 };
+    memcpy(fixture.bytes + HEADER_SIZE, stream, sizeof(stream));
+    memcpy(fixture.bytes + HEADER_SIZE + 80, stream, sizeof(stream));
+    word(&fixture, 8, 1);
+    word(&fixture, 12, AOBJ_LOOP);
+    word(&fixture, 16, 0x42480000); /* 50 frames */
+    reference(&fixture, 20, 28);
+    reference(&fixture, 24, 32);
+    word(&fixture, 28, 0x020002ff); /* Two tracks, none, two tracks, end. */
+    for (uint32_t i = 0; i < 4; ++i) {
+        uint32_t track = 32 + i * 12;
+        word(&fixture, track, (u32) sizeof(stream) << 16 | i);
+        word(&fixture, track + 4, (i + 1) << 24);
+        reference(&fixture, track + 8, i < 2 ? 0 : 80);
+    }
+    public_symbol(&fixture, 8, "figatree");
+    return fixture;
+}
+
+static void test_figatree(void)
+{
+    Fixture fixture = figatree_fixture();
+    NativeArchive* archive = open_fixture(&fixture);
+    NativeArchiveGraph* graph = open_graph(archive);
+    NativeArchiveError error = { 0 };
+    FigaTree* tree = NULL;
+    FigaTree* again = NULL;
+    CHECK(NativeArchiveFigaTreeByName(graph, "figatree", &tree, &error) ==
+          NATIVE_ARCHIVE_OK);
+    CHECK(tree->type == 1 && tree->flags == AOBJ_LOOP && tree->frames == 50.0f);
+    CHECK(tree->nodes[0] == 2 && tree->nodes[1] == 0 && tree->nodes[2] == 2);
+    CHECK(tree->nodes[3] == -1);
+    for (size_t i = 0; i < 4; ++i) {
+        CHECK(tree->tracks[i].length == 6 && tree->tracks[i].startframe == i);
+        CHECK(tree->tracks[i].obj_type == i + 1);
+        CHECK(tree->tracks[i].frac_value == HSD_A_FRAC_FLOAT);
+        CHECK(tree->tracks[i].frac_slope == HSD_A_FRAC_FLOAT);
+        CHECK(memcmp(tree->tracks[i].ad_head, fixture.bytes + HEADER_SIZE, 6) == 0);
+    }
+    CHECK(tree->tracks[0].ad_head == tree->tracks[1].ad_head);
+    CHECK(tree->tracks[2].ad_head == tree->tracks[3].ad_head);
+    CHECK(NativeArchiveFigaTree(graph, 8, &again, &error) == NATIVE_ARCHIVE_OK);
+    CHECK(again == tree);
+    check_host_pointer(&fixture, tree);
+    check_host_pointer(&fixture, tree->nodes);
+    check_host_pointer(&fixture, tree->tracks);
+    check_host_pointer(&fixture, tree->tracks[0].ad_head);
+    NativeArchiveGraphClose(graph);
+    NativeArchiveClose(archive);
+
+    fixture = figatree_fixture();
+    word(&fixture, 28, 0x040002ff);
+    archive = open_fixture(&fixture);
+    graph = open_graph(archive);
+    CHECK(NativeArchiveFigaTree(graph, 8, &tree, &error) == NATIVE_ARCHIVE_BOUNDS);
+    CHECK(tree == NULL && error.offset == HEADER_SIZE + 32);
+    NativeArchiveGraphClose(graph);
+    NativeArchiveClose(archive);
+
+    fixture = fixture_new(24);
+    reference(&fixture, 12, 20);
+    word(&fixture, 20, 0xff000000);
+    archive = open_fixture(&fixture);
+    graph = open_graph(archive);
+    CHECK(NativeArchiveFigaTree(graph, 0, &tree, &error) == NATIVE_ARCHIVE_OK);
+    CHECK(tree->nodes[0] == -1 && tree->tracks == NULL);
+    NativeArchiveGraphClose(graph);
+    NativeArchiveClose(archive);
+}
+
 static void test_constraint_bytecode(void)
 {
     Fixture fixture = fixture_new(132);
@@ -1381,6 +1455,7 @@ int main(void)
     test_spline_graph();
     test_shape_sets();
     test_envelope_graph();
+    test_figatree();
     test_constraint_bytecode();
     test_joint_constraints();
     test_unsupported_joint_fields();

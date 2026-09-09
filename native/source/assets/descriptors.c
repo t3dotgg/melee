@@ -56,6 +56,8 @@ typedef enum Schema {
     SCHEMA_ANIMATION,
     SCHEMA_AOBJ,
     SCHEMA_FOBJ,
+    SCHEMA_FIGATREE,
+    SCHEMA_FIGATRACKS,
     SCHEMA_WOBJ,
     SCHEMA_COBJ,
     SCHEMA_CANIM,
@@ -88,12 +90,6 @@ typedef struct Node {
     void* value;
 } Node;
 
-typedef struct FigaOwned {
-    struct FigaOwned* next;
-    uint32_t offset;
-    FigaTree* tree;
-} FigaOwned;
-
 struct NativeArchiveGraph {
     const NativeArchive* archive;
     Node** buckets;
@@ -103,7 +99,6 @@ struct NativeArchiveGraph {
     Node* last;
     Node* pending;
     NativeArchiveError failure;
-    FigaOwned* owned_figa;
 };
 
 static bool read_reference(NativeArchiveGraph* graph, uint32_t field,
@@ -287,7 +282,8 @@ static void* add_node(NativeArchiveGraph* graph, uint32_t offset,
         if (node->offset == offset) {
             if (node->schema != schema ||
                 ((schema == SCHEMA_BYTES || schema == SCHEMA_VTXLIST ||
-                  schema == SCHEMA_SHAPEIDXTBL || schema == SCHEMA_FLOATS) &&
+                  schema == SCHEMA_SHAPEIDXTBL || schema == SCHEMA_FLOATS ||
+                  schema == SCHEMA_FIGATRACKS) &&
                  node->length != length) ||
                 ((schema == SCHEMA_IMAGETBL || schema == SCHEMA_TLUTTBL) &&
                  node->length / 4 != length)) {
@@ -431,6 +427,19 @@ static void* add_node(NativeArchiveGraph* graph, uint32_t offset,
     case SCHEMA_AOBJ:
         disk_size = 16;
         host_size = sizeof(HSD_AObjDesc);
+        break;
+    case SCHEMA_FIGATREE:
+        disk_size = 20;
+        host_size = sizeof(FigaTree);
+        break;
+    case SCHEMA_FIGATRACKS:
+        if (length == 0 || length % 12 != 0) {
+            graph_fail(graph, NATIVE_ARCHIVE_INVALID, offset,
+                       "figatree track array has an invalid size");
+            return NULL;
+        }
+        disk_size = length;
+        host_size = (length / 12) * sizeof(FigaTrack);
         break;
     case SCHEMA_FOBJ:
         disk_size = 20;
@@ -1217,6 +1226,78 @@ static bool convert_node(NativeArchiveGraph* graph, Node* node)
         aobj->obj_id = (uintptr_t) joint;
         break;
     }
+    case SCHEMA_FIGATREE: {
+        FigaTree* tree = node->value;
+        uint32_t nodes_offset, tracks_offset;
+        bool present;
+        size_t nodes_length, node_count = 0, track_count = 0;
+        tree->type = (int32_t) NativeArchiveBE32(bytes);
+        tree->flags = NativeArchiveBE32(bytes + 4);
+        tree->frames = read_float(bytes + 8);
+        if (!read_reference(graph, offset + 12, &nodes_offset, &present)) return false;
+        if (!present || !next_target_length(graph->archive, nodes_offset, &nodes_length)) {
+            graph_fail(graph, NATIVE_ARCHIVE_INVALID, offset + 12,
+                       "figatree requires a node count array");
+            return false;
+        }
+        while (node_count < nodes_length) {
+            int count = (int8_t) graph->archive->data[nodes_offset + node_count++];
+            if (count == -1) break;
+            if (count < 0) {
+                graph_fail(graph, NATIVE_ARCHIVE_INVALID,
+                           nodes_offset + (uint32_t) node_count - 1,
+                           "figatree node track count is negative");
+                return false;
+            }
+            track_count += (size_t) count;
+        }
+        if (node_count == 0 ||
+            graph->archive->data[nodes_offset + node_count - 1] != 0xff) {
+            graph_fail(graph, NATIVE_ARCHIVE_BOUNDS, nodes_offset,
+                       "figatree node count array has no terminator");
+            return false;
+        }
+        tree->nodes = add_node(graph, nodes_offset, SCHEMA_BYTES, node_count);
+        if (!read_reference(graph, offset + 16, &tracks_offset, &present)) return false;
+        if (track_count != 0) {
+            if (!present) {
+                graph_fail(graph, NATIVE_ARCHIVE_INVALID, offset + 16,
+                           "figatree node counts require a track array");
+                return false;
+            }
+            tree->tracks = add_node(graph, tracks_offset, SCHEMA_FIGATRACKS,
+                                    track_count * 12);
+        }
+        break;
+    }
+    case SCHEMA_FIGATRACKS: {
+        FigaTrack* tracks = node->value;
+        for (size_t i = 0; i < node->length / 12; ++i) {
+            const uint8_t* track = bytes + i * 12;
+            uint32_t target, field = offset + (uint32_t) i * 12 + 8;
+            bool present;
+            tracks[i].length = (u16) ((track[0] << 8) | track[1]);
+            tracks[i].startframe = (u16) ((track[2] << 8) | track[3]);
+            tracks[i].obj_type = track[4];
+            tracks[i].frac_value = track[5];
+            tracks[i].frac_slope = track[6];
+            if (!read_reference(graph, field, &target, &present)) return false;
+            if (present) {
+                tracks[i].ad_head = add_node(graph, target, SCHEMA_BYTES,
+                                             tracks[i].length);
+                if (tracks[i].ad_head == NULL ||
+                    !validate_stream(graph, target, tracks[i].length,
+                                     tracks[i].frac_value, tracks[i].frac_slope)) {
+                    return false;
+                }
+            } else if (tracks[i].length != 0) {
+                graph_fail(graph, NATIVE_ARCHIVE_INVALID, field,
+                           "figatree track stream is null but nonempty");
+                return false;
+            }
+        }
+        break;
+    }
     case SCHEMA_FOBJ: {
         HSD_FObjDesc* fobj = node->value;
         uint32_t target;
@@ -1547,15 +1628,6 @@ void NativeArchiveGraphClose(NativeArchiveGraph* graph)
             free(node);
             node = next;
         }
-        FigaOwned* figa = graph->owned_figa;
-        while (figa != NULL) {
-            FigaOwned* next = figa->next;
-            free(figa->tree->nodes);
-            free(figa->tree->tracks);
-            free(figa->tree);
-            free(figa);
-            figa = next;
-        }
         free(graph->buckets);
         free(graph);
     }
@@ -1598,149 +1670,6 @@ static NativeArchiveStatus convert_root(NativeArchiveGraph* graph,
 }
 
 
-NativeArchiveStatus NativeArchiveFigaTree(NativeArchiveGraph* graph,
-                                         uint32_t offset,
-                                         struct FigaTree** output,
-                                         NativeArchiveError* error)
-{
-    const uint8_t* bytes;
-    uint32_t nodes_offset, tracks_offset;
-    bool present_nodes, present_tracks;
-    size_t node_count = 0, track_count = 0, i;
-    int max_track = -1;
-    FigaTree* tree;
-    FigaTrack* tracks;
-    s8* nodes;
-    if (output == NULL) {
-        return NativeArchiveFail(error, NATIVE_ARCHIVE_INVALID, 0,
-                                 "figatree output is null");
-    }
-    *output = NULL;
-    if (graph == NULL || graph->archive == NULL) {
-        return NativeArchiveFail(error, NATIVE_ARCHIVE_INVALID, 0,
-                                 "descriptor graph is null");
-    }
-    bytes = graph->archive->data;
-    if (!NativeArchiveDataRange(graph->archive, offset, 16) || (offset & 3u)) {
-        return graph_fail(graph, NATIVE_ARCHIVE_BOUNDS, offset,
-                          "figatree descriptor is outside archive data");
-    }
-    if (!read_reference(graph, offset + 8, &nodes_offset, &present_nodes) ||
-        !read_reference(graph, offset + 12, &tracks_offset, &present_tracks)) {
-        if (error != NULL) *error = graph->failure;
-        return graph->failure.status;
-    }
-    if (!present_nodes || !present_tracks) {
-        return graph_fail(graph, NATIVE_ARCHIVE_INVALID, offset,
-                          "figatree requires node and track arrays");
-    }
-    if (!NativeArchiveDataRange(graph->archive, nodes_offset, 1) ||
-        !NativeArchiveDataRange(graph->archive, tracks_offset, 12)) {
-        return graph_fail(graph, NATIVE_ARCHIVE_BOUNDS, offset,
-                          "figatree array is outside archive data");
-    }
-    while (nodes_offset + node_count < graph->archive->data_size &&
-           node_count < 65536) {
-        int value = (int8_t) bytes[nodes_offset + node_count];
-        ++node_count;
-        if (value == -1) break;
-        if (value < 0) {
-            return graph_fail(graph, NATIVE_ARCHIVE_INVALID,
-                              nodes_offset + (uint32_t) node_count - 1,
-                              "figatree node index is invalid");
-        }
-        if (value > max_track) max_track = value;
-    }
-    if (node_count == 0 || node_count > 65536 ||
-        (int8_t) bytes[nodes_offset + node_count - 1] != -1) {
-        return graph_fail(graph, NATIVE_ARCHIVE_BOUNDS, nodes_offset,
-                          "figatree node list is not terminated");
-    }
-    track_count = max_track < 0 ? 0 : (size_t) max_track + 1;
-    if (track_count > (graph->archive->data_size - tracks_offset) / 12) {
-        return graph_fail(graph, NATIVE_ARCHIVE_BOUNDS, tracks_offset,
-                          "figatree track list is truncated");
-    }
-    if (track_count > UINT32_MAX / 12 ||
-        !NativeArchiveDataRange(graph->archive, tracks_offset, track_count * 12)) {
-        return graph_fail(graph, NATIVE_ARCHIVE_BOUNDS, tracks_offset,
-                          "figatree track list is outside archive data");
-    }
-    tree = calloc(1, sizeof(*tree));
-    nodes = malloc(node_count);
-    tracks = track_count == 0 ? NULL : calloc(track_count, sizeof(*tracks));
-    if (tree == NULL || nodes == NULL || (track_count != 0 && tracks == NULL)) {
-        free(tree); free(nodes); free(tracks);
-        return graph_fail(graph, NATIVE_ARCHIVE_NO_MEMORY, offset,
-                          "cannot allocate figatree");
-    }
-    memcpy(nodes, bytes + nodes_offset, node_count);
-    for (i = 0; i < track_count; ++i) {
-        const uint8_t* track = bytes + tracks_offset + i * 12;
-        uint32_t ad_offset;
-        bool present_ad;
-        tracks[i].length = (u16) ((track[0] << 8) | track[1]);
-        tracks[i].startframe = (u16) ((track[2] << 8) | track[3]);
-        tracks[i].obj_type = track[4];
-        tracks[i].frac_value = track[5];
-        tracks[i].frac_slope = track[6];
-        if (!read_reference(graph, tracks_offset + (uint32_t) (i * 12) + 8,
-                            &ad_offset, &present_ad)) {
-            free(tree); free(nodes); free(tracks);
-            if (error != NULL) *error = graph->failure;
-            return graph->failure.status;
-        }
-        if (present_ad) {
-            if (!NativeArchiveDataRange(graph->archive, ad_offset, tracks[i].length)) {
-                free(tree); free(nodes); free(tracks);
-                return graph_fail(graph, NATIVE_ARCHIVE_BOUNDS, ad_offset,
-                                  "figatree track stream is truncated");
-            }
-            tracks[i].ad_head = add_node(graph, ad_offset, SCHEMA_BYTES,
-                                          tracks[i].length);
-            if (tracks[i].ad_head == NULL) {
-                free(tree); free(nodes); free(tracks);
-                if (error != NULL) *error = graph->failure;
-                return graph->failure.status;
-            }
-        } else if (tracks[i].length != 0) {
-            free(tree); free(nodes); free(tracks);
-            return graph_fail(graph, NATIVE_ARCHIVE_INVALID,
-                              tracks_offset + (uint32_t) (i * 12) + 8,
-                              "figatree track stream is null but nonempty");
-        }
-    }
-    tree->type = (int) NativeArchiveBE32(bytes + offset);
-    tree->flags = NativeArchiveBE32(bytes + offset + 4);
-    tree->frames = read_float(bytes + offset + 8);
-    tree->nodes = nodes;
-    tree->tracks = tracks;
-    {
-        FigaOwned* existing;
-        FigaOwned* owned = calloc(1, sizeof(*owned));
-        if (owned == NULL) {
-            free(tree->nodes); free(tree->tracks); free(tree);
-            return graph_fail(graph, NATIVE_ARCHIVE_NO_MEMORY, offset,
-                              "cannot allocate figatree owner");
-        }
-        for (existing = graph->owned_figa; existing != NULL;
-             existing = existing->next) {
-            if (existing->offset == offset) {
-                free(owned); free(tree->nodes); free(tree->tracks); free(tree);
-                *output = existing->tree;
-                return NativeArchiveFail(error, NATIVE_ARCHIVE_OK, 0, "ok");
-            }
-        }
-        owned->offset = offset;
-        owned->tree = tree;
-        owned->next = graph->owned_figa;
-        graph->owned_figa = owned;
-    }
-    *output = tree;
-    return NativeArchiveFail(error, NATIVE_ARCHIVE_OK, 0, "ok");
-}
-
-
 #define ROOT_READER(name, type, schema)                                      \
     NativeArchiveStatus name(NativeArchiveGraph* graph, uint32_t offset,      \
                              type** output, NativeArchiveError* error)       \
@@ -1757,6 +1686,7 @@ NativeArchiveStatus NativeArchiveFigaTree(NativeArchiveGraph* graph,
     }
 
 ROOT_READER(NativeArchiveJoint, HSD_Joint, SCHEMA_JOINT)
+ROOT_READER(NativeArchiveFigaTree, FigaTree, SCHEMA_FIGATREE)
 ROOT_READER(NativeArchiveSpline, HSD_Spline, SCHEMA_SPLINE)
 ROOT_READER(NativeArchiveMObj, HSD_MObjDesc, SCHEMA_MOBJ)
 ROOT_READER(NativeArchiveMatAnimJoint, HSD_MatAnimJoint,
