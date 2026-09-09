@@ -149,3 +149,6 @@ with no XInput DLL or connected controller.
 Typed Persistent, Scene, Frame, and Audio arenas now provide alignment-safe
 allocation, generation-checked handles, and deterministic reset behavior in
 place of the GameCube heap and raw pointer ranges.
+The renderer backend contract now has a headless implementation for deterministic
+tests and a Windows D3D12 capability probe; a swap-chain frontend and GX/TEV
+translation still remain to be implemented.
