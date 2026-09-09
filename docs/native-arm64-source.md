@@ -79,10 +79,10 @@ The full direct-source target now links successfully with no undefined
 symbols. The host services include 64-bit heap and context storage, typed
 archive loading for the supported descriptor schemas, filesystem or ISO disc
 reads, ARAM, controller state, headless 60 Hz retraces with OS alarm
-callbacks, a software GX EFB for direct vertices, cache operations, card
-stubs, and an explicit unavailable THP decoder. The scheduler uses the host
-monotonic clock by default. Tests can advance a deterministic clock without
-sleeping.
+callbacks, a software GX EFB for direct vertices and common display lists,
+cache operations, card stubs, and an explicit unavailable THP decoder. The
+scheduler uses the host monotonic clock by default. Tests can advance a
+deterministic clock without sleeping.
 
 The native archive bridge now loads `lbRumbleData`, `SIS_MessageData`, and
 `MemCardIconData` from the real image. An AddressSanitizer startup run reaches
@@ -90,13 +90,24 @@ the typed `SceneDesc` conversion for `ScNtcCommon_scene_data`. It has not yet
 entered a real match. The typed archive graph covers common joint display
 descriptors, materials, texture metadata, skin polygon descriptors, vertex
 descriptor lists, animations, cameras, and world objects. Remaining archive
-work includes the stage and menu roots, shape and envelope polygon
-descriptors, effects, and other callers.
+work includes the full scene roots, stage and menu roots, shape and envelope
+polygon descriptors, effects, and other callers. The graph can decode material
+and texture metadata, but the renderer does not yet apply those materials or
+sample those textures.
 
 The software GX EFB rasterizes direct vertex calls and `GXCopyDisp` copies the
-result to an RGB565 XFB. GX vertex arrays and display lists remain unsupported,
-as do most texture and TEV effects. The Cocoa XFB preview only presents that
-buffer. It does not make the unsupported GX paths render.
+result to an RGB565 XFB. Its display-list decoder handles common big-endian
+streams with direct or 8-bit and 16-bit indexed position, color, and texture
+attributes, including NBT normal and binormal data. It recognizes common GX
+state commands and skips their payload safely. Other vertex-array paths,
+display-list commands, texture sampling, and material and TEV effects remain
+unsupported. The Cocoa XFB preview only presents the resulting buffer.
+
+Native SFX loading now keeps the big-endian voice payload separate from widened
+host metadata, decodes voice address and ADPCM fields, rebases sample
+addresses, and writes source ratios in host order. This removes the previous
+LP64 overlay and endian failures, but full sound playback still needs runtime
+validation in a real match.
 
 The host PAD shim maps keyboard events to controller 0. Arrow keys provide the
 D-pad, `A`/`D` and `W`/`S` provide the main stick, `F`/`H` and `G`/`T` provide
@@ -114,8 +125,9 @@ Do not treat a successful link as playable behavior.
 1. Complete the scene, stage, menu, shape, envelope, effects, and font archive
    schemas and their callers.
 2. Load a real model and animation from the supplied Melee image.
-3. Expand GX support to vertex arrays, display lists, and the texture and TEV
-   state used by the game, then present the result through the Cocoa XFB path.
+3. Complete GX support beyond the common display-list streams, including
+   remaining vertex-array paths and the texture, material, and TEV state used
+   by the game, then present the result through the Cocoa XFB path.
 4. Validate sound playback and add persistent card storage.
 5. Boot menus, enter a match, check controls and match end, and return to the
    menu.
