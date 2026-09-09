@@ -2151,10 +2151,8 @@ s32 mnCharSel_8025FDEC(u8 door)
             }
         }
 
-        mnCharSel_804A0BD0[door]->x8 =
-            3.4f + CSS_ALL_ICONS[icon_idx].bound_l;
-        mnCharSel_804A0BD0[door]->xC =
-            -3.0f + CSS_ALL_ICONS[icon_idx].bound_u;
+        mnCharSel_804A0BD0[door]->x8 = 3.4f + CSS_ALL_ICONS[icon_idx].bound_l;
+        mnCharSel_804A0BD0[door]->xC = -3.0f + CSS_ALL_ICONS[icon_idx].bound_u;
 
         mnCharSel_803F0DFC.doors[door].sel_icon_prev = icon_idx;
         mnCharSel_803F0DFC.doors[door].sel_icon = icon_idx;
@@ -2193,8 +2191,7 @@ s32 mnCharSel_8025FDEC(u8 door)
 
         if (mnCharSel_804D6CF6 != 3 && mnCharSel_804D6CF6 != 4) {
             u8 sel = mnCharSel_803F0DFC.doors[door].sel_icon;
-            lbAudioAx_80023870(CSS_ALL_ICONS[sel].sfx, 0x7F, 0x40,
-                               sel + 0x8A);
+            lbAudioAx_80023870(CSS_ALL_ICONS[sel].sfx, 0x7F, 0x40, sel + 0x8A);
             gm_80168C5C((u32) CSS_ALL_ICONS[sel].char_kind);
         }
         return 0;
@@ -2278,8 +2275,7 @@ static inline void updateCursorDisplay(HSD_JObj* jobj,
             color_idx = cursor->x4;
         } else {
             color_idx =
-                mnCharSel_804D50E0[CSS_ALL_DOORS.doors[cursor->x4]
-                                       .team];
+                mnCharSel_804D50E0[CSS_ALL_DOORS.doors[cursor->x4].team];
         }
 
         {
@@ -2482,14 +2478,13 @@ void mnCharSel_CursorThink(HSD_GObj* gobj)
                             }
                         } else if (door <= 7U) {
                             cpu_door = door - 4;
-                            CSS_ALL_DOORS.doors[cpu_door]
-                                .is_hold_cpu_slider = 0;
+                            CSS_ALL_DOORS.doors[cpu_door].is_hold_cpu_slider =
+                                0;
                         }
                     } else {
                         if (CSS_ALL_DOORS.doors[cursor->x4].sel_icon >=
                                 0x19U &&
-                            CSS_ALL_DOORS.doors[cursor->x4].p_kind !=
-                                3 &&
+                            CSS_ALL_DOORS.doors[cursor->x4].p_kind != 3 &&
                             mnCharSel_8025FDEC(cursor->x4) != 0)
                         {
                             mnCharSel_8025FB50(cursor->x4, 1);
@@ -2507,8 +2502,8 @@ void mnCharSel_CursorThink(HSD_GObj* gobj)
                     if (CSS_ALL_TAGS[cursor->x4].data->state != 0) {
                         CSS_ALL_TAGS[cursor->x4].data->state = 4;
                     }
-                    CSS_ALL_DOORS.doors[cursor->x4]
-                        .is_hold_handicap_slider = 0;
+                    CSS_ALL_DOORS.doors[cursor->x4].is_hold_handicap_slider =
+                        0;
                 }
                 cursor->x5 = 3;
                 HSD_JObjSetFlagsAll(jobj, JOBJ_HIDDEN);
@@ -2605,8 +2600,7 @@ void mnCharSel_CursorThink(HSD_GObj* gobj)
                                 lbAudioAx_800237A8(0xB8, 0x7F, 0x40);
                             } else {
                                 mnCharSel_804A0BD0[door]->x5 = 0;
-                                CSS_ALL_DOORS.doors[door].sel_icon =
-                                    0x19;
+                                CSS_ALL_DOORS.doors[door].sel_icon = 0x19;
                                 {
                                     s32 player_idx;
                                     if (mnCharSel_804D6CF5 == 1) {
@@ -2675,8 +2669,8 @@ void mnCharSel_CursorThink(HSD_GObj* gobj)
                                         m2->xC > icons[i].bound_d &&
                                         icons[i].state >= 1)
                                     {
-                                        CSS_ALL_DOORS.doors[door]
-                                            .sel_icon = (u8) i;
+                                        CSS_ALL_DOORS.doors[door].sel_icon =
+                                            (u8) i;
                                         mnCharSel_8025DB34(door);
                                         if (trigger & HSD_PAD_A) {
                                             s32 player_idx;
@@ -2748,8 +2742,7 @@ void mnCharSel_CursorThink(HSD_GObj* gobj)
                                         td->text->hidden = 1;
                                     }
                                 }
-                                CSS_ALL_DOORS.doors[door]
-                                    .sel_icon_prev = 0x19;
+                                CSS_ALL_DOORS.doors[door].sel_icon_prev = 0x19;
                                 if (trigger & HSD_PAD_A) {
                                     lbAudioAx_80024030(3);
                                 } else {
@@ -2782,8 +2775,8 @@ void mnCharSel_CursorThink(HSD_GObj* gobj)
                     case 0xB: {
                         s32 hc_door = door - 8;
                         updateGrabbedSlider(
-                            cursor, &CSS_ALL_DOORS.doors[hc_door],
-                            hc_door, trigger, &sp98, &sp88, true);
+                            cursor, &CSS_ALL_DOORS.doors[hc_door], hc_door,
+                            trigger, &sp98, &sp88, true);
                     } break;
                     }
                     goto update_display;
@@ -3208,8 +3201,7 @@ void mnCharSel_CursorThink(HSD_GObj* gobj)
                         {
                             if ((cursor->x4 != 3 ||
                                  mnCharSel_804D6CB0->match_type != 1) &&
-                                CSS_ALL_DOORS.doors[cursor->x4]
-                                        .p_kind == 0)
+                                CSS_ALL_DOORS.doors[cursor->x4].p_kind == 0)
                             {
                                 if (mnCharSel_804D6CF5 == 1) {
                                     lb_80011E24(mnCharSel_804D6CC0, &sp98,
@@ -3218,7 +3210,8 @@ void mnCharSel_CursorThink(HSD_GObj* gobj)
                                 } else {
                                     lb_80011E24(
                                         mnCharSel_804D6CC0, &sp98,
-                                        CSS_ALL_TAGS[*(volatile u8*) &cursor->x4]
+                                        CSS_ALL_TAGS[*(volatile u8*) &cursor
+                                                          ->x4]
                                             .name_jointl,
                                         -1);
                                 }
@@ -3341,11 +3334,8 @@ void mnCharSel_CursorThink(HSD_GObj* gobj)
                             if (cport6 != 3 ||
                                 mnCharSel_804D6CB0->match_type != 1)
                             {
-                                if (CSS_ALL_DOORS.doors[cport6]
-                                        .p_kind == 3)
-                                {
-                                    CSS_ALL_DOORS.doors[cport6].p_kind =
-                                        0;
+                                if (CSS_ALL_DOORS.doors[cport6].p_kind == 3) {
+                                    CSS_ALL_DOORS.doors[cport6].p_kind = 0;
                                     mnCharSel_804D6CB0->vs.start
                                         .players[cursor->x4]
                                         .slot_type = 0;
