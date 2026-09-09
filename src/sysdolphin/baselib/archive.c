@@ -106,9 +106,9 @@ void* HSD_ArchiveGetPublicAddress(HSD_Archive* archive,
 
 char* HSD_ArchiveGetExtern(HSD_Archive* archive, int extern_index)
 {
-    if (extern_index < 0 ||
-        archive->header.nb_extern <= (unsigned) extern_index)
-    {
+    if (archive == NULL || archive->symbols == NULL ||
+        archive->extern_info == NULL || extern_index < 0 ||
+        archive->header.nb_extern <= (unsigned) extern_index) {
         return NULL;
     }
 
