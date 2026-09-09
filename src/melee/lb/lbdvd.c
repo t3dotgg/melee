@@ -14,6 +14,9 @@
 #include <melee/gr/stage.h>
 #include <melee/pl/player.h>
 #include <sysdolphin/baselib/debug.h>
+#ifdef MELEE_NATIVE
+#include <sysdolphin/baselib/archive.h>
+#endif
 
 enum {
     PRELOAD_STATE_UNUSED = 0,
@@ -40,6 +43,9 @@ void lbDvd_800174E8(int index)
 {
     PreloadEntry* entry = &preloadCache.entries[index];
     if (entry->archive != NULL) {
+#ifdef MELEE_NATIVE
+        HSD_ArchiveNativeRelease((HSD_Archive*) entry->archive->addr);
+#endif
         lbHeap_80015CA8(entry->heap, entry->archive->addr);
     }
     if (entry->raw_data != NULL) {
@@ -257,6 +263,9 @@ static inline int lbDvd_CleanupPreloadHeap(int heap, PreloadCache* cache)
                 // This reload preserves the matching register allocation.
                 entry = &cache->entries[i];
                 if (entry->archive != NULL) {
+#ifdef MELEE_NATIVE
+                    HSD_ArchiveNativeRelease((HSD_Archive*) entry->archive->addr);
+#endif
                     lbHeap_80015CA8(entry->heap, entry->archive->addr);
                 }
                 if (entry->raw_data != NULL) {
@@ -530,6 +539,9 @@ static inline void inline_cleanup_entries(void)
         if (cleanup_entry->load_score < 0) {
             if (cleanup_entry->state == PRELOAD_STATE_QUEUED) {
                 if (preloadCache.entries[j].archive != NULL) {
+#ifdef MELEE_NATIVE
+                    HSD_ArchiveNativeRelease((HSD_Archive*) cleanup_entry->archive->addr);
+#endif
                     lbHeap_80015CA8(cleanup_entry->heap,
                                     cleanup_entry->archive->addr);
                 }
