@@ -235,6 +235,7 @@ int OSCreateThread(OSThread* thread, void* (*func)(void*), void* param,
         return FALSE;
     }
     memset(thread, 0, sizeof(*thread));
+    OSInitContext(&thread->context, (uptr) func, (uptr) stack);
     thread->priority = priority;
     thread->base = priority;
     thread->attr = attr;
