@@ -421,7 +421,13 @@ void HSD_Synth_80388DC8(int sfx_id)
     void** pcur = &HSD_Synth_804C29E0[sfx_id & 0x1F];
 
     while ((cur = *pcur) != NULL) {
+#ifdef MELEE_NATIVE
+        /* The host stream entry keeps its next pointer at offset zero, then
+         * padding for the widened pointer. The sound ID is at offset eight. */
+        if (*(int*) ((u8*) cur + 8) == sfx_id) {
+#else
         if (((int*) cur)[1] == sfx_id) {
+#endif
             *pcur = *(void**) cur;
             return;
         }
