@@ -135,3 +135,6 @@ fields, DAT/animation formats, GX TEV and display-list ordering, audio command
 streams, scheduler edge cases, save compatibility, and rules dependent on the
 GameCube scheduler. Keep the static build as an oracle and require a trace or
 fixture before deleting a compatibility path.
+The shell demo now drives the fighter through the scene kernel, so its host
+loop exercises typed simulation state, callback dispatch, and render-object
+updates together.
