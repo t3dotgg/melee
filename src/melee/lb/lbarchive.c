@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "assets/events.h"
 #include "lbdvd.h"
 #include "lbfile.h"
 #include "lbheap.h"
@@ -48,6 +49,7 @@ struct NativeArchiveBinding {
     NativeItemArchive* items;
     NativeFighterArchive* fighters;
     NativeEffectArchive* effects;
+    NativeEventArchive* events;
     NativeSisRoot* sis_roots;
     NativeSceneAllocation* scene_allocations;
     NativeArchiveBinding* next;
@@ -877,6 +879,15 @@ void* HSD_ArchiveNativePublicAddress(HSD_Archive* archive, const char* symbol)
         native_archive_error(symbol, &error);
         return NULL;
     }
+    NativeArchiveStatus event_status =
+        NativeEventArchiveRead(binding->events, symbol, offset, &root, &error);
+    if (event_status == NATIVE_ARCHIVE_OK) {
+        return root;
+    }
+    if (event_status != NATIVE_ARCHIVE_NOT_FOUND) {
+        native_archive_error(symbol, &error);
+        return NULL;
+    }
     if (strcmp(symbol, "map_ptcl") == 0 || strcmp(symbol, "map_texg") == 0) {
         /* The particle loader decodes these bank-relative byte streams. */
         if (NativeArchiveDataRange(binding->archive, offset, 12)) {
@@ -1123,6 +1134,7 @@ void HSD_ArchiveNativeRelease(HSD_Archive* archive)
         allocation = next;
     }
     NativeEffectArchiveClose(binding->effects);
+    NativeEventArchiveClose(binding->events);
     NativeFighterArchiveClose(binding->fighters);
     NativeItemArchiveClose(binding->items);
     NativeStageArchiveClose(binding->stage);
@@ -1179,11 +1191,14 @@ void lbArchive_InitializeDAT(HSD_Archive* archive, void* data, size_t length)
     state->stage = NativeStageArchiveOpen(native, graph);
     state->items = NativeItemArchiveOpen(native, graph);
     state->effects = NativeEffectArchiveOpen(native, graph);
+    state->events = NativeEventArchiveOpen(native);
     state->fighters = NativeFighterArchiveOpen(native, graph, state->items);
     if (state->stage == NULL || state->items == NULL ||
-        state->effects == NULL || state->fighters == NULL)
+        state->effects == NULL || state->fighters == NULL ||
+        state->events == NULL)
     {
         NativeEffectArchiveClose(state->effects);
+        NativeEventArchiveClose(state->events);
         NativeFighterArchiveClose(state->fighters);
         NativeItemArchiveClose(state->items);
         NativeStageArchiveClose(state->stage);
