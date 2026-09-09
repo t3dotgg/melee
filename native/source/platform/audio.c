@@ -40,6 +40,9 @@ static u32 ai_stream_sample_rate;
 static u8 ai_stream_volume_left;
 static u8 ai_stream_volume_right;
 
+static AXVPB ax_voices[AX_MAX_VOICES];
+static bool ax_voice_used[AX_MAX_VOICES];
+
 AIDCallback AIRegisterDMACallback(AIDCallback callback)
 {
     AIDCallback old = ai_dma_callback;
@@ -146,8 +149,6 @@ void AIReset(void)
 #endif
 }
 
-static AXVPB ax_voices[AX_MAX_VOICES];
-static bool ax_voice_used[AX_MAX_VOICES];
 static u32 ax_mode;
 static u32 ax_max_dsp_cycles;
 static void (*ax_callback)(void);
@@ -155,6 +156,185 @@ static void (*ax_aux_a_callback)(void*, void*);
 static void (*ax_aux_b_callback)(void*, void*);
 static void* ax_aux_a_context;
 static void* ax_aux_b_context;
+
+#ifdef MELEE_NATIVE
+#define NATIVE_AX_FORMAT_ADPCM 0
+#define NATIVE_AX_FORMAT_PCM8 1
+#define NATIVE_AX_FORMAT_PCM16 2
+
+/* State that the GameCube DSP normally keeps while decoding each voice. */
+static u32 native_ax_block_address[AX_MAX_VOICES];
+static u8 native_ax_block_position[AX_MAX_VOICES];
+static bool native_ax_block_valid[AX_MAX_VOICES];
+static s16 native_ax_block_samples[AX_MAX_VOICES][16];
+static float native_ax_source_position[AX_MAX_VOICES];
+static u32 native_ax_remainder;
+
+extern const unsigned char* NativeARAMPointer(u32 address, u32 length);
+
+static inline u32 native_ax_address(u16 hi, u16 lo)
+{
+    return ((u32) hi << 16) | lo;
+}
+
+static inline s16 native_ax_clamp(s32 value)
+{
+    if (value < -32768) return -32768;
+    if (value > 32767) return 32767;
+    return (s16) value;
+}
+
+static void native_ax_decode_block(AXVPB* voice, u32 address)
+{
+    const u8* data = NativeARAMPointer(address, 9);
+    int predictor;
+    int scale;
+    s32 yn1;
+    s32 yn2;
+
+    if (data == NULL) {
+        memset(native_ax_block_samples[voice->index], 0,
+               sizeof(native_ax_block_samples[voice->index]));
+        return;
+    }
+    predictor = data[0] >> 4;
+    scale = data[0] & 0xF;
+    if (predictor >= 8) predictor = 0;
+    yn1 = (s16) voice->pb.adpcm.yn1;
+    yn2 = (s16) voice->pb.adpcm.yn2;
+    for (int i = 0; i < 16; ++i) {
+        int nibble = (i & 1) == 0 ? data[1 + i / 2] >> 4
+                                  : data[1 + i / 2] & 0xF;
+        if (nibble >= 8) nibble -= 16;
+        s32 sample = (s32) nibble << scale;
+        sample += ((s16) voice->pb.adpcm.a[predictor][0] * yn1 +
+                   (s16) voice->pb.adpcm.a[predictor][1] * yn2) >> 11;
+        sample = native_ax_clamp(sample);
+        native_ax_block_samples[voice->index][i] = (s16) sample;
+        yn2 = yn1;
+        yn1 = sample;
+    }
+    voice->pb.adpcm.yn1 = (u16) yn1;
+    voice->pb.adpcm.yn2 = (u16) yn2;
+}
+
+static bool native_ax_advance(AXVPB* voice)
+{
+    u32 current = native_ax_address(voice->pb.addr.currentAddressHi,
+                                     voice->pb.addr.currentAddressLo);
+    const u32 end = native_ax_address(voice->pb.addr.endAddressHi,
+                                      voice->pb.addr.endAddressLo);
+    const u32 loop = native_ax_address(voice->pb.addr.loopAddressHi,
+                                       voice->pb.addr.loopAddressLo);
+    const u32 stride = voice->pb.addr.format == NATIVE_AX_FORMAT_ADPCM ? 9 :
+                       voice->pb.addr.format == NATIVE_AX_FORMAT_PCM8 ? 1 : 2;
+
+    current += stride;
+    if (end != 0 && current >= end) {
+        if (voice->pb.addr.loopFlag != 0 && loop < end) {
+            current = loop;
+            voice->pb.adpcm.yn1 = voice->pb.adpcmLoop.loop_yn1;
+            voice->pb.adpcm.yn2 = voice->pb.adpcmLoop.loop_yn2;
+        } else {
+            voice->pb.state = 0;
+            return false;
+        }
+    }
+    voice->pb.addr.currentAddressHi = (u16) (current >> 16);
+    voice->pb.addr.currentAddressLo = (u16) current;
+    native_ax_block_valid[voice->index] = false;
+    return true;
+}
+
+static bool native_ax_sample(AXVPB* voice, s16* output)
+{
+    const u32 index = voice->index;
+    const u32 address = native_ax_address(voice->pb.addr.currentAddressHi,
+                                          voice->pb.addr.currentAddressLo);
+    const u32 end = native_ax_address(voice->pb.addr.endAddressHi,
+                                      voice->pb.addr.endAddressLo);
+    if (voice->pb.state == 0 || (end != 0 && address >= end)) {
+        voice->pb.state = 0;
+        return false;
+    }
+    if (voice->pb.addr.format != NATIVE_AX_FORMAT_ADPCM &&
+        voice->pb.addr.format != NATIVE_AX_FORMAT_PCM8 &&
+        voice->pb.addr.format != NATIVE_AX_FORMAT_PCM16) {
+        /* AX formats outside these three GameCube encodings need DSP code
+         * that the host mixer does not provide. Stop the voice cleanly. */
+        voice->pb.state = 0;
+        return false;
+    }
+    if (voice->pb.addr.format == NATIVE_AX_FORMAT_ADPCM) {
+        if (!native_ax_block_valid[index] ||
+            native_ax_block_address[index] != address) {
+            native_ax_decode_block(voice, address);
+            native_ax_block_address[index] = address;
+            native_ax_block_position[index] = 0;
+            native_ax_block_valid[index] = true;
+        }
+        *output = native_ax_block_samples[index][native_ax_block_position[index]];
+        native_ax_block_position[index]++;
+        if (native_ax_block_position[index] == 16) {
+            native_ax_block_position[index] = 0;
+            native_ax_advance(voice);
+        }
+        return true;
+    }
+    const u8* data = NativeARAMPointer(
+        address, voice->pb.addr.format == NATIVE_AX_FORMAT_PCM8 ? 1 : 2);
+    if (data == NULL) {
+        voice->pb.state = 0;
+        return false;
+    }
+    if (voice->pb.addr.format == NATIVE_AX_FORMAT_PCM8) {
+        *output = (s16) ((s8) data[0] << 8);
+    } else {
+        *output = (s16) (((u16) data[0] << 8) | data[1]);
+    }
+    native_ax_advance(voice);
+    return true;
+}
+
+static void native_ax_render(u32 frames)
+{
+    int16_t samples[600 * 2];
+    memset(samples, 0, sizeof(samples));
+    if (frames > 600) frames = 600;
+    for (u32 i = 0; i < AX_MAX_VOICES; ++i) {
+        AXVPB* voice = &ax_voices[i];
+        if (!ax_voice_used[i] || voice->pb.state == 0) continue;
+        float ratio = (float) (((u32) voice->pb.src.ratioHi << 16) |
+                               voice->pb.src.ratioLo) / 65536.0f;
+        if (!(ratio > 0.0f)) ratio = 1.0f;
+        /* The compact host mixer does not resample below the source rate. */
+        if (ratio < 1.0f) ratio = 1.0f;
+        const float gain_l = (float) voice->pb.ve.currentVolume / 32767.0f *
+                             (float) voice->pb.mix.vL / 32767.0f;
+        const float gain_r = (float) voice->pb.ve.currentVolume / 32767.0f *
+                             (float) voice->pb.mix.vR / 32767.0f;
+        for (u32 frame = 0; frame < frames && voice->pb.state != 0; ++frame) {
+            s16 sample;
+            if (!native_ax_sample(voice, &sample)) break;
+            samples[frame * 2] = native_ax_clamp(
+                samples[frame * 2] + (s32) (sample * gain_l));
+            samples[frame * 2 + 1] = native_ax_clamp(
+                samples[frame * 2 + 1] + (s32) (sample * gain_r));
+            /* One source sample was consumed above. Skip additional source
+             * samples for rates above unity while retaining a fractional
+             * phase for ratios such as 1.5. */
+            native_ax_source_position[i] += ratio - 1.0f;
+            while (native_ax_source_position[i] >= 1.0f &&
+                   voice->pb.state != 0) {
+                s16 discard;
+                native_ax_source_position[i] -= 1.0f;
+                (void) native_ax_sample(voice, &discard);
+            }
+        }
+    }
+    (void) NativeAudioOutputSubmit(samples, frames);
+}
+#endif
 
 void AXInit(void)
 {
@@ -225,6 +405,12 @@ void AXRegisterCallback(void (*callback)(void)) { ax_callback = callback; }
  * have no DSP interrupt, so drive the same callback once per video retrace. */
 void NativeAudioTick(void)
 {
+#ifdef MELEE_NATIVE
+    native_ax_remainder += 32000;
+    u32 frames = native_ax_remainder / 60;
+    native_ax_remainder %= 60;
+    native_ax_render(frames);
+#endif
     if (ax_callback != NULL) {
         ax_callback();
     }

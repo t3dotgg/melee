@@ -76,4 +76,14 @@ void ARSetSize(void) {}
 u32 ARGetBaseAddress(void) { return 0x4000; }
 u32 ARGetSize(void) { return NATIVE_ARAM_SIZE; }
 
+/* AX voice addresses are offsets into the native ARAM byte buffer. */
+const unsigned char* NativeARAMPointer(u32 address, u32 length)
+{
+    if (g_aram == NULL || address > g_aram_limit ||
+        length > g_aram_limit - address) {
+        return NULL;
+    }
+    return g_aram + address;
+}
+
 #endif

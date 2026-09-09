@@ -96,6 +96,10 @@ add_executable(test_pad tests/test_pad.c platform/pad.c)
 target_link_libraries(test_pad PRIVATE melee_host_options)
 add_test(NAME pad COMMAND test_pad)
 
+add_executable(test_audio tests/test_audio.c platform/audio.c)
+target_link_libraries(test_audio PRIVATE melee_host_options)
+add_test(NAME audio COMMAND test_audio)
+
 add_executable(test_gx tests/test_gx.c platform/gx.c)
 target_link_libraries(test_gx PRIVATE melee_host_options)
 add_test(NAME gx COMMAND test_gx)
