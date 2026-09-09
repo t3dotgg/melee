@@ -31,6 +31,7 @@
 typedef struct NativeArchiveBinding NativeArchiveBinding;
 typedef struct NativeSisRoot NativeSisRoot;
 typedef struct NativeSceneAllocation NativeSceneAllocation;
+static void* native_scene_alloc(NativeArchiveBinding* binding, size_t size);
 
 struct NativeSisRoot {
     SIS* table;
@@ -65,6 +66,61 @@ struct NativeRefractionData {
     u8 padding[7];
     f32* values;
 };
+
+struct NativeAudioLoadData {
+    int** x0;
+    int** x4;
+    int** x8;
+    int** xC;
+};
+
+static struct NativeAudioLoadData*
+native_audio_load_data(NativeArchiveBinding* binding, uint32_t offset,
+                       NativeArchiveError* error)
+{
+    struct NativeAudioLoadData* root =
+        native_scene_alloc(binding, sizeof(*root));
+    if (root == NULL || !NativeArchiveDataRange(binding->archive, offset, 16))
+    {
+        return NULL;
+    }
+    for (size_t group = 0; group < 4; ++group) {
+        uint32_t target;
+        bool present;
+        int** values;
+        size_t count = 0;
+        if (NativeArchiveReference(binding->archive, offset + group * 4,
+                                   &target, &present,
+                                   error) != NATIVE_ARCHIVE_OK ||
+            !present || !NativeArchiveDataRange(binding->archive, target, 4))
+        {
+            return NULL;
+        }
+        while (
+            count < 0x1000 &&
+            NativeArchiveDataRange(binding->archive, target + count * 4, 4) &&
+            NativeArchiveBE32(binding->archive->data + target + count * 4) !=
+                0x83D60)
+        {
+            ++count;
+        }
+        if (count == 0x1000 ||
+            !NativeArchiveDataRange(binding->archive, target, (count + 1) * 4))
+        {
+            return NULL;
+        }
+        values = native_scene_alloc(binding, (count + 1) * sizeof(*values));
+        if (values == NULL) {
+            return NULL;
+        }
+        for (size_t i = 0; i <= count; ++i) {
+            values[i] = (int*) (uintptr_t) NativeArchiveBE32(
+                binding->archive->data + target + i * 4);
+        }
+        ((int***) root)[group] = values;
+    }
+    return root;
+}
 
 static NativeArchiveBinding* native_archive_bindings;
 
@@ -885,6 +941,14 @@ void* HSD_ArchiveNativePublicAddress(HSD_Archive* archive, const char* symbol)
         return root;
     }
     if (event_status != NATIVE_ARCHIVE_NOT_FOUND) {
+        native_archive_error(symbol, &error);
+        return NULL;
+    }
+    if (strcmp(symbol, "lbAudioLoadData") == 0) {
+        root = native_audio_load_data(binding, offset, &error);
+        if (root != NULL) {
+            return root;
+        }
         native_archive_error(symbol, &error);
         return NULL;
     }
