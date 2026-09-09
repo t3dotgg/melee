@@ -7,6 +7,15 @@
 
 namespace melee::native {
 
+RenderSnapshot NativeGame::render_snapshot() const
+{
+    const auto& value = state();
+    RenderSnapshot snapshot;
+    snapshot.simulation_frame = value.frame;
+    snapshot.objects.push_back({1, 0, {value.player_x, value.player_y, 0.0F}});
+    return snapshot;
+}
+
 NativeDemoGame::NativeDemoGame(NativeGameMemory& memory) : memory_(memory)
 {
     fighter_object_ = scene_.create_object(0, RenderObject{1, 0, {}},
@@ -24,6 +33,22 @@ void NativeDemoGame::update(const NativeInput& input, double dt_seconds)
     state_.frame = fighter_.state().frame;
     scene_.update(dt_seconds, state_.frame);
     memory_.write_be_u32(0, static_cast<std::uint32_t>(state_.frame));
+}
+
+RenderSnapshot NativeDemoGame::render_snapshot() const
+{
+    return scene_.extract_snapshot(state_.frame);
+}
+
+void NativeTrainingGame::update(const NativeInput& input, double dt_seconds)
+{
+    const FighterInput player_one{input.stick_x, input.attack, input.special, input.jump};
+    match_.update(player_one, {}, dt_seconds);
+    const auto snapshot = match_.snapshot();
+    state_.frame = snapshot.simulation_frame;
+    const auto& first = match_.player_one().state();
+    state_.player_x = first.x;
+    state_.player_y = first.y;
 }
 
 int run_native_loop(NativeGame& game, NativeInputSource& input,
@@ -46,7 +71,7 @@ int run_native_loop(NativeGame& game, NativeInputSource& input,
         // immutable for this shell; a production renderer will interpolate
         // snapshots using result.interpolation_alpha.
         for (std::uint32_t i = 0; i < result.render_frames; ++i)
-            renderer.render(game.state());
+            renderer.render(game.state(), game.render_snapshot());
         next_wake += std::chrono::microseconds(8333);
         std::this_thread::sleep_until(next_wake);
         if (clock::now() - next_wake > std::chrono::milliseconds(100))

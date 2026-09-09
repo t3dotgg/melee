@@ -1,3 +1,4 @@
+#include "native_game.h"
 #include "native_match.h"
 
 #include <cassert>
@@ -13,5 +14,19 @@ int main()
     assert(match.snapshot().simulation_frame == 60);
     assert(match.player_one().state().action == FighterAction::Idle);
     assert(match.last_collisions().events.empty()); // fighters start outside reach
+
+    // The executable-facing adapter feeds the same training rules through the
+    // NativeGame loop and exports both fighters as an owned render snapshot.
+    NativeTrainingGame game;
+    NativeInput input;
+    input.stick_x = 1.0F;
+    game.update(input, 1.0 / 60.0);
+    assert(game.state().frame == 1);
+    assert(game.state().player_x < -2.8F);
+    const auto snapshot = game.render_snapshot();
+    assert(snapshot.simulation_frame == 1);
+    assert(snapshot.objects.size() == 2);
+    assert(snapshot.objects[0].id == 1 && snapshot.objects[1].id == 2);
+    assert(snapshot.objects[0].transform.x < snapshot.objects[1].transform.x);
     std::cout << "native training match tests passed\n";
 }

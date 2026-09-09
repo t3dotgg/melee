@@ -60,6 +60,16 @@ public:
         chain_.clear_and_present(red, green, geometry.empty() ? 0.12F : 0.20F, 1.0F);
     }
 
+    void render(const melee::native::NativeFrameState& state,
+                const melee::native::RenderSnapshot& snapshot) override
+    {
+        chain_.pump_messages();
+        const auto geometry = melee::native::build_proxy_geometry(snapshot);
+        const float red = 0.04F + std::min(0.5F, std::abs(state.player_x) * 0.04F);
+        const float green = 0.10F + std::min(0.5F, std::max(0.0F, state.player_y) * 0.06F);
+        chain_.clear_and_present(red, green, geometry.empty() ? 0.12F : 0.20F, 1.0F);
+    }
+
 private:
     melee::native::NativeWin32SwapChain& chain_;
 };
@@ -68,7 +78,9 @@ private:
 int main(int argc, char** argv)
 {
     melee::native::NativeGameMemory memory(1024 * 1024);
-    melee::native::NativeDemoGame game(memory);
+    melee::native::NativeDemoGame demo_game(memory);
+    melee::native::NativeTrainingGame training_game;
+    melee::native::NativeGame* game = &demo_game;
     XInputSource input;
     melee::native::NativeWin32SwapChain chain;
     const bool gpu = chain.initialize();
@@ -78,19 +90,28 @@ int main(int argc, char** argv)
     ConsoleRenderer console;
     D3D12Renderer native_renderer(chain);
     std::uint64_t max_frames = 0;
-    if (argc == 3 && std::string_view(argv[1]) == "--frames") {
-        const auto* first = argv[2];
-        const auto* last = first + std::char_traits<char>::length(first);
-        const auto parsed = std::from_chars(first, last, max_frames);
-        if (parsed.ec != std::errc{} || parsed.ptr != last) {
-            std::cerr << "usage: melee_native_shell [--frames N]\n";
-            return 2;
+    bool training = false;
+    for (int i = 1; i < argc; ++i) {
+        const std::string_view argument(argv[i]);
+        if (argument == "--training") {
+            training = true;
+            continue;
         }
-    } else if (argc != 1) {
-        std::cerr << "usage: melee_native_shell [--frames N]\n";
+        if (argument == "--frames" && i + 1 < argc) {
+            const auto* first = argv[++i];
+            const auto* last = first + std::char_traits<char>::length(first);
+            const auto parsed = std::from_chars(first, last, max_frames);
+            if (parsed.ec != std::errc{} || parsed.ptr != last) {
+                std::cerr << "usage: melee_native_shell [--training] [--frames N]\n";
+                return 2;
+            }
+            continue;
+        }
+        std::cerr << "usage: melee_native_shell [--training] [--frames N]\n";
         return 2;
     }
-    const int result = melee::native::run_native_loop(game, input,
+    if (training) game = &training_game;
+    const int result = melee::native::run_native_loop(*game, input,
         gpu ? static_cast<melee::native::NativeRenderer&>(native_renderer)
             : static_cast<melee::native::NativeRenderer&>(console), max_frames);
     chain.shutdown();

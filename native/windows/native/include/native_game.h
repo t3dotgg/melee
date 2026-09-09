@@ -2,6 +2,8 @@
 
 #include "native_game_memory.h"
 #include "native_fighter.h"
+#include "native_match.h"
+#include "native_render.h"
 #include "native_scene.h"
 
 #include <cstdint>
@@ -28,6 +30,11 @@ public:
     virtual ~NativeGame() = default;
     virtual void update(const NativeInput& input, double dt_seconds) = 0;
     virtual const NativeFrameState& state() const noexcept = 0;
+
+    // The renderer consumes an owned snapshot so simulation state never leaks
+    // pointers or guest-memory assumptions across the thread boundary.  A
+    // default one-object snapshot keeps small host games source compatible.
+    virtual RenderSnapshot render_snapshot() const;
 };
 
 // A tiny deterministic implementation used by the shell and tests. Real
@@ -38,12 +45,31 @@ public:
     explicit NativeDemoGame(NativeGameMemory& memory);
     void update(const NativeInput& input, double dt_seconds) override;
     const NativeFrameState& state() const noexcept override { return state_; }
+    RenderSnapshot render_snapshot() const override;
 
 private:
     NativeGameMemory& memory_;
     NativeFighter fighter_;
     NativeScene scene_;
     NativeObjectId fighter_object_ = 0;
+    NativeFrameState state_;
+};
+
+// A NativeGame adapter around the two-fighter training rules.  It gives the
+// executable a real game path while retaining NativeDemoGame for deterministic
+// API tests and compatibility with existing hosts.  Player two is idle until
+// a multi-pad input source is added; its state and collision events are still
+// simulated and rendered through the same snapshot contract.
+class NativeTrainingGame final : public NativeGame {
+public:
+    NativeTrainingGame() = default;
+    void update(const NativeInput& input, double dt_seconds) override;
+    const NativeFrameState& state() const noexcept override { return state_; }
+    RenderSnapshot render_snapshot() const override { return match_.snapshot(); }
+    const NativeTrainingMatch& match() const noexcept { return match_; }
+
+private:
+    NativeTrainingMatch match_;
     NativeFrameState state_;
 };
 
@@ -57,6 +83,12 @@ class NativeRenderer {
 public:
     virtual ~NativeRenderer() = default;
     virtual void render(const NativeFrameState& state) = 0;
+    virtual void render(const NativeFrameState& state,
+                        const RenderSnapshot& snapshot)
+    {
+        (void)snapshot;
+        render(state);
+    }
 };
 
 int run_native_loop(NativeGame& game, NativeInputSource& input,
