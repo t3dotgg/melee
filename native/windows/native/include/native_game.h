@@ -2,6 +2,7 @@
 
 #include "native_game_memory.h"
 #include "native_fighter.h"
+#include "native_audio.h"
 #include "native_match.h"
 #include "native_render.h"
 #include "native_scene.h"
@@ -62,7 +63,7 @@ private:
 // simulated and rendered through the same snapshot contract.
 class NativeTrainingGame final : public NativeGame {
 public:
-    NativeTrainingGame() = default;
+    NativeTrainingGame();
     void update(const NativeInput& input, double dt_seconds) override;
     const NativeFrameState& state() const noexcept override { return state_; }
     RenderSnapshot render_snapshot() const override { return match_.snapshot(); }
@@ -70,6 +71,7 @@ public:
 
 private:
     NativeTrainingMatch match_;
+    NativeAudioMixer audio_;
     NativeFrameState state_;
 };
 
