@@ -1,6 +1,9 @@
 #include "axdriver.h"
 
 #include <math.h>
+#ifdef MELEE_NATIVE
+#include <stdlib.h>
+#endif
 #include <string.h>
 
 #include "axdriver.static.h"
@@ -807,6 +810,30 @@ static void fn_8038DA5C(s32 result, DVDFileInfo* fileInfo)
     }
 }
 
+#ifdef MELEE_NATIVE
+static u32 ax_read_be32(const u8* bytes)
+{
+    return ((u32) bytes[0] << 24) | ((u32) bytes[1] << 16) |
+           ((u32) bytes[2] << 8) | (u32) bytes[3];
+}
+
+static bool ax_read_be32_at(const u8* data, size_t size, size_t* offset,
+                            u32* value)
+{
+    if (*offset > size || size - *offset < sizeof(u32)) {
+        return false;
+    }
+    *value = ax_read_be32(data + *offset);
+    *offset += sizeof(u32);
+    return true;
+}
+
+static bool ax_count_fits(u32 count, size_t offset, size_t size)
+{
+    return count <= (size - offset) / sizeof(u32);
+}
+#endif
+
 void AXDriver_8038DA70(const char* path, void (*callback)(void))
 {
     DVDFileInfo fileInfo;
@@ -818,6 +845,123 @@ void AXDriver_8038DA70(const char* path, void (*callback)(void))
     s32 j;
     s32 i;
 
+#ifdef MELEE_NATIVE
+    size_t file_size;
+    size_t offset_native;
+    u32 count_native;
+    const u8* data;
+    u32* bank_offsets;
+    u32* command_offsets;
+    u32* sample_offsets;
+    u32** command_streams;
+#endif
+
+#ifdef MELEE_NATIVE
+    entrynum = DVDConvertPathToEntrynum(path);
+    if (entrynum == -1 || DVDFastOpen(entrynum, &fileInfo) == 0) {
+        OSReport("can not open %s\n", path);
+        return;
+    }
+
+    AXDriver_804D779C = fileInfo.length;
+    if (AXDriver_804D779C == 0) {
+        OSReport("file size of \"%s\" is 0\n", path);
+        DVDClose(&fileInfo);
+        return;
+    }
+
+    alignedSize = (AXDriver_804D779C + 0x1F) & ~0x1F;
+    AXDriver_804D7798 = HSD_AudioMalloc(alignedSize);
+    if (AXDriver_804D7798 == NULL) {
+        DVDClose(&fileInfo);
+        return;
+    }
+    AXDriver_804D77EC = 0;
+    DVDReadAsyncPrio(&fileInfo, AXDriver_804D7798, alignedSize, 0, fn_8038DA5C,
+                     2);
+    while (AXDriver_804D77EC == 0) {
+        callback();
+    }
+    DVDClose(&fileInfo);
+
+    data = (const u8*) AXDriver_804D7798;
+    file_size = AXDriver_804D779C;
+    offset_native = 0;
+    if (!ax_read_be32_at(data, file_size, &offset_native, &count_native) ||
+        !ax_count_fits(count_native, offset_native, file_size)) {
+        OSReport("invalid SEM bank table in %s\n", path);
+        return;
+    }
+    AXDriver_804D77A0 = (s32) count_native;
+    bank_offsets = (u32*) (data + offset_native);
+    AXDriver_804D77A4 = bank_offsets;
+    for (u32 n = 0; n < count_native; n++) {
+        bank_offsets[n] = ax_read_be32((const u8*) &bank_offsets[n]);
+    }
+    offset_native += (size_t) count_native * sizeof(u32);
+
+    if (!ax_read_be32_at(data, file_size, &offset_native, &count_native) ||
+        !ax_count_fits(count_native, offset_native, file_size)) {
+        OSReport("invalid SEM sample table in %s\n", path);
+        return;
+    }
+    AXDriver_804D77A8 = (s32) count_native;
+    command_offsets = (u32*) (data + offset_native);
+    AXDriver_804D77AC = command_offsets;
+    for (u32 n = 0; n < count_native; n++) {
+        command_offsets[n] = ax_read_be32((const u8*) &command_offsets[n]);
+    }
+    offset_native += (size_t) count_native * sizeof(u32);
+
+    if (!ax_read_be32_at(data, file_size, &offset_native, &count_native) ||
+        !ax_count_fits(count_native, offset_native, file_size)) {
+        OSReport("invalid SEM bank index table in %s\n", path);
+        return;
+    }
+    AXDriver_804D77B0 = (s32) count_native;
+    AXDriver_804D77B4 = (u32*) (data + offset_native);
+    for (u32 n = 0; n < count_native; n++) {
+        AXDriver_804D77B4[n] = ax_read_be32((const u8*) &AXDriver_804D77B4[n]);
+    }
+    offset_native += (size_t) count_native * sizeof(u32);
+
+    if (!ax_read_be32_at(data, file_size, &offset_native, &count_native) ||
+        !ax_count_fits(count_native, offset_native, file_size)) {
+        OSReport("invalid SEM command table in %s\n", path);
+        return;
+    }
+    AXDriver_804D77B8 = (s32) count_native;
+    sample_offsets = (u32*) (data + offset_native);
+    command_streams = (u32**) calloc(count_native, sizeof(*command_streams));
+    if (command_streams == NULL) {
+        return;
+    }
+    AXDriver_804D77BC = command_streams;
+    for (u32 n = 0; n < count_native; n++) {
+        u32 sample_offset = ax_read_be32((const u8*) &sample_offsets[n]);
+        if (sample_offset >= file_size) {
+            free(command_streams);
+            AXDriver_804D77BC = NULL;
+            return;
+        }
+        command_streams[n] = (u32*) (data + sample_offset);
+    }
+    offset_native += (size_t) count_native * sizeof(u32);
+    AXDriver_804D77C0 = 0;
+    AXDriver_804D77C4 = NULL;
+    if (offset_native + sizeof(u32) <= file_size) {
+        u32 trailing_count = ax_read_be32(data + offset_native);
+        offset_native += sizeof(u32);
+        if (ax_count_fits(trailing_count, offset_native, file_size)) {
+            AXDriver_804D77C0 = (s32) trailing_count;
+            AXDriver_804D77C4 = (void*) (data + offset_native);
+        }
+    }
+    if (callback != NULL) {
+        callback();
+    }
+    return;
+#else
     entrynum = DVDConvertPathToEntrynum(path);
     if (entrynum == -1 || DVDFastOpen(entrynum, &fileInfo) == 0) {
         OSReport("can not open %s\n", path);
@@ -912,6 +1056,7 @@ void AXDriver_8038DA70(const char* path, void (*callback)(void))
             (u32) ((uintptr_t) AXDriver_804D7798 & ~3u);
         i += 4;
     }
+#endif
 }
 
 void AXDriver_8038DCFC(void)
