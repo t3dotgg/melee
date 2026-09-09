@@ -1113,9 +1113,15 @@ static inline void stopRange(size_t lo, size_t hi)
     for (i = 0; i < 0x40; i++) {
         struct HSD_SynthSFXNode* node = &hsd_SynthSFXNodes[i];
         if (hsd_SynthSFXNodes[i].x0 > 0) {
-            addr = *(size_t*) &hsd_SynthSFXNodes[i]
+            /* AXPBADDR stores the address as two 16-bit words. Reading it
+             * through size_t was valid only while the host pointer width was
+             * four bytes, and also consumed the first words of adpcm on
+             * little-endian hosts. Keep the DSP word address explicit. */
+            addr = ((size_t) hsd_SynthSFXNodes[i]
                         .voice[0]
-                        ->pb.addr.currentAddressHi;
+                        ->pb.addr.currentAddressHi
+                    << 16) |
+                   hsd_SynthSFXNodes[i].voice[0]->pb.addr.currentAddressLo;
             if (addr >= lo && addr < hi) {
                 HSD_SynthSFXStopNode(&hsd_SynthSFXNodes[i]);
             }
