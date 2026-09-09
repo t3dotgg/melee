@@ -61,6 +61,22 @@ NativeMaterial decode_hsd_material(const NativeDatArchive& archive,
                                render_mode);
 }
 
+NativeMaterial decode_hsd_material_desc(const NativeDatArchive& archive,
+                                        std::size_t descriptor_offset)
+{
+    const auto descriptor = archive.data_at(descriptor_offset, 16);
+    const auto read_mode = [](std::span<const std::byte> bytes) {
+        return (static_cast<std::uint32_t>(std::to_integer<std::uint8_t>(bytes[0])) << 24) |
+               (static_cast<std::uint32_t>(std::to_integer<std::uint8_t>(bytes[1])) << 16) |
+               (static_cast<std::uint32_t>(std::to_integer<std::uint8_t>(bytes[2])) << 8) |
+               static_cast<std::uint32_t>(std::to_integer<std::uint8_t>(bytes[3]));
+    };
+    const auto material_offset = archive.pointer_target_at(descriptor_offset + 12);
+    if (!material_offset.has_value())
+        throw std::invalid_argument("HSD material descriptor pointer is not relocated");
+    return decode_hsd_material(archive, *material_offset, read_mode(descriptor.subspan(4, 4)));
+}
+
 NativeMaterial load_material_asset(const NativeArchive& archive,
                                    std::string_view entry_name,
                                    std::uint32_t render_mode)

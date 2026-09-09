@@ -65,6 +65,9 @@ public:
     // offset.  The returned offset may equal data().size() (one-past-end), as
     // observed in valid SdIntro archives.
     std::optional<std::size_t> relocation_target(std::size_t index) const noexcept;
+    // Resolve a pointer field only when the DAT relocation table explicitly
+    // identifies that field. The returned value is a data-relative offset.
+    std::optional<std::size_t> pointer_target_at(std::size_t field_offset) const noexcept;
 
     // Return all data-relative slots in an external reference chain.  The
     // chain is read-only; unlike HSD_ArchiveLocateExtern, no bytes are patched.

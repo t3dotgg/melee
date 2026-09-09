@@ -32,6 +32,12 @@ NativeMaterial decode_hsd_material(const NativeDatArchive& archive,
                                    std::size_t data_offset,
                                    std::uint32_t render_mode = 0);
 
+// Decode the proven HSD_MObjDesc layout: render mode at +4 and the relocated
+// HSD_Material pointer at +12. Every pointer field must be listed in the DAT
+// relocation table; no raw 32-bit value is treated as a host pointer.
+NativeMaterial decode_hsd_material_desc(const NativeDatArchive& archive,
+                                        std::size_t descriptor_offset);
+
 // Resolve a named MARC entry and decode it as an HSD_Material record. The
 // returned values own no archive memory and are safe after the archive is
 // released.

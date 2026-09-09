@@ -60,6 +60,33 @@ std::vector<std::byte> archive_with_material()
     return archive;
 }
 
+std::vector<std::byte> dat_with_material_descriptor()
+{
+    constexpr std::size_t data_offset = 32;
+    constexpr std::size_t data_size = 44;
+    constexpr std::size_t relocation_offset = data_offset + data_size;
+    constexpr std::size_t public_offset = relocation_offset + 4;
+    constexpr std::size_t symbols_offset = public_offset + 8;
+    std::vector<std::byte> bytes(symbols_offset + 5, std::byte{0});
+    put32(bytes, 0, static_cast<std::uint32_t>(bytes.size()));
+    put32(bytes, 4, data_size);
+    put32(bytes, 8, 1);
+    put32(bytes, 12, 1);
+    put32(bytes, 16, 0);
+    put32(bytes, data_offset + 4, 0xA5000000U);
+    put32(bytes, data_offset + 12, 24);
+    put32(bytes, relocation_offset, 12);
+    put32(bytes, public_offset, 0);
+    put32(bytes, public_offset + 4, 0);
+    bytes[symbols_offset] = std::byte{'r'};
+    bytes[symbols_offset + 1] = std::byte{'o'};
+    bytes[symbols_offset + 2] = std::byte{'o'};
+    bytes[symbols_offset + 3] = std::byte{'t'};
+    const auto record = material_record();
+    std::copy(record.begin(), record.end(), bytes.begin() + data_offset + 24);
+    return bytes;
+}
+
 } // namespace
 
 int main()
@@ -99,6 +126,13 @@ int main()
     const auto from_store = read_material_asset(assets, "materials.marc", "fighter", 7);
     assert(from_store.render_mode == 7);
     std::filesystem::remove_all(root);
+
+    const auto dat_bytes = dat_with_material_descriptor();
+    const auto dat = NativeDatArchive::parse(dat_bytes);
+    const auto descriptor_material = decode_hsd_material_desc(dat, 0);
+    assert(descriptor_material.render_mode == 0xA5000000U);
+    const NativeColor expected_diffuse{5, 6, 7, 8};
+    assert(descriptor_material.diffuse == expected_diffuse);
 
     std::cout << "native material asset tests passed\n";
 }

@@ -187,6 +187,15 @@ std::optional<std::size_t> NativeDatArchive::relocation_target(std::size_t index
     return target <= data().size() ? std::optional<std::size_t>(target) : std::nullopt;
 }
 
+std::optional<std::size_t> NativeDatArchive::pointer_target_at(
+    std::size_t field_offset) const noexcept
+{
+    for (std::size_t i = 0; i < relocation_offsets_.size(); ++i) {
+        if (relocation_offsets_[i] == field_offset) return relocation_target(i);
+    }
+    return std::nullopt;
+}
+
 std::vector<std::size_t> NativeDatArchive::external_reference_offsets(
     std::string_view name) const
 {
