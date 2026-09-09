@@ -1215,7 +1215,7 @@ int HSD_TExpCompile(HSD_TExp* texp, HSD_TExpTevDesc** tevdesc,
         HSD_TExpTevDesc* tdesc = hsdAllocMemPiece(sizeof(HSD_TExpTevDesc));
         tdesc->desc.stage = HSD_Index2TevStage(i);
         TExp2TevDesc(order[(num - i) - 1], tdesc, &init_cprev, &init_aprev);
-        tdesc->desc.next = &(*tevdesc)->desc;
+        tdesc->desc.next = *tevdesc == NULL ? NULL : &(*tevdesc)->desc;
         *tevdesc = tdesc;
     }
 
