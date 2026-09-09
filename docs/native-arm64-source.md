@@ -123,7 +123,8 @@ build/native-source/game/melee-native --disc "$IMAGE" \
 ```
 
 `MELEE_PAD_SCRIPT` and `MELEE_PAD_TRACE` provide the same settings through the
-environment.
+environment. Add `--seed 1` to repeat the game's random choices during a test.
+`MELEE_RANDOM_SEED` supplies the same setting.
 
 For timing and input checks that do not need a rendered image, set
 `MELEE_SKIP_RENDER=1`. This keeps the software GX state updates but skips the
@@ -140,8 +141,7 @@ requirements to judge the port.
 ## Current state
 
 The complete game builds as an ARM64 executable. The integrated compile check
-passed all 1011 C sources at commit `030ba2535`. The focused sanitizer suite
-passed all 26 tests before the fighter parts tests were added. These checks do
+passes all 1014 C sources. All 30 focused sanitizer tests pass. These checks do
 not prove that a match works.
 
 The port has native heap and context storage, filesystem and ISO disc reads,
@@ -168,8 +168,9 @@ uses linear interpolation. Sound during a real match remains unverified.
 
 Persistent native card storage and HSD save/load now pass focused tests,
 including process restart, corruption, full capacity, and queued callbacks.
-Normal startup exposed a filename overread in the memory card screen. That
-runtime path still needs a fix and another test.
+The game creates a save during normal startup and reads it on restart.
+Both runs advance beyond the memory card screen. Match and menu faults still
+need to be resolved before the full save flow can be verified.
 
 The host PAD shim maps keyboard events to controller 0. Arrow keys provide the
 D-pad, `A`/`D` and `W`/`S` provide the main stick, `F`/`H` and `G`/`T` provide
