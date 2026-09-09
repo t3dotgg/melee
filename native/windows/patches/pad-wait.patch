@@ -1,0 +1,111 @@
+--- a/Source/Core/Core/PowerPC/StaticRecomp/StaticRecompCore_Run.cpp
++++ b/Source/Core/Core/PowerPC/StaticRecomp/StaticRecompCore_Run.cpp
+@@ -1,21 +1,22 @@
+ // RecompCore: StaticRecomp CPU core - Main execution loop.
+ // SPDX-License-Identifier: GPL-2.0-or-later
+ 
++#include "Core/Config/ConfigManager.h"
++#include "Core/Config/MainSettings.h"
++#include "Core/Core.h"
++#include "Core/CoreTiming.h"
++#include "Core/HLE/HLE.h"
++#include "Core/HW/CPU.h"
++#include "Core/HW/Memmap.h"
++#include "Core/HW/SI/SI.h"
++#include "Core/HW/SystemTimers.h"
++#include "Core/PowerPC/Interpreter/Interpreter.h"
++#include "Core/PowerPC/PowerPC.h"
++#include "Core/PowerPC/StaticRecomp/MeleePadWait.h"
+ #include "Core/PowerPC/StaticRecomp/StaticRecompCore.h"
++#include "Core/PowerPC/StaticRecomp/StaticRecompLockstep.h"
+ #include "Core/PowerPC/StaticRecomp/StrictNative.h"
+ #include "Core/System.h"
+-#include "Core/HLE/HLE.h"
+-#include "Core/PowerPC/PowerPC.h"
+-#include "Core/PowerPC/Interpreter/Interpreter.h"
+-#include "Core/PowerPC/StaticRecomp/StaticRecompLockstep.h"
+-#include "Core/CoreTiming.h"
+-#include "Core/HW/CPU.h"
+-#include "Core/Config/MainSettings.h"
+-#include "Core/Config/ConfigManager.h"
+-#include "Core/HW/SystemTimers.h"
+-#include "Core/HW/Memmap.h"
+-#include "Core/Core.h"
+-#include "Core/HW/SI/SI.h"
+ 
+ #include <cstdio>
+ #include <cstdlib>
+@@ -191,6 +192,11 @@
+                           SConfig::GetInstance().GetRevision() == 2 &&
+                           (!late_input_setting || std::string_view(late_input_setting) != "0");
+   bool late_input_reported = false;
++  const char* pad_wait_setting = std::getenv("MELEE_PAD_WAIT");
++  const bool pad_wait = m_strict_native && initial_game_id == "GALE01" &&
++                        SConfig::GetInstance().GetRevision() == 2 &&
++                        (!pad_wait_setting || std::string_view(pad_wait_setting) != "0");
++  bool pad_wait_reported = false;
+   const auto after_mtmsr = [this](u32 pc) {
+     if (pc < 4u || (pc & 3u) != 0)
+       return false;
+@@ -304,6 +310,27 @@
+           // the CPU overclock factor and can make the guest clock run backward
+           // when the next burst resets it to the hardware timebase.
+           m_guest.timebase = m_system.GetSystemTimers().GetFakeTimeBase();
++
++          // gm_801A4D34 has taken the empty-PAD-queue branch and called
++          // lb_800195D0. Keep that next PC: the original reset/DVD poll runs
++          // after the next event, followed by the original queue/alarm check.
++          // The live count prevents delaying a sample queued since that check.
++          if (pad_wait && runtime_dispatch_address == 0x801A4DB0u && !Core::WantsDeterminism() &&
++              Melee::CanIdleForPadWait(m_guest.pc, m_guest.lr, m_guest.gpr[27],
++                                       m_system.GetMemory().Read_U8(0x804C1F7Bu), m_guest.msr,
++                                       ppc.Exceptions, m_guest.exception != 0, ppc.downcount) &&
++              Melee::IsPadWaitLoop({m_system.GetMemory().Read_U32(0x801A4DA8u),
++                                    m_system.GetMemory().Read_U32(0x801A4DACu),
++                                    m_system.GetMemory().Read_U32(0x801A4DB0u),
++                                    m_system.GetMemory().Read_U32(0x801A4DB4u)}))
++          {
++            core_timing.Idle();
++            if (!pad_wait_reported)
++            {
++              std::fprintf(stderr, "[melee-input] empty PAD queue event wait enabled\n");
++              pad_wait_reported = true;
++            }
++          }
+ 
+           // US v1.02 SelectThread waits at 0x8034B164 while RunQueueBits is zero.
+           // A newly runnable thread must execute now. Skip only while the queue
+--- /dev/null
++++ b/Source/Core/Core/PowerPC/StaticRecomp/MeleePadWait.h
+@@ -0,0 +1,31 @@
++// SPDX-License-Identifier: GPL-3.0-or-later
++
++#pragma once
++
++#include <array>
++#include <cstdint>
++
++namespace Melee
++{
++// Verified US v1.02 DOL, SHA-1 08e0bf20134dfcb260699671004527b2d6bb1a45:
++// 801A4DA8 bl lb_800195D0; 801A4DAC bl lb_80019894;
++// 801A4DB0 rlwinm. r27,r3,0,24,31; 801A4DB4 beq 801A4DA8.
++constexpr bool IsPadWaitLoop(const std::array<std::uint32_t, 4>& words)
++{
++  return words == std::array<std::uint32_t, 4>{0x4be74829u, 0x4be74ae9u, 0x547b063fu, 0x4182fff4u};
++}
++
++// Called only after dispatch at 801A4DB0 in strict GALE01 revision 2 local play.
++// The empty branch leaves r27=0 and enters the reset/DVD poll with LR=801A4DAC.
++// HSD_PadLibData (804C1F78) has its u8 qcount at +3; an alarm can update it
++// between the original count read and this branch, so recheck the live count.
++constexpr bool CanIdleForPadWait(std::uint32_t next_pc, std::uint32_t link_register,
++                                 std::uint32_t queue_result, std::uint8_t live_queue_count,
++                                 std::uint32_t msr, std::uint32_t pending_exceptions,
++                                 bool guest_exception, std::int64_t downcount)
++{
++  return next_pc == 0x800195D0u && link_register == 0x801A4DACu && queue_result == 0 &&
++         live_queue_count == 0 && (msr & 0x8000u) != 0 && pending_exceptions == 0 &&
++         !guest_exception && downcount > 0;
++}
++}  // namespace Melee

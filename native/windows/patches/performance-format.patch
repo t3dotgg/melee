@@ -1,0 +1,120 @@
+--- a/Source/Core/Common/FixedFrameTiming.h
++++ b/Source/Core/Common/FixedFrameTiming.h
+@@ -18,4 +18,4 @@
+   return static_cast<std::uint64_t>(half_line) * ticks_per_second * 2 /
+          (static_cast<std::uint64_t>(half_lines_per_frame) * fields_per_second);
+ }
+-} // namespace Common
++}  // namespace Common
+--- a/Source/Core/Common/MacFrameTimer.h
++++ b/Source/Core/Common/MacFrameTimer.h
+@@ -34,8 +34,7 @@
+ {
+   using Clock = std::chrono::steady_clock;
+   constexpr auto spin_time = std::chrono::microseconds{200};
+-  static const mach_timebase_info_data_t timebase = []
+-  {
++  static const mach_timebase_info_data_t timebase = [] {
+     mach_timebase_info_data_t result{};
+     mach_timebase_info(&result);
+     return result;
+@@ -91,4 +90,4 @@
+ #endif
+   }
+ }
+-} // namespace Common
++}  // namespace Common
+--- a/Source/Core/Core/HW/VideoInterface.cpp
++++ b/Source/Core/Core/HW/VideoInterface.cpp
+@@ -20,10 +20,10 @@
+ #include "VideoCommon/PerformanceMetrics.h"
+ 
+ #include "Core/Achievements/AchievementManager.h"
++#include "Core/Config/ConfigManager.h"
+ #include "Core/Config/GraphicsSettings.h"
+ #include "Core/Config/MainSettings.h"
+ #include "Core/Config/SYSCONFSettings.h"
+-#include "Core/Config/ConfigManager.h"
+ #include "Core/Core.h"
+ #include "Core/CoreTiming.h"
+ #include "Core/FifoPlayer/FifoPlayer.h"
+@@ -201,7 +201,6 @@
+   UpdateRefreshRate();
+ }
+ 
+-
+ void VideoInterfaceManager::UpdateInterrupts()
+ {
+   if ((m_interrupt_register[0].IR_INT && m_interrupt_register[0].IR_MASK) ||
+@@ -275,18 +274,16 @@
+     return 0;
+   }();
+ 
+-  if (Core::WantsDeterminism() ||
+-      GetHalfLinesPerOddField() + GetHalfLinesPerEvenField() == 0)
++  if (Core::WantsDeterminism() || GetHalfLinesPerOddField() + GetHalfLinesPerEvenField() == 0)
+     return 0;
+   return requested_rate;
+ }
+ 
+ u32 VideoInterfaceManager::GetNativeTickOffset(u32 half_line) const
+ {
+-  return Common::FixedFrameTickOffset(half_line,
+-                                     GetHalfLinesPerOddField() + GetHalfLinesPerEvenField(),
+-                                     GetNativeRefreshRate(),
+-                                     m_system.GetSystemTimers().GetTicksPerSecond());
++  return Common::FixedFrameTickOffset(
++      half_line, GetHalfLinesPerOddField() + GetHalfLinesPerEvenField(), GetNativeRefreshRate(),
++      m_system.GetSystemTimers().GetTicksPerSecond());
+ }
+ 
+ // Get the aspect ratio of VI's active area.
+--- a/Source/Core/Core/HW/DVD/DVDInterface.cpp
++++ b/Source/Core/Core/HW/DVD/DVDInterface.cpp
+@@ -7,10 +7,10 @@
+ #include <array>
+ #include <charconv>
+ #include <cstdlib>
+-#include <string_view>
+ #include <memory>
+ #include <optional>
+ #include <string>
++#include <string_view>
+ #include <vector>
+ 
+ #include "AudioCommon/AudioCommon.h"
+@@ -85,8 +85,8 @@
+     const std::string_view input(text);
+     unsigned value = 0;
+     const auto parsed = std::from_chars(input.data(), input.data() + input.size(), value);
+-    if (parsed.ec != std::errc{} || parsed.ptr != input.data() + input.size() ||
+-        value < 32 || value > 1024)
++    if (parsed.ec != std::errc{} || parsed.ptr != input.data() + input.size() || value < 32 ||
++        value > 1024)
+       return default_rate;
+     return u64(value) * 1024 * 1024;
+   }();
+@@ -1057,9 +1057,10 @@
+                                  u32 output_address, ReplyType reply_type)
+ {
+   const bool fast_disc = Config::Get(Config::MAIN_FAST_DISC_SPEED);
+-  const u64 transfer_rate = fast_disc && std::getenv("MELEE_APP_BUNDLE") &&
+-                                    !NetPlay::IsNetPlayRunning() ?
+-                                MeleeTransferRate() : BUFFER_TRANSFER_RATE;
++  const u64 transfer_rate =
++      fast_disc && std::getenv("MELEE_APP_BUNDLE") && !NetPlay::IsNetPlayRunning() ?
++          MeleeTransferRate() :
++          BUFFER_TRANSFER_RATE;
+   // The drive continues to read 1 MiB beyond the last read position when idle.
+   // If a future read falls within this window, part of the read may be returned
+   // from the buffer. Data can be transferred from the buffer at up to 32 MiB/s.
+@@ -1175,8 +1176,7 @@
+       // Number of ticks it takes to transfer the data from the buffer to memory.
+       // TODO: This calculation is slightly wrong when decrypt is true - it uses the size of
+       // the copy from IOS to PPC but is supposed to model the copy from the disc drive to IOS.
+-      ticks_until_completion +=
+-          static_cast<u64>(chunk_length) * ticks_per_second / transfer_rate;
++      ticks_until_completion += static_cast<u64>(chunk_length) * ticks_per_second / transfer_rate;
+       buffered_blocks++;
+     }
+     else
