@@ -448,12 +448,6 @@ static void gx_triangle(const GXSWVertex *a, const GXSWVertex *b,
 static void gx_commit_vertex(void)
 {
     if (!gx_pending_position) return;
-    /* GX streams position first, then color and texture attributes. Delay the
-     * snapshot until the next position or GXEnd so those attributes belong to
-     * this vertex. */
-    gx_pending_vertex.color = gx_current_color;
-    gx_pending_vertex.s = gx_current_tex_s;
-    gx_pending_vertex.t = gx_current_tex_t;
     if (gx_vertex_count < (u16) (sizeof(gx_vertices) / sizeof(gx_vertices[0])))
         gx_vertices[gx_vertex_count++] = gx_pending_vertex;
     gx_pending_position = GX_FALSE;
@@ -718,6 +712,12 @@ static bool gx_dl_vertex(const u8 **cursor, const u8 *end, GXVtxFmt format)
             if (!gx_dl_attr(cursor, end, attr, &states[attr], NULL, &color1))
                 return false;
             have_color1 = states[attr].desc != GX_NONE;
+        } else if (attr == GX_VA_TEX0) {
+            f32 texcoord[3] = { gx_current_tex_s, gx_current_tex_t, 0.0f };
+            if (!gx_dl_attr(cursor, end, attr, &states[attr], texcoord, NULL))
+                return false;
+            gx_current_tex_s = texcoord[0];
+            gx_current_tex_t = states[attr].cnt == GX_TEX_ST ? texcoord[1] : gx_current_tex_t;
         } else if (!gx_dl_attr(cursor, end, attr, &states[attr], NULL, NULL)) {
             return false;
         }
@@ -726,7 +726,12 @@ static bool gx_dl_vertex(const u8 **cursor, const u8 *end, GXVtxFmt format)
         }
     }
     if (!have_color0 && have_color1) color = color1;
-    if (have_position) gx_current_color = color;
+    if (have_position) {
+        gx_pending_vertex.color = color;
+        gx_pending_vertex.s = gx_current_tex_s;
+        gx_pending_vertex.t = gx_current_tex_t;
+        gx_current_color = color;
+    }
     return true;
 }
 
@@ -802,20 +807,21 @@ void GXColor1u16(u16 x) {
         (u8) ((((x >> 5) & 0x3f) * 255 + 31) / 63),
         (u8) (((x & 0x1f) * 255 + 15) / 31), 255,
     };
+    if (gx_pending_position) gx_pending_vertex.color = gx_current_color;
 }
-void GXColor1u32(u32 x) { gx_current_color=(GXColor){(u8)(x>>24),(u8)(x>>16),(u8)(x>>8),(u8)x}; }
-void GXColor3u8(u8 r,u8 g,u8 b) { gx_current_color=(GXColor){r,g,b,255}; }
-void GXColor4u8(u8 r,u8 g,u8 b,u8 a) { gx_current_color=(GXColor){r,g,b,a}; }
-void GXTexCoord2f32(f32 s, f32 t) { gx_current_tex_s = s; gx_current_tex_t = t; }
-void GXTexCoord1f32(f32 s) { gx_current_tex_s = s; }
-void GXTexCoord2s16(s16 s, s16 t) { gx_current_tex_s = (f32)s; gx_current_tex_t = (f32)t; }
-void GXTexCoord1s16(s16 s) { gx_current_tex_s = (f32)s; }
-void GXTexCoord2u16(u16 s, u16 t) { gx_current_tex_s = (f32)s; gx_current_tex_t = (f32)t; }
-void GXTexCoord1u16(u16 s) { gx_current_tex_s = (f32)s; }
-void GXTexCoord2s8(s8 s, s8 t) { gx_current_tex_s = (f32)s; gx_current_tex_t = (f32)t; }
-void GXTexCoord1s8(s8 s) { gx_current_tex_s = (f32)s; }
-void GXTexCoord2u8(u8 s, u8 t) { gx_current_tex_s = (f32)s; gx_current_tex_t = (f32)t; }
-void GXTexCoord1u8(u8 s) { gx_current_tex_s = (f32)s; }
+void GXColor1u32(u32 x) { gx_current_color=(GXColor){(u8)(x>>24),(u8)(x>>16),(u8)(x>>8),(u8)x}; if (gx_pending_position) gx_pending_vertex.color=gx_current_color; }
+void GXColor3u8(u8 r,u8 g,u8 b) { gx_current_color=(GXColor){r,g,b,255}; if (gx_pending_position) gx_pending_vertex.color=gx_current_color; }
+void GXColor4u8(u8 r,u8 g,u8 b,u8 a) { gx_current_color=(GXColor){r,g,b,a}; if (gx_pending_position) gx_pending_vertex.color=gx_current_color; }
+void GXTexCoord2f32(f32 s, f32 t) { gx_current_tex_s = s; gx_current_tex_t = t; if (gx_pending_position) { gx_pending_vertex.s=s; gx_pending_vertex.t=t; } }
+void GXTexCoord1f32(f32 s) { gx_current_tex_s = s; if (gx_pending_position) gx_pending_vertex.s=s; }
+void GXTexCoord2s16(s16 s, s16 t) { gx_current_tex_s = (f32)s; gx_current_tex_t = (f32)t; if (gx_pending_position) { gx_pending_vertex.s=(f32)s; gx_pending_vertex.t=(f32)t; } }
+void GXTexCoord1s16(s16 s) { gx_current_tex_s = (f32)s; if (gx_pending_position) gx_pending_vertex.s=(f32)s; }
+void GXTexCoord2u16(u16 s, u16 t) { gx_current_tex_s = (f32)s; gx_current_tex_t = (f32)t; if (gx_pending_position) { gx_pending_vertex.s=(f32)s; gx_pending_vertex.t=(f32)t; } }
+void GXTexCoord1u16(u16 s) { gx_current_tex_s = (f32)s; if (gx_pending_position) gx_pending_vertex.s=(f32)s; }
+void GXTexCoord2s8(s8 s, s8 t) { gx_current_tex_s = (f32)s; gx_current_tex_t = (f32)t; if (gx_pending_position) { gx_pending_vertex.s=(f32)s; gx_pending_vertex.t=(f32)t; } }
+void GXTexCoord1s8(s8 s) { gx_current_tex_s = (f32)s; if (gx_pending_position) gx_pending_vertex.s=(f32)s; }
+void GXTexCoord2u8(u8 s, u8 t) { gx_current_tex_s = (f32)s; gx_current_tex_t = (f32)t; if (gx_pending_position) { gx_pending_vertex.s=(f32)s; gx_pending_vertex.t=(f32)t; } }
+void GXTexCoord1u8(u8 s) { gx_current_tex_s = (f32)s; if (gx_pending_position) gx_pending_vertex.s=(f32)s; }
 void GXColor1x16(u16 x){ (void)x; }
 void GXColor1x8(u8 x){ (void)x; }
 void GXTexCoord1x16(u16 x){ gx_current_tex_s = (f32)x; }
