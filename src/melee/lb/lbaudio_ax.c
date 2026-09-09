@@ -2115,6 +2115,13 @@ void lbAudioAx_8002838C(void)
 
     fn_80023254(5);
     lbl_804D6444 += offsets_arr_803BC4E4[lbl_80433B44[0]][0];
+#ifdef MELEE_NATIVE
+    /* Native SSM files carry all stage voices. The old PPC table sizes only
+     * reserve the largest voices selected for each category, while the host
+     * loader keeps each requested file resident. Reserve the remaining native
+     * bank space before HSD_SynthSFXAllocateBank assigns fixed boundaries. */
+    lbl_804D6444 += 0x200000;
+#endif
 
     lbl_804D6438 = lbl_804D643C + lbl_804D6440 + lbl_804D6444;
     lbl_804D3870 = lbl_804D6438;

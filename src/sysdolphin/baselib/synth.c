@@ -1940,6 +1940,28 @@ void HSD_SynthStreamSetVolume(f32 volume)
 
 void HSD_SynthInit(int dsp_size, int voices, int stream_size, int bank_size)
 {
+#ifdef MELEE_NATIVE
+    /* Native audio can be initialized again when the game returns to the
+     * mode select flow. The original allocator starts once, but the host ARAM
+     * backend is reset by each audio setup. Drop the old decoded bank records
+     * before rebuilding the bank boundaries. */
+    for (int bank_id = 0; bank_id < hsd_SynthSFXBankNum; ++bank_id) {
+        HSD_SynthSFXUnloadBank(bank_id);
+    }
+    memset(HSD_Synth_804C29E0, 0, sizeof(HSD_Synth_804C29E0));
+    memset(HSD_Synth_804C2AE0, 0, sizeof(HSD_Synth_804C2AE0));
+    memset(hsd_SynthSFXBank, 0, sizeof(hsd_SynthSFXBank));
+    memset(hsd_SynthSFXBankHead, 0, sizeof(hsd_SynthSFXBankHead));
+    memset(HSD_Synth_804C28E0, 0, sizeof(HSD_Synth_804C28E0));
+    memset(hsd_SynthSFXNodes, 0, sizeof(hsd_SynthSFXNodes));
+    hsd_SynthSFXBankNum = 0;
+    HSD_Synth_804D7720 = 0;
+    HSD_Synth_804D772C = 0;
+    HSD_Synth_804D7730 = NULL;
+    HSD_Synth_804D7734 = NULL;
+    HSD_Synth_804D7738 = 0;
+    HSD_Synth_804D774C = NULL;
+#endif
     AXInit();
     AISetDSPSampleRate(0);
     HSD_Synth_804D7784 = ARAlloc(0x500);
