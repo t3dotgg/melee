@@ -112,6 +112,42 @@ static void test_scene_records(void)
     close_binding(&binding);
 }
 
+static void test_css_records(void)
+{
+    enum {
+        DATA_SIZE = 416,
+        POINTERS = 40
+    };
+    u8 bytes[32 + DATA_SIZE + POINTERS * 4] = { 0 };
+    u8* data = bytes + 32;
+    const u32 scene[] = { 160, 224, 252, 280 };
+    const u32 animation[] = { 304, 368, 388, 400 };
+    NativeArchiveBinding binding;
+    NativeArchiveError error = { 0 };
+    word(bytes, 0, sizeof(bytes));
+    word(bytes, 4, DATA_SIZE);
+    word(bytes, 8, POINTERS);
+    word(data, 164, 1); /* Perspective camera. */
+    word(data, 308, 0x20000000);
+    word(data, 336, 0x3F800000); /* Joint scale. */
+    word(data, 372, 0);
+    for (size_t i = 0; i < POINTERS; ++i) {
+        word(data, i * 4, i < 4 ? scene[i] : animation[(i - 4) % 4]);
+        word(bytes, 32 + DATA_SIZE + i * 4, i * 4);
+    }
+    open_binding(&binding, bytes, sizeof(bytes));
+    void** root = native_css_root(&binding, 0, &error);
+    assert(root != NULL);
+    assert(root[0] != NULL && root[1] != NULL && root[2] != NULL);
+    assert(root[1] != root[2]);
+    for (size_t i = 4; i < POINTERS; ++i) {
+        assert(root[i] != NULL && root[i] == root[4 + (i - 4) % 4]);
+    }
+    assert(native_css_root(&binding, DATA_SIZE - 4, &error) == NULL);
+    assert(error.status == NATIVE_ARCHIVE_BOUNDS);
+    close_binding(&binding);
+}
+
 static size_t test_real_scene(const char* path)
 {
     FILE* file = fopen(path, "rb");
@@ -136,8 +172,8 @@ static size_t test_real_scene(const char* path)
             root = native_scene_root(&binding, symbol.offset, &error);
         } else if (native_name_ends_with(symbol.name, "_scene_modelset")) {
             size_t count;
-            root =
-                native_scene_models(&binding, symbol.offset, 0, &count, &error);
+            root = native_scene_models(&binding, symbol.offset, 0, &count,
+                                       &error);
             assert(root == NULL || count > 0);
         } else {
             continue;
@@ -156,6 +192,7 @@ static size_t test_real_scene(const char* path)
 int main(int argc, char** argv)
 {
     test_scene_records();
+    test_css_records();
     size_t roots = 0;
     for (int i = 1; i < argc; ++i) {
         roots += test_real_scene(argv[i]);

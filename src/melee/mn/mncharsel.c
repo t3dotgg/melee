@@ -5342,7 +5342,13 @@ void mnCharSel_Scene_OnEnter(void* arg0)
     }
     mnCharSel_804D6CB4 = HSD_ArchiveGetPublicAddress(mnCharSel_804D6CD0,
                                                      "MnSelectChrDataTable");
+#ifdef MELEE_NATIVE
+    /* Native descriptor pointers are eight bytes, so the animation block
+     * follows the four model pointers at the host pointer stride. */
+    mnCharSel_804D6CD8 = (u8*) mnCharSel_804D6CB4 + sizeof(CSSSceneModels);
+#else
     mnCharSel_804D6CD8 = (u8*) mnCharSel_804D6CB4 + 0x10;
+#endif
     if (lbLang_IsSavedLanguageJP() != 0) {
         HSD_SisLib_803A62A0(0, "SdSlChr.dat", "SIS_SelCharData");
     } else {

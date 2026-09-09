@@ -894,6 +894,72 @@ static SceneDesc* native_scene_root(NativeArchiveBinding* binding,
     return scene;
 }
 
+static void* native_css_root(NativeArchiveBinding* binding, uint32_t offset,
+                             NativeArchiveError* error)
+{
+    void** root;
+    /* The table has four scene descriptors and nine animation sets. */
+    if (!NativeArchiveDataRange(binding->archive, offset, 0xA0)) {
+        NativeArchiveFail(error, NATIVE_ARCHIVE_BOUNDS, 32u + offset,
+                          "character select table is truncated");
+        return NULL;
+    }
+    root = native_scene_alloc(binding, 40 * sizeof(*root));
+    if (root == NULL) {
+        return NULL;
+    }
+    for (size_t i = 0; i < 40; ++i) {
+        uint32_t target;
+        bool present;
+        NativeArchiveStatus status = NativeArchiveReference(
+            binding->archive, offset + (uint32_t) (i * 4), &target, &present,
+            error);
+        if (status != NATIVE_ARCHIVE_OK) {
+            return NULL;
+        }
+        if (!present) {
+            root[i] = NULL;
+            continue;
+        }
+        switch (i < 4 ? i : 4 + ((i - 4) % 4)) {
+        case 0:
+            status = NativeArchiveCObj(binding->graph, target,
+                                       (HSD_CObjDesc**) &root[i], error);
+            break;
+        case 1:
+        case 2:
+            status = NativeArchiveLight(binding->graph, target,
+                                        (HSD_LightDesc**) &root[i], error);
+            break;
+        case 3:
+            status = NativeArchiveFog(binding->graph, target,
+                                      (HSD_FogDesc**) &root[i], error);
+            break;
+        case 4:
+            status = NativeArchiveJoint(binding->graph, target,
+                                        (HSD_Joint**) &root[i], error);
+            break;
+        case 5:
+            status = NativeArchiveAnimation(binding->graph, target,
+                                            (HSD_AnimJoint**) &root[i], error);
+            break;
+        case 6:
+            status = NativeArchiveMatAnimJoint(
+                binding->graph, target, (HSD_MatAnimJoint**) &root[i], error);
+            break;
+        default:
+            status = NativeArchiveShapeAnimJoint(
+                binding->graph, target, (HSD_ShapeAnimJoint**) &root[i],
+                error);
+            break;
+        }
+        if (status != NATIVE_ARCHIVE_OK) {
+            return NULL;
+        }
+    }
+    return root;
+}
+
 void* HSD_ArchiveNativePublicAddress(HSD_Archive* archive, const char* symbol)
 {
     NativeArchiveBinding* binding = native_binding(archive);
@@ -905,6 +971,14 @@ void* HSD_ArchiveNativePublicAddress(HSD_Archive* archive, const char* symbol)
         NativeArchiveFind(binding->archive, symbol, &offset, &error) !=
             NATIVE_ARCHIVE_OK)
     {
+        return NULL;
+    }
+    if (strcmp(symbol, "MnSelectChrDataTable") == 0) {
+        root = native_css_root(binding, offset, &error);
+        if (root != NULL) {
+            return root;
+        }
+        native_archive_error(symbol, &error);
         return NULL;
     }
     if (strcmp(symbol, "lbAudioLoadData") == 0) {
