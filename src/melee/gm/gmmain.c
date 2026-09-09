@@ -127,7 +127,11 @@ static void init_spr_unk(void)
 void __eabi(void) {}
 #endif
 
+#ifdef MELEE_NATIVE
+int MeleeMain(void)
+#else
 int main(void)
+#endif
 {
     char* unused_format_string = "Data %lx\n";
     u32 _[2];
@@ -217,4 +221,7 @@ int main(void)
 
     db_ClearFPUExceptions();
     gm_801A4510();
+#ifdef MELEE_NATIVE
+    return 0;
+#endif
 }

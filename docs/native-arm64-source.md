@@ -50,6 +50,30 @@ python3 native/source/compile.py --source src/sysdolphin/baselib
 path keeps its default types. Source offset names refer to the original
 GameCube layouts. They are not host byte offsets.
 
+## Native launcher
+
+The optional `native_melee` target links the direct C sources with the host
+platform services. Build it on an Apple Silicon Mac with:
+
+```sh
+cmake -S native/source -B build/native-source/game -G Ninja \
+  -DMELEE_BUILD_NATIVE_GAME=ON -DMELEE_SANITIZERS=OFF
+cmake --build build/native-source/game --target native_melee
+```
+
+Run it with an extracted game directory or a disc image:
+
+```sh
+build/native-source/game/melee-native --root /path/to/melee-files
+build/native-source/game/melee-native --disc /path/to/melee.iso
+```
+
+A single path is accepted too. The launcher detects directories and regular
+files. The same paths can be supplied with `MELEE_GAME_ROOT` and
+`MELEE_DISC_IMAGE`. The target is opt-in while host rendering, controller
+input, audio, scheduling, and save support are still incomplete. A successful
+link does not mean that the game is playable.
+
 ## Current state
 
 The initial inventory compiles 798 of 984 game and engine C files. It treats

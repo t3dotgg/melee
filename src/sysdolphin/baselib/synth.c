@@ -123,7 +123,7 @@ static void HSD_SynthSFXSampleLoadCallback(int result, intptr_t length, void* ad
             bucket = &HSD_Synth_804C29E0[id];
             HSD_Synth_804D7730->x0 = (struct SfxLoadStreamNode*) *bucket;
             *bucket = HSD_Synth_804D7730;
-            HSD_Synth_804D7734 += (u32) nbytes >> 2;
+            HSD_Synth_804D7734 += nbytes >> 2;
             HSD_Synth_804D7730 =
                 (struct SfxLoadStreamNode*) ((u32*) HSD_Synth_804D7730 +
                                              ((u32) ((n << 6) + 0x10) >> 2));
@@ -170,7 +170,7 @@ static void HSD_SynthSFXHeaderLoadCallback(int result, intptr_t length, void* ad
         HSD_Synth_804D7730 =
             HSD_AudioMalloc(OSRoundUp32B(alloc_size + header_size));
         HSD_Synth_804D6028[1] = HSD_DevComRequest(
-            HSD_Synth_804C2A60[0].entrynum, 0x20, (u32) (uintptr_t) HSD_Synth_804D7730,
+            HSD_Synth_804C2A60[0].entrynum, 0x20, (uintptr_t) HSD_Synth_804D7730,
             OSRoundUp32B(header_size - 0x10), 0x21, 1, NULL, NULL);
         HSD_Synth_804D6028[0] = HSD_DevComRequest(
             HSD_Synth_804C2A60[0].entrynum, OSRoundUp32B(header_size + 0x10),
@@ -351,12 +351,42 @@ void HSD_Synth_80388E08(int sfx_id)
     }
 }
 
-static void HSD_SynthSFXGroupDataReaddressCallback(void* result, intptr_t length,
-                                                   void* addr, int cancelflag)
+static void HSD_SynthSFXGroupDataReaddressCallback(int result, intptr_t length,
+                                                   void* addr, bool cancelflag)
 {
     HSD_ASSERT(0x182, sfxGroupDataReaddressCounter > 0);
     sfxGroupDataReaddressCounter--;
 }
+
+#ifdef MELEE_NATIVE
+static void HSD_Synth_8038AD74_DevComCallback(
+    int result, intptr_t length, void* addr, bool cancelflag)
+{
+    (void) addr;
+    (void) cancelflag;
+    HSD_Synth_8038AD74((u32) result, (uintptr_t) length);
+}
+
+static void HSD_Synth_8038B120_DevComCallback(
+    int result, intptr_t length, void* addr, bool cancelflag)
+{
+    (void) result;
+    (void) length;
+    (void) addr;
+    (void) cancelflag;
+    HSD_Synth_8038B120();
+}
+
+static void HSD_SynthPStreamFirstHakoHeader_DevComCallback(
+    int result, intptr_t length, void* addr, bool cancelflag)
+{
+    (void) result;
+    (void) length;
+    (void) addr;
+    (void) cancelflag;
+    HSD_SynthPStreamFirstHakoHeaderCallback();
+}
+#endif
 
 #ifdef MUST_MATCH
 static void order_data_1(void)
@@ -381,7 +411,7 @@ void HSD_SynthSFXGroupDataReaddress(AXVPB* arg0, void* callback)
     HSD_DevComRequest(
         0, (uintptr_t) arg0->callback, (uintptr_t) callback, arg0->userContext,
         0x1B, 0,
-        (HSD_DevComCallback) (Event) HSD_SynthSFXGroupDataReaddressCallback,
+        HSD_SynthSFXGroupDataReaddressCallback,
         NULL);
     i = 0;
     delta = ((u8*) callback - (u8*) arg0->callback) * 2;
@@ -1219,7 +1249,11 @@ static inline void HSD_Synth_8038ADD0_inline(u32 pos)
                 HSD_DevComRequest(
                     HSD_Synth_804D7764, src,
                     (uintptr_t) &lbl_804C4540[HSD_Synth_804D7768], 0x20, 0x21,
+#ifdef MELEE_NATIVE
+                    0, HSD_Synth_8038AD74_DevComCallback,
+#else
                     0, (HSD_DevComCallback) (Event) HSD_Synth_8038AD74,
+#endif
                     (struct HSD_SynthStreamHeader*) (uintptr_t) (src + 0x20));
             }
         }
@@ -1343,7 +1377,11 @@ void HSD_SynthPStreamFirstHakoHeaderCallback(void)
     HSD_DevComRequest(HSD_Synth_804D7764, 0xA0,
                       HSD_Synth_804D7780 + (HSD_Synth_804D7768 << 16),
                       lbl_804C4540[HSD_Synth_804D7768].x0, 0x23, 0,
+#ifdef MELEE_NATIVE
+                      HSD_Synth_8038B120_DevComCallback, 0);
+#else
                       (HSD_DevComCallback) HSD_Synth_8038B120, 0);
+#endif
 }
 
 void HSD_SynthPStreamHeaderCallback(int arg0, intptr_t arg1, void* arg2,
@@ -1372,7 +1410,11 @@ void HSD_SynthPStreamHeaderCallback(int arg0, intptr_t arg1, void* arg2,
         HSD_DevComRequest(
             HSD_Synth_804D7764, 0x80,
             (uintptr_t) &lbl_804C4540[HSD_Synth_804D7768], 0x20, 0x21, 0,
+#ifdef MELEE_NATIVE
+            HSD_SynthPStreamFirstHakoHeader_DevComCallback,
+#else
             (HSD_DevComCallback) HSD_SynthPStreamFirstHakoHeaderCallback,
+#endif
             NULL);
     } else {
         HSD_Synth_804D7778 = 0;

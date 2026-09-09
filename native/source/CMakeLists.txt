@@ -14,6 +14,8 @@ set(CMAKE_C_STANDARD_REQUIRED ON)
 set(CMAKE_C_EXTENSIONS ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 option(MELEE_SANITIZERS "Check memory access and undefined behavior" ON)
+option(MELEE_BUILD_NATIVE_GAME
+    "Build the complete direct-source ARM64 game executable (experimental)" OFF)
 get_filename_component(MELEE_ROOT "../.." ABSOLUTE)
 
 add_library(melee_host_options INTERFACE)
@@ -65,3 +67,25 @@ add_test(NAME effects COMMAND test_effects)
 add_executable(test_archive tests/test_archive.c assets/archive.c assets/descriptors.c platform/report.c)
 target_link_libraries(test_archive PRIVATE melee_host_options)
 add_test(NAME archive COMMAND test_archive)
+
+# The focused tests above are the default build. The complete game target is
+# opt-in because it is still missing host services needed for a playable
+# window, controller input, audio, and save data. When enabled, CMake compiles
+# every game, engine, and native support source into one direct ARM64 binary.
+if(MELEE_BUILD_NATIVE_GAME)
+    file(GLOB_RECURSE MELEE_NATIVE_GAME_SOURCES CONFIGURE_DEPENDS
+        "${MELEE_ROOT}/src/melee/*.c"
+        "${MELEE_ROOT}/src/sysdolphin/*.c")
+    list(APPEND MELEE_NATIVE_GAME_SOURCES
+        "${MELEE_ROOT}/src/MSL/float.c")
+    file(GLOB MELEE_NATIVE_SUPPORT_SOURCES CONFIGURE_DEPENDS
+        "${CMAKE_CURRENT_SOURCE_DIR}/platform/*.c"
+        "${CMAKE_CURRENT_SOURCE_DIR}/assets/*.c")
+
+    add_executable(native_melee EXCLUDE_FROM_ALL
+        native_main.c
+        ${MELEE_NATIVE_GAME_SOURCES}
+        ${MELEE_NATIVE_SUPPORT_SOURCES})
+    target_link_libraries(native_melee PRIVATE melee_host_options)
+    set_target_properties(native_melee PROPERTIES OUTPUT_NAME melee-native)
+endif()
