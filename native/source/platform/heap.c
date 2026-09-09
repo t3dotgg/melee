@@ -227,6 +227,7 @@ size_t OSReferentSize(void* pointer)
 void OSVisitAllocated(void (*visitor)(void*, size_t))
 {
     int i;
+    // NativeBlock::size is the aligned payload size, excluding its header.
     for (i = 0; i < heap_count; i++) {
         NativeBlock* block;
         for (block = heaps[i].first; block != NULL; block = block->next) {
