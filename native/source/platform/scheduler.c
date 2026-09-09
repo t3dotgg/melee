@@ -20,14 +20,12 @@ typedef struct NativeSchedulerState {
 
 static NativeSchedulerState s_scheduler = {
     .lock = PTHREAD_MUTEX_INITIALIZER,
-    .frame_period = 486000000 / 4 / 60,
 };
 
 static OSTime timespec_to_ticks(const struct timespec* value)
 {
-    uint64_t nanoseconds =
-        (uint64_t) value->tv_sec * 1000000000u + (uint64_t) value->tv_nsec;
-    return (OSTime) ((nanoseconds * (uint64_t) OS_TIMER_CLOCK) / 1000000000u);
+    return (OSTime) value->tv_sec * OS_TIMER_CLOCK +
+           (OSTime) ((uint64_t) value->tv_nsec * OS_TIMER_CLOCK / 1000000000u);
 }
 
 static void ensure_clock_locked(void)
@@ -70,6 +68,7 @@ void NativeSchedulerInit(void)
     if (!s_scheduler.initialized) {
         ensure_clock_locked();
         s_scheduler.initialized = TRUE;
+        s_scheduler.frame_period = OS_TIMER_CLOCK / 60;
         s_scheduler.next_retrace =
             monotonic_ticks_locked() + s_scheduler.frame_period;
     }
@@ -90,7 +89,7 @@ void NativeSchedulerReset(void)
     s_scheduler.initialized = TRUE;
     s_scheduler.deterministic = TRUE;
     s_scheduler.test_time = 0;
-    s_scheduler.frame_period = 486000000 / 4 / 60;
+    s_scheduler.frame_period = OS_TIMER_CLOCK / 60;
     s_scheduler.next_retrace = s_scheduler.frame_period;
     pthread_mutex_unlock(&s_scheduler.lock);
 }

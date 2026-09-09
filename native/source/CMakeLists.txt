@@ -173,6 +173,10 @@ target_sources(test_scheduler PRIVATE platform/pad.c)
 target_link_libraries(test_scheduler PRIVATE melee_host_options)
 add_test(NAME scheduler COMMAND test_scheduler "${CMAKE_BINARY_DIR}")
 
+add_executable(test_scheduler_clock tests/test_scheduler_clock.c)
+target_link_libraries(test_scheduler_clock PRIVATE melee_host_options)
+add_test(NAME scheduler_clock COMMAND test_scheduler_clock)
+
 add_executable(test_pad tests/test_pad.c platform/pad.c)
 target_link_libraries(test_pad PRIVATE melee_host_options)
 add_test(NAME pad COMMAND test_pad)

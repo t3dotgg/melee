@@ -49,6 +49,13 @@ static void on_alarm(OSAlarm* alarm, OSContext* context)
 static void test_retrace_clock(void)
 {
     NativeSchedulerReset();
+    VIInit();
+    for (int i = 0; i < 60; ++i) {
+        VIWaitForRetrace();
+    }
+    CHECK(NativeSchedulerGetTime() == OSSecondsToTicks(1));
+
+    NativeSchedulerReset();
     NativeSchedulerSetFramePeriod(OSMillisecondsToTicks(10));
     VIInit();
     VISetPreRetraceCallback(on_retrace);
