@@ -35,6 +35,7 @@ int main()
     input.stick_x = 1.0F;
     game.update(input, 1.0 / 60.0);
     assert(game.state().frame == 1);
+    assert(game.state().player_x > 0.09F);
     assert(memory.read_be_u32(0) == 1);
     std::cout << "native memory and game tests passed\n";
 }

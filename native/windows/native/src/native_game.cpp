@@ -7,12 +7,22 @@
 
 namespace melee::native {
 
+NativeDemoGame::NativeDemoGame(NativeGameMemory& memory) : memory_(memory)
+{
+    fighter_object_ = scene_.create_object(0, RenderObject{1, 0, {}},
+        [this](NativeScene& scene, NativeObjectId id, double) {
+            const auto& fighter = fighter_.state();
+            state_.player_x = fighter.x;
+            state_.player_y = fighter.y;
+            scene.set_render_object(id, RenderObject{1, 0, {fighter.x, fighter.y, 0.0F}});
+        });
+}
+
 void NativeDemoGame::update(const NativeInput& input, double dt_seconds)
 {
-    state_.frame++;
-    state_.player_x += input.stick_x * static_cast<float>(dt_seconds) * 5.0F;
-    state_.player_y = std::max(-1.0F, std::min(1.0F, state_.player_y +
-        input.stick_y * static_cast<float>(dt_seconds) * 5.0F));
+    fighter_.update(FighterInput{input.stick_x, input.attack, input.special, input.jump}, dt_seconds);
+    state_.frame = fighter_.state().frame;
+    scene_.update(dt_seconds, state_.frame);
     memory_.write_be_u32(0, static_cast<std::uint32_t>(state_.frame));
 }
 

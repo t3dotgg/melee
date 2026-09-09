@@ -1,6 +1,8 @@
 #pragma once
 
 #include "native_game_memory.h"
+#include "native_fighter.h"
+#include "native_scene.h"
 
 #include <cstdint>
 
@@ -33,12 +35,15 @@ public:
 // subsystem at a time without reintroducing guest memory assumptions.
 class NativeDemoGame final : public NativeGame {
 public:
-    explicit NativeDemoGame(NativeGameMemory& memory) : memory_(memory) {}
+    explicit NativeDemoGame(NativeGameMemory& memory);
     void update(const NativeInput& input, double dt_seconds) override;
     const NativeFrameState& state() const noexcept override { return state_; }
 
 private:
     NativeGameMemory& memory_;
+    NativeFighter fighter_;
+    NativeScene scene_;
+    NativeObjectId fighter_object_ = 0;
     NativeFrameState state_;
 };
 
