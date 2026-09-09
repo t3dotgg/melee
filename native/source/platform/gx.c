@@ -82,6 +82,7 @@ typedef struct GXSWTexture {
     GXTexFmt format;
     GXTexWrapMode wrap_s;
     GXTexWrapMode wrap_t;
+    GXTexFilter min_filter;
     GXTexFilter mag_filter;
     u32 tlut;
     size_t base_size;
@@ -1439,6 +1440,7 @@ void GXLoadTexObj(GXTexObj* obj, GXTexMapID id)
     gx_textures[id].format = (GXTexFmt) (obj->dummy[2] & 0xff);
     gx_textures[id].wrap_s = (GXTexWrapMode) ((obj->dummy[2] >> 8) & 0xff);
     gx_textures[id].wrap_t = (GXTexWrapMode) ((obj->dummy[2] >> 16) & 0xff);
+    gx_textures[id].min_filter = (GXTexFilter) (obj->dummy[4] & 0xff);
     gx_textures[id].mag_filter = (GXTexFilter) ((obj->dummy[4] >> 8) & 0xff);
     gx_textures[id].tlut = (u32) obj->dummy[3];
     gx_textures[id].base_size = gx_texture_size(

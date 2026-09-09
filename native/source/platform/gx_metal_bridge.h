@@ -157,7 +157,7 @@ static NativeGXMetalTexture gx_metal_texture(const GXSWTexture* source)
     result = entry->texture;
     result.wrap_s = source->wrap_s;
     result.wrap_t = source->wrap_t;
-    result.min_filter = source->mag_filter;
+    result.min_filter = source->min_filter;
     result.mag_filter = source->mag_filter;
     return result;
 }
