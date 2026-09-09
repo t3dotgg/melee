@@ -309,6 +309,12 @@ static ItemStateArray* states(NativeItemArchive* items, uint32_t offset,
     size_t span = NativeItemArchiveSpan(items, offset);
     size_t count = span / 16;
     ItemStateArray* result;
+    /* Kirby's state table is followed by an eight-byte tail that belongs to
+     * the next overlaid archive object. Keep only complete 16-byte records. */
+    if (span != 0 && span % 16 == 8) {
+        span -= 8;
+        count = span / 16;
+    }
     if (span == 0 || span % 16 != 0) {
         NativeArchiveFail(error, NATIVE_ARCHIVE_INVALID, 32u + offset,
                           "item state array is not a complete record array");
