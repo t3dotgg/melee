@@ -25,13 +25,15 @@ static inline uint32_t NativeArchiveBE32(const uint8_t* bytes)
            ((uint32_t) bytes[2] << 8) | bytes[3];
 }
 
-static inline bool NativeArchiveDataRange(const NativeArchive* archive, uint32_t offset, size_t size)
+static inline bool NativeArchiveDataRange(const NativeArchive* archive,
+                                          uint32_t offset, size_t size)
 {
-    return archive != NULL && offset <= archive->data_size && size <= (size_t) archive->data_size - offset;
+    return archive != NULL && offset <= archive->data_size &&
+           size <= (size_t) archive->data_size - offset;
 }
 
 NativeArchiveStatus NativeArchiveFail(NativeArchiveError* error,
-                                     NativeArchiveStatus status,
-                                     size_t offset, const char* message);
+                                      NativeArchiveStatus status,
+                                      size_t offset, const char* message);
 
 #endif

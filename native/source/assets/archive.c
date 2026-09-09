@@ -1,13 +1,13 @@
-#include "archive_internal.h"
-
 #include <stdlib.h>
 #include <string.h>
+
+#include "archive_internal.h"
 
 #define HEADER_SIZE 32u
 
 NativeArchiveStatus NativeArchiveFail(NativeArchiveError* error,
-                                     NativeArchiveStatus status,
-                                     size_t offset, const char* message)
+                                      NativeArchiveStatus status,
+                                      size_t offset, const char* message)
 {
     if (error != NULL) {
         error->status = status;
@@ -83,8 +83,8 @@ void NativeArchiveClose(NativeArchive* archive)
 }
 
 NativeArchiveStatus NativeArchiveOpen(const void* input, size_t size,
-                                     NativeArchive** output,
-                                     NativeArchiveError* error)
+                                      NativeArchive** output,
+                                      NativeArchiveError* error)
 {
     const uint8_t* bytes = input;
     NativeArchive* archive;
@@ -195,7 +195,8 @@ NativeArchiveStatus NativeArchiveOpen(const void* input, size_t size,
                                        "public symbol is outside data");
             goto fail;
         }
-        if (!symbol_valid(archive, NativeArchiveBE32(archive->file + at + 4))) {
+        if (!symbol_valid(archive, NativeArchiveBE32(archive->file + at + 4)))
+        {
             status = NativeArchiveFail(error, NATIVE_ARCHIVE_BOUNDS, at + 4,
                                        "public symbol name is invalid");
             goto fail;
@@ -213,7 +214,8 @@ NativeArchiveStatus NativeArchiveOpen(const void* input, size_t size,
     for (i = 0; i < archive->external_count; ++i) {
         size_t at = archive->external_at + (size_t) i * 8;
         uint32_t field = NativeArchiveBE32(archive->file + at);
-        if (!symbol_valid(archive, NativeArchiveBE32(archive->file + at + 4))) {
+        if (!symbol_valid(archive, NativeArchiveBE32(archive->file + at + 4)))
+        {
             status = NativeArchiveFail(error, NATIVE_ARCHIVE_BOUNDS, at + 4,
                                        "external symbol name is invalid");
             goto fail;
@@ -226,9 +228,10 @@ NativeArchiveStatus NativeArchiveOpen(const void* input, size_t size,
                 goto fail;
             }
             if (is_relocated(archive, field) || is_external(archive, field)) {
-                status = NativeArchiveFail(error, NATIVE_ARCHIVE_INVALID,
-                                           HEADER_SIZE + (size_t) field,
-                                           "external chain overlaps or cycles");
+                status =
+                    NativeArchiveFail(error, NATIVE_ARCHIVE_INVALID,
+                                      HEADER_SIZE + (size_t) field,
+                                      "external chain overlaps or cycles");
                 goto fail;
             }
             word = field / 4u;
@@ -270,7 +273,8 @@ static NativeArchiveStatus get_symbol(const NativeArchive* archive,
         return NativeArchiveFail(error, NATIVE_ARCHIVE_INVALID, 0,
                                  "archive or symbol output is null");
     }
-    if (index >= (external ? archive->external_count : archive->public_count)) {
+    if (index >= (external ? archive->external_count : archive->public_count))
+    {
         return NativeArchiveFail(error, NATIVE_ARCHIVE_NOT_FOUND, 0,
                                  "symbol index is outside table");
     }
@@ -282,24 +286,24 @@ static NativeArchiveStatus get_symbol(const NativeArchive* archive,
 }
 
 NativeArchiveStatus NativeArchivePublic(const NativeArchive* archive,
-                                       size_t index,
-                                       NativeArchiveSymbol* output,
-                                       NativeArchiveError* error)
+                                        size_t index,
+                                        NativeArchiveSymbol* output,
+                                        NativeArchiveError* error)
 {
     return get_symbol(archive, index, false, output, error);
 }
 
 NativeArchiveStatus NativeArchiveExternal(const NativeArchive* archive,
-                                         size_t index,
-                                         NativeArchiveSymbol* output,
-                                         NativeArchiveError* error)
+                                          size_t index,
+                                          NativeArchiveSymbol* output,
+                                          NativeArchiveError* error)
 {
     return get_symbol(archive, index, true, output, error);
 }
 
 NativeArchiveStatus NativeArchiveFind(const NativeArchive* archive,
-                                     const char* name, uint32_t* offset,
-                                     NativeArchiveError* error)
+                                      const char* name, uint32_t* offset,
+                                      NativeArchiveError* error)
 {
     size_t i;
     if (archive == NULL || name == NULL || offset == NULL) {
@@ -320,13 +324,15 @@ NativeArchiveStatus NativeArchiveFind(const NativeArchive* archive,
 
 void NativeArchiveNullExternals(NativeArchive* archive)
 {
-    if (archive != NULL) archive->null_externals = true;
+    if (archive != NULL) {
+        archive->null_externals = true;
+    }
 }
 
 NativeArchiveStatus NativeArchiveReference(const NativeArchive* archive,
-                                          uint32_t field_offset,
-                                          uint32_t* target, bool* present,
-                                          NativeArchiveError* error)
+                                           uint32_t field_offset,
+                                           uint32_t* target, bool* present,
+                                           NativeArchiveError* error)
 {
     uint32_t value;
     if (archive == NULL || target == NULL || present == NULL) {
@@ -336,12 +342,14 @@ NativeArchiveStatus NativeArchiveReference(const NativeArchive* archive,
     *target = 0;
     *present = false;
     if (!pointer_field(archive, field_offset)) {
-        return NativeArchiveFail(error, NATIVE_ARCHIVE_BOUNDS,
-                                 HEADER_SIZE + (size_t) field_offset,
-                                 "reference field is outside data or unaligned");
+        return NativeArchiveFail(
+            error, NATIVE_ARCHIVE_BOUNDS, HEADER_SIZE + (size_t) field_offset,
+            "reference field is outside data or unaligned");
     }
     if (is_external(archive, field_offset)) {
-        if (archive->null_externals) return success(error);
+        if (archive->null_externals) {
+            return success(error);
+        }
         return NativeArchiveFail(error, NATIVE_ARCHIVE_UNSUPPORTED,
                                  HEADER_SIZE + (size_t) field_offset,
                                  "external reference needs typed binding");
@@ -359,8 +367,8 @@ NativeArchiveStatus NativeArchiveReference(const NativeArchive* archive,
 }
 
 NativeArchiveStatus NativeArchiveRead(const NativeArchive* archive,
-                                     uint32_t offset, void* output, size_t size,
-                                     NativeArchiveError* error)
+                                      uint32_t offset, void* output,
+                                      size_t size, NativeArchiveError* error)
 {
     if (archive == NULL || (output == NULL && size != 0)) {
         return NativeArchiveFail(error, NATIVE_ARCHIVE_INVALID, 0,

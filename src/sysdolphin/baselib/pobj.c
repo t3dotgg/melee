@@ -583,7 +583,8 @@ static void decode_shape_components(const HSD_VtxDescList* desc,
             output[i] = ((u16) bytes[i * 2] << 8 | bytes[i * 2 + 1]) * scale;
             break;
         case GX_S16:
-            output[i] = (s16) ((u16) bytes[i * 2] << 8 | bytes[i * 2 + 1]) * scale;
+            output[i] =
+                (s16) ((u16) bytes[i * 2] << 8 | bytes[i * 2 + 1]) * scale;
             break;
         case GX_F32: {
             u32 bits = (u32) bytes[i * 4] << 24 |

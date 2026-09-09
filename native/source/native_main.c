@@ -92,12 +92,13 @@ int main(int argc, char** argv)
             pad_trace = 1;
             continue;
         }
-        if (strcmp(argument, "--root") == 0 || strcmp(argument, "--disc") == 0) {
-            if (i + 1 >= argc || !set_data_path(
-                                     strcmp(argument, "--root") == 0
-                                         ? "MELEE_GAME_ROOT"
-                                         : "MELEE_DISC_IMAGE",
-                                     argv[++i])) {
+        if (strcmp(argument, "--root") == 0 || strcmp(argument, "--disc") == 0)
+        {
+            if (i + 1 >= argc || !set_data_path(strcmp(argument, "--root") == 0
+                                                    ? "MELEE_GAME_ROOT"
+                                                    : "MELEE_DISC_IMAGE",
+                                                argv[++i]))
+            {
                 print_usage(argv[0]);
                 return 2;
             }
@@ -124,15 +125,17 @@ int main(int argc, char** argv)
             return 2;
         }
         if (!set_data_path(S_ISDIR(info.st_mode) ? "MELEE_GAME_ROOT"
-                                                : "MELEE_DISC_IMAGE",
-                           positional)) {
+                                                 : "MELEE_DISC_IMAGE",
+                           positional))
+        {
             return 2;
         }
         path_was_set = 1;
     }
 
     if (!path_was_set && getenv("MELEE_GAME_ROOT") == NULL &&
-        getenv("MELEE_DISC_IMAGE") == NULL) {
+        getenv("MELEE_DISC_IMAGE") == NULL)
+    {
         fprintf(stderr, "A game directory or disc image is required\n");
         print_usage(argv[0]);
         return 2;

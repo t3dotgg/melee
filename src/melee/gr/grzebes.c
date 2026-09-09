@@ -293,14 +293,12 @@ void grZebes_801D8644(HSD_GObj* gobj)
     gp->u.zebes5.acid.x00_state = 0xFF;
     gp->u.zebes5.acid.x01_next = 0;
     gp->u.zebes5.acid.x02_timer = 0;
-    gp->u.zebes5.acid.x04_base_x =
-        HSD_JObjGetTranslationX(child_jobj);
+    gp->u.zebes5.acid.x04_base_x = HSD_JObjGetTranslationX(child_jobj);
     gp->u.zebes5.acid.x08_offset = 0.0f;
     gp->u.zebes5.acid.x0C_velocity = 0.0f;
     gp->u.zebes5.acid.x10_damage = 0.0f;
     gp->u.zebes5.acid.x14_jobj1 = child_jobj;
-    gp->u.zebes5.acid.x18_jobj2 =
-        Ground_801C3FA4(gobj, 0x20);
+    gp->u.zebes5.acid.x18_jobj2 = Ground_801C3FA4(gobj, 0x20);
     gp->u.zebes5.acid.x1C_mat = mat_gobj2 = mat_gobj;
 
     gp->u.zebes5.acid.x20_anim_idx = 0x1C;
@@ -312,8 +310,8 @@ void grZebes_801D8644(HSD_GObj* gobj)
     grMaterial_801C8E08(mat_gobj2);
     gp->u.zebes5.x100 = mat_gobj2;
     grZebes_801DC9DC(gobj);
-    gp->u.zebes5.xFC = grZakoGenerator_801CA394(
-        (UNK_T) &grZe_803E1B90, 0xA, grZebes_801DCB64, 1.0f);
+    gp->u.zebes5.xFC = grZakoGenerator_801CA394((UNK_T) &grZe_803E1B90, 0xA,
+                                                grZebes_801DCB64, 1.0f);
     mpJointSetB10(0);
     Ground_801C2FE0((Ground_GObj*) gobj);
 }
@@ -475,8 +473,7 @@ void grZebes_801D881C(HSD_GObj* gobj)
                     f32 rand = HSD_Randf();
                     f32 scale_min = yakumono_param->x58;
 #ifdef MELEE_NATIVE
-                    grZe_BubbleEntry* pos =
-                        &grZe_8049F170[spawn_phase - 1];
+                    grZe_BubbleEntry* pos = &grZe_8049F170[spawn_phase - 1];
                     {
                         f32 scale_range = yakumono_param->x5C - scale_min;
                         grZebes_801DAE70(spawn_phase, 4, pos->x08_x,
@@ -611,8 +608,8 @@ void grZebes_801D881C(HSD_GObj* gobj)
         f32 slope;
         f32 intercept;
         Ground_801C4368(&slope, &intercept);
-        grZakoGenerator_801CA43C(gp->u.zebes5.xFC,
-                                 Ground_801C3FA4(gobj, 0xE), slope);
+        grZakoGenerator_801CA43C(gp->u.zebes5.xFC, Ground_801C3FA4(gobj, 0xE),
+                                 slope);
     }
     Ground_801C2FE0((Ground_GObj*) gobj);
     lb_800115F4();
@@ -656,8 +653,8 @@ void grZebes_801D9100(HSD_GObj* gobj)
     gp->u.zebes4.acid.x1C_mat = mat_gobj;
     gp->u.zebes4.acid.x20_anim_idx = new_var;
     gp->u.zebes4.xE8 = 0;
-    gp->u.zebes4.xEC = grZakoGenerator_801CA394(
-        (void*) &grZe_803E1C80, 4, grZebes_801DCBB0, 1.0f);
+    gp->u.zebes4.xEC = grZakoGenerator_801CA394((void*) &grZe_803E1C80, 4,
+                                                grZebes_801DCBB0, 1.0f);
     Ground_801C2FE0(new_var2);
 }
 
@@ -697,8 +694,8 @@ void grZebes_801D925C(HSD_GObj* gobj)
     {
         f32 slope, intercept;
         Ground_801C4368(&slope, &intercept);
-        grZakoGenerator_801CA43C(gp->u.zebes4.xEC,
-                                 Ground_801C3FA4(gobj, 1), slope);
+        grZakoGenerator_801CA43C(gp->u.zebes4.xEC, Ground_801C3FA4(gobj, 1),
+                                 slope);
         Ground_801C2FE0((Ground_GObj*) gobj);
     }
 }

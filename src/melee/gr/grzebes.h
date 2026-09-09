@@ -2,9 +2,9 @@
 #define GALE01_1D84A0
 
 #include <melee/gr/forward.h>
-#include <melee/gr/grzakogenerator.h>
 
 #include <dolphin/mtx.h>
+#include <melee/gr/grzakogenerator.h>
 
 /* 1D84A4 */ void grZebes_801D84A4(void);
 /* 1D8644 */ void grZebes_801D8644(HSD_GObj*);
