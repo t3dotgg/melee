@@ -27,6 +27,7 @@ typedef struct Fixture {
     unsigned char file[1024];
     uint32_t relocations[32];
     size_t count;
+    bool external;
     NativeArchive* archive;
     NativeArchiveGraph* graph;
     NativeItemArchive* items;
@@ -45,6 +46,12 @@ static void open_fixture(Fixture* fixture)
 {
     NativeArchiveError error;
     size_t size = 32 + 512 + fixture->count * 4;
+    if (fixture->external) {
+        word(fixture->file, 16, 1);
+        word(fixture->file, size, 32);
+        memcpy(fixture->file + size + 8, "external", 9);
+        size += 17;
+    }
     word(fixture->file, 0, size);
     word(fixture->file, 4, 512);
     word(fixture->file, 8, fixture->count);
@@ -164,6 +171,17 @@ static void test_rejected_slots(void)
                                     &error) == NATIVE_ARCHIVE_UNSUPPORTED);
     CHECK(result == NULL);
     close_fixture(&fixture);
+
+    memset(&fixture, 0, sizeof(fixture));
+    fixture.external = true;
+    ref(&fixture, 400 + 16, 32);
+    word(fixture.file + 32, 32, UINT32_MAX);
+    open_fixture(&fixture);
+    CHECK(NativeFighterArticlesRead(fixture.articles, "ftDataFox", 400,
+                                    &result,
+                                    &error) == NATIVE_ARCHIVE_UNSUPPORTED);
+    CHECK(result == NULL);
+    close_fixture(&fixture);
 }
 
 /* Local DAT arguments check complete article and descriptor graphs. */
@@ -180,9 +198,15 @@ static bool test_real_fighter(const char* path)
     Fixture fixture = { 0 };
     NativeArchiveError error;
     bool passed = true;
-    CHECK(NativeArchiveOpen(bytes, size, &fixture.archive, &error) ==
-          NATIVE_ARCHIVE_OK);
+    if (NativeArchiveOpen(bytes, size, &fixture.archive, &error) !=
+        NATIVE_ARCHIVE_OK)
+    {
+        fprintf(stderr, "%s at %#zx: %s\n", path, error.offset, error.message);
+        free(bytes);
+        return false;
+    }
     free(bytes);
+    NativeArchiveNullExternals(fixture.archive);
     CHECK(NativeArchiveGraphOpen(fixture.archive, &fixture.graph, &error) ==
           NATIVE_ARCHIVE_OK);
     fixture.items = NativeItemArchiveOpen(fixture.archive, fixture.graph);

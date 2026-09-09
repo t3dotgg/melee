@@ -395,6 +395,16 @@ static void* read_slot(NativeFighterArticles* articles, int kind,
         }
         for (unsigned i = 0; i < 6; i++) {
             uint32_t field = offset + i * 4;
+            size_t index = field / 4;
+            if (articles->archive->external_fields != NULL &&
+                (articles->archive->external_fields[index / 8] &
+                 (1u << (index % 8))) != 0)
+            {
+                NativeArchiveFail(
+                    error, NATIVE_ARCHIVE_UNSUPPORTED, 32u + field,
+                    "Fox scalar article contains an external reference");
+                return NULL;
+            }
             for (size_t j = 0; j < articles->archive->reloc_count; j++) {
                 if (articles->archive->relocations[j] == field) {
                     NativeArchiveFail(
