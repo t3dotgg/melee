@@ -749,7 +749,7 @@ check_done:
     return gx_cur;
 }
 
-inline void ifStatus_CreateMarkGObj(HSD_GObj** gobj)
+static inline void ifStatus_CreateMarkGObj(HSD_GObj** gobj)
 {
     *gobj = GObj_Create(0xE, 0xF, 0);
 }

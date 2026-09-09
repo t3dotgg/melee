@@ -5519,7 +5519,7 @@ static inline void _Toy_8030FE48_init_sort_key(s16** ptr)
     (void) sort_mode;
 }
 
-inline void _Toy_8030FE48_setup_entry(ToyListEntry* entry, s16 trophy_idx)
+static inline void _Toy_8030FE48_setup_entry(ToyListEntry* entry, s16 trophy_idx)
 {
     char* result = Toy_8030813C(trophy_idx);
 
@@ -5532,7 +5532,7 @@ inline void _Toy_8030FE48_setup_entry(ToyListEntry* entry, s16 trophy_idx)
     entry->trophy_id = trophy_idx;
 }
 
-inline void _Toy_8030FE48_link_entries(ToyDisplayList* data, s32 entry_count)
+static inline void _Toy_8030FE48_link_entries(ToyDisplayList* data, s32 entry_count)
 {
     s32 i;
     ToyListEntry* last_entry;
