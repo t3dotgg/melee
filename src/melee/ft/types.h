@@ -2030,7 +2030,7 @@ typedef struct DmgLogEntry {
     /// @todo Might be a fake union
     /*  +C */ union {
         HitCapsule* hit0;
-        DynamicsDesc* unk_anim0;
+        lbColl_80008D30_arg1* unk_anim0;
     };
     /// @todo Might be a fake union
     /* +10 */ union {

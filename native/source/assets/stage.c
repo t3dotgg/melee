@@ -628,6 +628,48 @@ static UnkStageDat* map_head(NativeStageArchive* stage, uint32_t offset)
     return result;
 }
 
+static void* zebes_parameters(NativeStageArchive* stage, uint32_t offset)
+{
+    grZe_YakumonoParam* result;
+    uint32_t hit_offset;
+    bool present;
+    if (!range(stage, offset, 0x190)) {
+        return NULL;
+    }
+    result = allocate(stage, 1, sizeof(*result));
+    if (result == NULL) {
+        return NULL;
+    }
+    const u8* data = stage->archive->data + offset;
+    for (size_t i = 0; i < 0x2C; i += 4) {
+        u32 value = NativeArchiveBE32(data + i);
+        memcpy((u8*) result + i, &value, 4);
+    }
+    if (!reference(stage, offset + 0x2C, &hit_offset, &present)) {
+        return NULL;
+    }
+    if (present) {
+        result->x2C = scalar_array(stage, hit_offset, 9, 4);
+        if (result->x2C == NULL) {
+            return NULL;
+        }
+    }
+    for (size_t i = 0x30; i < 0xA0; i += 4) {
+        u32 value = NativeArchiveBE32(data + i);
+        memcpy((u8*) result + offsetof(grZe_YakumonoParam, x30) + i - 0x30,
+               &value, 4);
+    }
+    for (size_t i = 0; i < 30; ++i) {
+        grZe_AcidLevelEntry* entry = &result->xA0_entries[i];
+        const u8* source = data + 0xA0 + i * 8;
+        entry->x0_base = (s16) read16(source);
+        entry->x2_delay_min = (s16) read16(source + 2);
+        entry->x4_delay_max = (s16) read16(source + 4);
+        entry->x6_level = (s16) read16(source + 6);
+    }
+    return result;
+}
+
 static void* stage_parameters(NativeStageArchive* stage, uint32_t offset)
 {
     uint32_t ground_offset;
@@ -672,6 +714,8 @@ static void* stage_parameters(NativeStageArchive* stage, uint32_t offset)
         }
         return scripts;
     }
+    case St_Kind_Zebes:
+        return zebes_parameters(stage, offset);
     case St_Kind_Izumi:
         return scalar_array(stage, offset, 21, 4);
     case St_Kind_Story:

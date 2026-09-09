@@ -146,6 +146,63 @@ static void test_stage_layouts(void)
     NativeArchiveClose(archive);
 }
 
+static void test_zebes_parameters(void)
+{
+    enum {
+        DATA_SIZE = 1024,
+        RELOCS = 2,
+        FILE_SIZE = 32 + DATA_SIZE + 8
+    };
+    unsigned char file[FILE_SIZE] = { 0 };
+    unsigned char* data = file + 32;
+    NativeArchive* archive;
+    NativeArchiveGraph* graph;
+    NativeArchiveError error;
+    void* result;
+    word(file, 0, FILE_SIZE);
+    word(file, 4, DATA_SIZE);
+    word(file, 8, RELOCS);
+    word(data, 0xB0, 220);
+    word(data, 0xB4, 1);
+    word(data, 220, St_Kind_Zebes);
+    word(data, 320, 0x3F800000);
+    word(data, 320 + 0x2C, 800);
+    word(data, 320 + 0x30, 0x40000000);
+    word(data, 320 + 0x9C, 0x40400000);
+    word(data, 320 + 0xA0, 0xFFFE0014);
+    word(data, 320 + 0xA4, 0x00280003);
+    word(data, 320 + 0x18C, 0x0032FFFF);
+    word(data, 800, HitCapsule_Enabled);
+    word(data, 804, 14);
+    word(data, 808, 90);
+    word(data, 832, 8);
+    word(file, 32 + DATA_SIZE, 0xB0);
+    word(file, 32 + DATA_SIZE + 4, 320 + 0x2C);
+    assert(NativeArchiveOpen(file, sizeof(file), &archive, &error) ==
+           NATIVE_ARCHIVE_OK);
+    assert(NativeArchiveGraphOpen(archive, &graph, &error) ==
+           NATIVE_ARCHIVE_OK);
+    NativeStageArchive* stage = NativeStageArchiveOpen(archive, graph);
+    assert(NativeStageArchiveRead(stage, "grGroundParam", 0, &result,
+                                  &error) == NATIVE_ARCHIVE_OK);
+    assert(NativeStageArchiveRead(stage, "yakumono_param", 320, &result,
+                                  &error) == NATIVE_ARCHIVE_OK);
+    grZe_YakumonoParam* parameters = result;
+    assert(parameters->x00 == 1 && parameters->x30 == 2 &&
+           parameters->x9C == 3);
+    assert(parameters->x2C != NULL && parameters->x2C->damage == 14 &&
+           parameters->x2C->kb_angle == 90 && parameters->x2C->sfx_kind == 8);
+    assert(parameters->xA0_entries[0].x0_base == -2 &&
+           parameters->xA0_entries[0].x2_delay_min == 20 &&
+           parameters->xA0_entries[0].x4_delay_max == 40 &&
+           parameters->xA0_entries[0].x6_level == 3);
+    assert(parameters->xA0_entries[29].x4_delay_max == 50 &&
+           parameters->xA0_entries[29].x6_level == -1);
+    NativeStageArchiveClose(stage);
+    NativeArchiveGraphClose(graph);
+    NativeArchiveClose(archive);
+}
+
 /* Optional local DAT paths exercise full stage graphs without committing game
  * data. */
 static void test_real_stage(const char* path)
@@ -209,6 +266,7 @@ int main(int argc, char** argv)
 {
     test_null_external_initialization();
     test_stage_layouts();
+    test_zebes_parameters();
     for (int i = 1; i < argc; ++i) {
         test_real_stage(argv[i]);
     }
