@@ -147,10 +147,10 @@ void it_80272784(Item_GObj* item_gobj)
     it_80272784_inline(item_gobj);
 }
 
-Fighter* it_80272818(Item* item)
+s32 it_80272818(Item* item)
 {
     return ((it_2728_DatAttrs*) item->xC4_article_data->x4_specialAttributes)
-        ->fighter;
+        ->timer;
 }
 
 /// Returns Item_GObj of the specified kind if part of HSD_GObj_Entities->items

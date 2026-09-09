@@ -368,7 +368,7 @@ void it_8026CF04(void)
         for (; i < 4; i++, idx++) {
             it_804A0E60.x4[i] = It_Kind_Kuriboh + i;
             it_804A0E60.xC[idx] = cumulative;
-            (void) it_804A0E60.xC[(u32) (p = &item_common->x128[idx])];
+            p = &item_common->x128[idx];
             cumulative += *p;
         }
     }

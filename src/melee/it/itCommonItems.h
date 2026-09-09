@@ -1108,7 +1108,7 @@ typedef struct itChicoritaLeafAttr {
 } itChicoritaLeafAttr;
 
 typedef struct it_2728_DatAttrs {
-    Fighter* fighter;
+    s32 timer;
 } it_2728_DatAttrs;
 
 typedef struct itPokemonSpawn_ItemVars {
