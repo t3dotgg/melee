@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Archive native source objects and record a forced-load link attempt.
+"""Archive game and native support objects and record a forced-load link attempt.
 
 Run ``compile.py`` first.  The link uses ``-force_load`` so the linker checks
 every object in the archive, including objects that an empty probe executable
@@ -60,7 +60,14 @@ def main() -> int:
     compile_report = json.loads(compile_report_path.read_text())
     sources = compile_report.get("sources", [])
     objects = [build_dir / entry["object"] for entry in sources if entry.get("success")]
-    game_object_count = len(objects)
+    game_sources = [
+        entry for entry in sources if entry.get("group", "game") == "game"
+    ]
+    support_sources = [
+        entry for entry in sources if entry.get("group") == "native-support"
+    ]
+    game_object_count = sum(entry.get("success", False) for entry in game_sources)
+    support_object_count = sum(entry.get("success", False) for entry in support_sources)
     extra_objects = [path.resolve() for path in args.extra_object]
     objects.extend(extra_objects)
     missing = [str(path) for path in objects if not path.is_file()]
@@ -71,8 +78,12 @@ def main() -> int:
         report = {
             "architecture": "arm64",
             "archive": str(archive),
-            "compiled": game_object_count,
+            "compiled": game_object_count + support_object_count,
             "total": len(sources),
+            "game_compiled": game_object_count,
+            "game_total": len(game_sources),
+            "support_compiled": support_object_count,
+            "support_total": len(support_sources),
             "extra_objects": [str(path) for path in extra_objects],
             "failed_sources": failed_sources,
             "missing_objects": missing,
@@ -91,8 +102,12 @@ def main() -> int:
         report = {
             "architecture": "arm64",
             "archive": str(archive),
-            "compiled": game_object_count,
+            "compiled": game_object_count + support_object_count,
             "total": len(sources),
+            "game_compiled": game_object_count,
+            "game_total": len(game_sources),
+            "support_compiled": support_object_count,
+            "support_total": len(support_sources),
             "extra_objects": [str(path) for path in extra_objects],
             "failed_sources": failed_sources,
             "archived": False,
@@ -139,8 +154,12 @@ def main() -> int:
     report = {
         "architecture": "arm64",
         "archive": str(archive),
-        "compiled": game_object_count,
+        "compiled": game_object_count + support_object_count,
         "total": len(sources),
+        "game_compiled": game_object_count,
+        "game_total": len(game_sources),
+        "support_compiled": support_object_count,
+        "support_total": len(support_sources),
         "extra_objects": [str(path) for path in extra_objects],
         "failed_sources": failed_sources,
         "archived": archive_result.returncode == 0,
@@ -153,7 +172,10 @@ def main() -> int:
         "undefined_symbols": undefined_symbols,
     }
     report_path.write_text(json.dumps(report, indent=2) + "\n")
-    print(f"Archived {len(objects)} objects ({game_object_count} game sources): {archive}")
+    print(
+        f"Archived {len(objects)} objects ({game_object_count} game, "
+        f"{support_object_count} native support): {archive}"
+    )
     print(f"Link probe: {'success' if link_result.returncode == 0 else 'failed'}")
     print(f"Link report: {report_path}")
     return 0 if link_result.returncode == 0 else 1
