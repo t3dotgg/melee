@@ -853,7 +853,11 @@ int lb_8001BB48(int chan, char* filename, void* file_entries, void* save_data,
     task = lb_80019C38_noinline();
     task->x0 = 7;
     task->x4 = 0x10;
+#ifdef MELEE_NATIVE
+    strncpy(task->x10, filename, new_var);
+#else
     memcpy(task->x10, filename, new_var);
+#endif
     _p(unk_14) = write_buf;
     _p(unk_18) = write_offset;
     _p(unk_1C) = write_len;
@@ -875,7 +879,11 @@ int lb_8001BC18(int chan, char* filename, void** file_entries, void* save_data,
     setup_task(1, 0x201);
     lb_8001A4CC_dontinline(filename, file_entries);
     setup_task(3, -1);
+#ifdef MELEE_NATIVE
+    strncpy(setup_task(7, 0x10)->x10, filename, new_var);
+#else
     memcpy(setup_task(7, 0x10)->x10, filename, new_var);
+#endif
     _p(unk_14) = write_buf;
     _p(unk_18) = write_offset;
     _p(unk_1C) = write_len;

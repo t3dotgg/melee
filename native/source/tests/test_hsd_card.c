@@ -36,7 +36,7 @@ static char description[64] = "Native HSD save test";
 static _Alignas(32) u8 card_work[CARD_WORKAREA_SIZE];
 static _Alignas(32) u8 sector[8192];
 static int hsd_completions;
-static char filename[32] = "native-hsd-test";
+static char filename[] = "native-hsd-test";
 static u8 expected[5][0x5000];
 static u8 payload[5][0x5000];
 static struct CardEntry entries[6] = {
@@ -256,6 +256,15 @@ int main(int argc, char** argv)
         CHECK(corrupted == 3);
         CHECK(lb_8001BA44(0, filename, NULL) == 0);
         CHECK(lb_8001BD34(0, filename, entries, NULL) == 4);
+        /* Startup uses the synchronous create path with a short C string. */
+        fillPayload(3);
+        CHECK(lb_8001BC18(0, filename, (void**) entries, icon_format,
+                          description, (HsdCardArg) banner, (HsdCardArg) icon,
+                          NULL) == 0);
+        memset(payload, 0, sizeof(payload));
+        CHECK(lb_8001BD34(0, filename, entries, NULL) == 0);
+        checkPayload();
+        CHECK(lb_8001BA44(0, filename, NULL) == 0);
         cleanupScratch(root);
     }
     for (int i = 0; i < allocation_count; i++) {
