@@ -385,8 +385,6 @@ NativeArchiveStatus NativeEventArchiveRead(NativeEventArchive* events,
     NativeArchiveError local = { NATIVE_ARCHIVE_OK, 0, "ok" };
     uint32_t target;
     bool present;
-    events->error = error == NULL ? &local : error;
-    *events->error = local;
     if (output != NULL) {
         *output = NULL;
     }
@@ -394,6 +392,8 @@ NativeArchiveStatus NativeEventArchiveRead(NativeEventArchive* events,
         return NativeArchiveFail(error, NATIVE_ARCHIVE_INVALID, 32u + offset,
                                  "invalid event archive request");
     }
+    events->error = error == NULL ? &local : error;
+    *events->error = local;
     if (strcmp(symbol, "sqEventInitDataLevelTbl") != 0) {
         return NATIVE_ARCHIVE_NOT_FOUND;
     }
