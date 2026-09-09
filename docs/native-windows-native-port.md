@@ -155,6 +155,9 @@ translation still remain to be implemented.
 The native target also initializes and releases a real D3D12 device through the
 Windows loader, selecting the highest available feature level. Command lists,
 swap-chain ownership, shaders, and GX/TEV translation remain separate work.
+The native frontend now owns a real Win32 window handle and message pump,
+including hidden-window operation for headless tests. DXGI swap-chain binding
+and command recording remain to be connected to this window.
 The asset layer now decodes GX I4/I8/IA4/IA8, RGB565, RGB5A3, and RGBA8 tiled
 blocks into host RGBA8 pixels with dimension and truncation checks. Material,
 palette, mipmap, and TEV state conversion still remain.
