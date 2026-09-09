@@ -85,7 +85,10 @@ default. Tests can advance a deterministic clock without sleeping.
 
 The executable has not run a real match. An empty game directory reaches the
 SIS initialization path and waits in the startup loop because the game data is
-absent. The runtime still needs a SIS archive bridge for common DAT files,
+absent. The typed archive graph now covers common joint display descriptors,
+materials, texture metadata, skin polygon descriptors, vertex descriptor lists,
+animations, cameras, and world objects. The runtime still needs a SIS archive
+bridge, stage and menu root schemas, shape and envelope polygon descriptors,
 Metal rendering, audio output, persistent card storage, and real archive and
 font data from the disc image.
 Do not treat a successful link as playable behavior.

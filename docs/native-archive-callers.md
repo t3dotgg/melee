@@ -46,11 +46,13 @@ High priority startup callers are:
 
 ## Current typed schemas
 
-`native/source/assets/descriptors.c` currently converts joint, animation,
-AObj, WObj, FObj, matrices, strings, byte streams, and FigaTree graphs. It does
-not yet convert stage parameter records, particle banks, SIS/font data, item
-and effect tables, or general scene roots. Those schemas are required before a
-real image can boot into a match.
+`native/source/assets/descriptors.c` converts joint display graphs, animation,
+AObj, WObj, FObj, cameras, matrices, strings, byte streams, materials, texture
+metadata, skin polygon descriptors, vertex descriptor lists, and FigaTree
+graphs. It still rejects shape and envelope polygon descriptors. It does not
+yet convert stage parameter records, particle banks, SIS/font data, item and
+effect tables, or general scene roots. Those schemas are required before a real
+image can boot into a match.
 
 To audit the source after changes:
 
