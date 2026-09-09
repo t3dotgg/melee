@@ -1,5 +1,6 @@
 #include "platform/pad.h"
 
+#include <stdbool.h>
 #include <string.h>
 
 /* SI_GC_CONTROLLER from dolphin/si.h. Including that header would also
@@ -17,6 +18,91 @@ static u32 s_spec = PAD_SPEC_5;
 static u32 s_sampling_rate;
 static BOOL s_initialized;
 static BOOL s_disable_recalibration;
+static bool s_keyboard_keys[128];
+
+/* US keyboard key codes from NSEvent. Keeping these values here means the
+ * controller shim remains a plain C module and can also be driven by tests
+ * or another host window implementation. */
+enum {
+    KEY_A = 0,
+    KEY_S = 1,
+    KEY_D = 2,
+    KEY_W = 13,
+    KEY_Q = 12,
+    KEY_E = 14,
+    KEY_J = 38,
+    KEY_K = 40,
+    KEY_L = 37,
+    KEY_U = 32,
+    KEY_I = 34,
+    KEY_O = 31,
+    KEY_T = 17,
+    KEY_F = 3,
+    KEY_G = 5,
+    KEY_H = 4,
+    KEY_Z = 6,
+    KEY_X = 7,
+    KEY_C = 8,
+    KEY_V = 9,
+    KEY_RETURN = 36,
+    KEY_SPACE = 49,
+    KEY_ESCAPE = 53,
+    KEY_LEFT = 123,
+    KEY_RIGHT = 124,
+    KEY_DOWN = 125,
+    KEY_UP = 126,
+    KEY_SHIFT_LEFT = 56,
+    KEY_SHIFT_RIGHT = 60,
+    KEY_CONTROL_LEFT = 59,
+    KEY_CONTROL_RIGHT = 62,
+};
+
+static bool key_down(u16 key_code)
+{
+    return key_code < (u16) (sizeof(s_keyboard_keys) / sizeof(*s_keyboard_keys)) &&
+           s_keyboard_keys[key_code];
+}
+
+static void update_keyboard_status(void)
+{
+    PADStatus* status = &s_status[0];
+    u16 buttons = 0;
+
+    if (key_down(KEY_LEFT)) buttons |= PAD_BUTTON_LEFT;
+    if (key_down(KEY_RIGHT)) buttons |= PAD_BUTTON_RIGHT;
+    if (key_down(KEY_DOWN)) buttons |= PAD_BUTTON_DOWN;
+    if (key_down(KEY_UP)) buttons |= PAD_BUTTON_UP;
+    if (key_down(KEY_J)) buttons |= PAD_BUTTON_A;
+    if (key_down(KEY_K)) buttons |= PAD_BUTTON_B;
+    if (key_down(KEY_U)) buttons |= PAD_BUTTON_X;
+    if (key_down(KEY_I)) buttons |= PAD_BUTTON_Y;
+    if (key_down(KEY_O)) buttons |= PAD_TRIGGER_Z;
+    if (key_down(KEY_Q)) buttons |= PAD_TRIGGER_L;
+    if (key_down(KEY_E)) buttons |= PAD_TRIGGER_R;
+    if (key_down(KEY_RETURN) || key_down(KEY_SPACE)) {
+        buttons |= PAD_BUTTON_START;
+    }
+    status->button = buttons;
+
+    status->stickX = (s8) ((key_down(KEY_D) ? 80 : 0) -
+                           (key_down(KEY_A) ? 80 : 0));
+    status->stickY = (s8) ((key_down(KEY_W) ? 80 : 0) -
+                           (key_down(KEY_S) ? 80 : 0));
+    status->substickX = (s8) ((key_down(KEY_H) ? 80 : 0) -
+                              (key_down(KEY_F) ? 80 : 0));
+    status->substickY = (s8) ((key_down(KEY_T) ? 80 : 0) -
+                              (key_down(KEY_G) ? 80 : 0));
+    status->triggerLeft = key_down(KEY_SHIFT_LEFT) || key_down(KEY_SHIFT_RIGHT)
+                              ? 255
+                              : 0;
+    status->triggerRight = key_down(KEY_CONTROL_LEFT) ||
+                                   key_down(KEY_CONTROL_RIGHT)
+                               ? 255
+                               : 0;
+    status->analogA = key_down(KEY_C) ? 255 : 0;
+    status->analogB = key_down(KEY_V) ? 255 : 0;
+    status->err = PAD_ERR_NONE;
+}
 
 static void reset_status(void)
 {
@@ -45,6 +131,31 @@ BOOL NativePADSetConnected(s32 chan, BOOL connected)
     memset(&s_status[chan], 0, sizeof(s_status[chan]));
     s_status[chan].err = connected ? PAD_ERR_NONE : PAD_ERR_NO_CONTROLLER;
     return TRUE;
+}
+
+void NativePADResetKeyboard(void)
+{
+    memset(s_keyboard_keys, 0, sizeof(s_keyboard_keys));
+    if (s_initialized) {
+        memset(&s_status[0], 0, sizeof(s_status[0]));
+        s_status[0].err = PAD_ERR_NO_CONTROLLER;
+    }
+}
+
+void NativePADHandleKeyCode(u16 key_code, BOOL pressed, BOOL repeat)
+{
+    PADInit();
+    if (key_code >= (u16) (sizeof(s_keyboard_keys) / sizeof(*s_keyboard_keys))) {
+        return;
+    }
+    /* A held key must stay down across Cocoa's key-repeat events. */
+    if (repeat && !pressed) {
+        return;
+    }
+    s_keyboard_keys[key_code] = pressed != FALSE;
+    if (pressed || s_status[0].err == PAD_ERR_NONE) {
+        update_keyboard_status();
+    }
 }
 
 const PADStatus* NativePADGetStatus(s32 chan)

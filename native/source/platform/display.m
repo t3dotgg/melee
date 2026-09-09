@@ -5,6 +5,10 @@
 
 #include <stdlib.h>
 
+/* Keep Dolphin's BOOL typedef out of Objective-C headers. */
+extern void NativePADHandleKeyCode(unsigned short key_code, int pressed,
+                                   int repeat);
+
 static NSWindow* s_window;
 
 static void release_pixels(void* info, const void* data, size_t size)
@@ -23,6 +27,12 @@ static void pump_events(void)
                                       inMode:NSDefaultRunLoopMode
                                      dequeue:YES];
         if (event != nil) {
+            if ([event type] == NSEventTypeKeyDown ||
+                [event type] == NSEventTypeKeyUp) {
+                NativePADHandleKeyCode((uint16_t) [event keyCode],
+                                       [event type] == NSEventTypeKeyDown,
+                                       [event isARepeat]);
+            }
             [NSApp sendEvent:event];
         }
     } while (event != nil);
