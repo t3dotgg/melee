@@ -2,7 +2,10 @@
 
 #include <sysdolphin/baselib/aobj.h>
 #include <sysdolphin/baselib/cobj.h>
+#include <sysdolphin/baselib/dobj.h>
 #include <sysdolphin/baselib/jobj.h>
+#include <sysdolphin/baselib/mobj.h>
+#include <sysdolphin/baselib/pobj.h>
 #include <sysdolphin/baselib/wobj.h>
 
 #include <stdio.h>
@@ -308,6 +311,55 @@ static void test_joint_graph(void)
     NativeArchiveClose(archive);
 }
 
+static void test_joint_display_descriptor_graph(void)
+{
+    Fixture fixture = fixture_new(208);
+    NativeArchive* archive;
+    NativeArchiveGraph* graph;
+    NativeArchiveError error = { 0 };
+    HSD_Joint* root = NULL;
+
+    /* Joint -> DObjDesc -> MObjDesc -> Material. Every pointer is a
+     * relocation-backed 32-bit DAT offset. The host descriptors are wider. */
+    reference(&fixture, 16, 64);
+    reference(&fixture, 64, 160);
+    reference(&fixture, 64 + 8, 80);
+    reference(&fixture, 64 + 12, 128);
+    reference(&fixture, 80, 170);
+    reference(&fixture, 80 + 12, 104);
+    reference(&fixture, 128, 180);
+    reference(&fixture, 128 + 20, 0);
+    memcpy(fixture.bytes + HEADER_SIZE + 160, "HSD_DObj", 9);
+    memcpy(fixture.bytes + HEADER_SIZE + 170, "HSD_MObj", 9);
+    memcpy(fixture.bytes + HEADER_SIZE + 180, "HSD_PObj", 9);
+    word(&fixture, 80 + 4, RENDER_DIFFUSE | RENDER_SPECULAR);
+    fixture.bytes[HEADER_SIZE + 104] = 1;
+    fixture.bytes[HEADER_SIZE + 105] = 2;
+    fixture.bytes[HEADER_SIZE + 106] = 3;
+    fixture.bytes[HEADER_SIZE + 107] = 4;
+    word(&fixture, 104 + 12, 0x3f000000);
+    word(&fixture, 104 + 16, 0x40000000);
+
+    archive = open_fixture(&fixture);
+    graph = open_graph(archive);
+    CHECK(NativeArchiveJoint(graph, 0, &root, &error) == NATIVE_ARCHIVE_OK);
+    CHECK(root->u.dobjdesc != NULL);
+    CHECK(strcmp(root->u.dobjdesc->class_name, "HSD_DObj") == 0);
+    CHECK(root->u.dobjdesc->mobjdesc != NULL);
+    CHECK(root->u.dobjdesc->mobjdesc->rendermode ==
+          (RENDER_DIFFUSE | RENDER_SPECULAR));
+    CHECK(root->u.dobjdesc->mobjdesc->mat != NULL);
+    CHECK(root->u.dobjdesc->mobjdesc->mat->ambient.r == 1);
+    CHECK(root->u.dobjdesc->mobjdesc->mat->ambient.g == 2);
+    CHECK(root->u.dobjdesc->mobjdesc->mat->ambient.b == 3);
+    CHECK(root->u.dobjdesc->mobjdesc->mat->alpha == 0.5f);
+    CHECK(root->u.dobjdesc->pobjdesc != NULL);
+    CHECK(strcmp(root->u.dobjdesc->pobjdesc->class_name, "HSD_PObj") == 0);
+    CHECK(root->u.dobjdesc->pobjdesc->u.joint == root);
+    NativeArchiveGraphClose(graph);
+    NativeArchiveClose(archive);
+}
+
 static void test_animation_graph(void)
 {
     Fixture fixture = fixture_new(128);
@@ -602,7 +654,7 @@ static void test_external_chains(void)
 
 static void test_unsupported_joint_fields(void)
 {
-    const uint32_t fields[] = { 16, 60 };
+    const uint32_t fields[] = { 60 };
     for (size_t i = 0; i < sizeof(fields) / sizeof(*fields); i++) {
         Fixture fixture = fixture_new(128);
         reference(&fixture, fields[i], 64);
@@ -877,6 +929,7 @@ int main(void)
     _Static_assert(sizeof(void*) == 8, "These tests require native 64-bit pointers");
     test_archive_symbols_and_copy();
     test_joint_graph();
+    test_joint_display_descriptor_graph();
     test_animation_graph();
     test_wobj();
     test_cobj();
