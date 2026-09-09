@@ -70,6 +70,25 @@ add_executable(test_fighter_dynamic tests/test_fighter_dynamic.c)
 target_link_libraries(test_fighter_dynamic PRIVATE melee_host_options)
 add_test(NAME fighter_dynamic COMMAND test_fighter_dynamic)
 
+add_executable(test_commands tests/test_commands.c
+    "${MELEE_ROOT}/src/melee/lb/lbcommand.c"
+    "${MELEE_ROOT}/src/melee/it/itanimlist.c"
+    "${MELEE_ROOT}/src/melee/lb/lb_013B.c"
+    "${MELEE_ROOT}/src/melee/gr/grmaterial.c")
+target_link_libraries(test_commands PRIVATE melee_host_options)
+target_link_options(test_commands PRIVATE -Wl,-dead_strip)
+add_test(NAME commands COMMAND test_commands)
+
+add_executable(test_command_fighter tests/test_command_fighter.c)
+target_link_libraries(test_command_fighter PRIVATE melee_host_options)
+target_link_options(test_command_fighter PRIVATE -Wl,-dead_strip)
+add_test(NAME command_fighter COMMAND test_command_fighter)
+
+add_executable(test_fighter_attributes tests/test_fighter_attributes.c
+    assets/fighter_attributes.c assets/archive.c)
+target_link_libraries(test_fighter_attributes PRIVATE melee_host_options)
+add_test(NAME fighter_attributes COMMAND test_fighter_attributes)
+
 add_executable(test_effects tests/test_effects.c)
 target_sources(test_effects PRIVATE "${MELEE_ROOT}/src/melee/ef/eflib.c")
 target_link_libraries(test_effects PRIVATE melee_host_options)
