@@ -59,6 +59,32 @@ typedef struct GXSWVtxAttrState {
 static GXSWVtxAttrState gx_vtx_state[GX_MAX_VTXFMT][GX_VA_MAX_ATTR];
 static GXVtxFmt gx_active_vtxfmt;
 
+typedef struct GXSWTexture {
+    const u8 *data;
+    u16 width;
+    u16 height;
+    GXTexFmt format;
+    GXTexWrapMode wrap_s;
+    GXTexWrapMode wrap_t;
+    u32 tlut;
+    size_t base_size;
+    GXBool loaded;
+} GXSWTexture;
+
+typedef struct GXSWTlut {
+    const u8 *data;
+    GXTlutFmt format;
+    u16 entries;
+    GXBool loaded;
+} GXSWTlut;
+
+static GXSWTexture gx_textures[GX_MAX_TEXMAP];
+static GXSWTlut gx_tluts[20];
+static GXTevMode gx_tev_mode[GX_MAX_TEVSTAGE];
+static GXTexCoordID gx_tev_coord[GX_MAX_TEVSTAGE];
+static GXTexMapID gx_tev_map[GX_MAX_TEVSTAGE];
+static u8 gx_num_tev_stages;
+
 /* GX_VA_NBT shares the normal slot in the FIFO. The enum gives it a value at
  * the end of the attribute list, but its data still follows position. */
 static GXAttr gx_state_attr(GXAttr attr)
@@ -113,7 +139,257 @@ static GXSWVertex gx_transform_vertex(f32 x, f32 y, f32 z)
     return v;
 }
 
-static void gx_plot(s32 x, s32 y, GXColor color)
+static u16 gx_tex_be16(const u8 *data)
+{
+    return (u16) (((u16) data[0] << 8) | data[1]);
+}
+
+static GXColor gx_tex_rgb565(u16 value)
+{
+    GXColor color = { 0, 0, 0, 255 };
+    color.r = (u8) ((((value >> 11) & 0x1f) * 255 + 15) / 31);
+    color.g = (u8) ((((value >> 5) & 0x3f) * 255 + 31) / 63);
+    color.b = (u8) (((value & 0x1f) * 255 + 15) / 31);
+    return color;
+}
+
+static GXColor gx_tex_rgb5a3(u16 value)
+{
+    GXColor color;
+    if ((value & 0x8000) != 0) {
+        color.r = (u8) ((((value >> 10) & 0x1f) * 255 + 15) / 31);
+        color.g = (u8) ((((value >> 5) & 0x1f) * 255 + 15) / 31);
+        color.b = (u8) (((value & 0x1f) * 255 + 15) / 31);
+        color.a = 255;
+    } else {
+        color.a = (u8) ((((value >> 12) & 7) * 255 + 3) / 7);
+        color.r = (u8) ((((value >> 8) & 0xf) * 255 + 7) / 15);
+        color.g = (u8) ((((value >> 4) & 0xf) * 255 + 7) / 15);
+        color.b = (u8) (((value & 0xf) * 255 + 7) / 15);
+    }
+    return color;
+}
+
+static size_t gx_texture_size(u16 width, u16 height, GXTexFmt format)
+{
+    u32 tile_width, tile_height, tile_bytes;
+    switch (format & 0xf) {
+    case GX_TF_I4: case GX_TF_C4: case GX_TF_CMPR:
+        tile_width = tile_height = 8; tile_bytes = 32; break;
+    case GX_TF_I8: case GX_TF_IA4: case GX_TF_C8:
+        tile_width = 8; tile_height = 4; tile_bytes = 32; break;
+    case GX_TF_IA8: case GX_TF_RGB565: case GX_TF_RGB5A3:
+        tile_width = tile_height = 4; tile_bytes = 32; break;
+    case GX_TF_RGBA8:
+        tile_width = tile_height = 4; tile_bytes = 64; break;
+    default:
+        return 0;
+    }
+    return (size_t) ((width + tile_width - 1) / tile_width) *
+           ((height + tile_height - 1) / tile_height) * tile_bytes;
+}
+
+static u32 gx_wrap_tex_coord(f32 coordinate, u16 size, GXTexWrapMode mode)
+{
+    s32 value;
+    s32 period;
+    s32 remainder;
+    if (size == 0) return 0;
+    value = (s32) floorf(coordinate * (f32) size);
+    if (mode == GX_CLAMP) {
+        if (value < 0) value = 0;
+        if (value >= (s32) size) value = (s32) size - 1;
+        return (u32) value;
+    }
+    period = mode == GX_MIRROR ? (s32) size * 2 : (s32) size;
+    if (period <= 0) return 0;
+    remainder = value % period;
+    if (remainder < 0) remainder += period;
+    if (mode == GX_MIRROR && remainder >= (s32) size)
+        remainder = period - remainder - 1;
+    return (u32) remainder;
+}
+
+static GXColor gx_tex_palette(const GXSWTexture *texture, u32 index)
+{
+    GXColor color = { 255, 255, 255, 255 };
+    u32 slot = texture->tlut & 0x1f;
+    const GXSWTlut *tlut;
+    if (slot >= sizeof gx_tluts / sizeof gx_tluts[0] ||
+        !gx_tluts[slot].loaded || gx_tluts[slot].data == NULL ||
+        index >= gx_tluts[slot].entries) return color;
+    tlut = &gx_tluts[slot];
+    switch (tlut->format) {
+    case GX_TL_IA8:
+        color.r = color.g = color.b = tlut->data[index * 2];
+        color.a = tlut->data[index * 2 + 1];
+        break;
+    case GX_TL_RGB565:
+        color = gx_tex_rgb565(gx_tex_be16(tlut->data + index * 2));
+        break;
+    case GX_TL_RGB5A3:
+        color = gx_tex_rgb5a3(gx_tex_be16(tlut->data + index * 2));
+        break;
+    default:
+        break;
+    }
+    return color;
+}
+
+static GXColor gx_texture_sample(const GXSWTexture *texture, f32 s, f32 t)
+{
+    GXColor color = { 255, 255, 255, 255 };
+    u32 x, y, tiles_w, tile_x, tile_y, in_x, in_y;
+    size_t tile, offset;
+    const u8 *data;
+    if (!texture->loaded || texture->data == NULL || texture->width == 0 ||
+        texture->height == 0 || texture->base_size == 0) return color;
+    x = gx_wrap_tex_coord(s, texture->width, texture->wrap_s);
+    y = gx_wrap_tex_coord(t, texture->height, texture->wrap_t);
+    switch (texture->format & 0xf) {
+    case GX_TF_I4: case GX_TF_C4: case GX_TF_CMPR:
+        tiles_w = (texture->width + 7) / 8;
+        tile_x = x / 8; tile_y = y / 8; in_x = x & 7; in_y = y & 7;
+        tile = ((size_t) tile_y * tiles_w + tile_x) * 32;
+        break;
+    case GX_TF_I8: case GX_TF_IA4: case GX_TF_C8:
+        tiles_w = (texture->width + 7) / 8;
+        tile_x = x / 8; tile_y = y / 4; in_x = x & 7; in_y = y & 3;
+        tile = ((size_t) tile_y * tiles_w + tile_x) * 32;
+        break;
+    case GX_TF_IA8: case GX_TF_RGB565: case GX_TF_RGB5A3:
+        tiles_w = (texture->width + 3) / 4;
+        tile_x = x / 4; tile_y = y / 4; in_x = x & 3; in_y = y & 3;
+        tile = ((size_t) tile_y * tiles_w + tile_x) * 32;
+        break;
+    case GX_TF_RGBA8:
+        tiles_w = (texture->width + 3) / 4;
+        tile_x = x / 4; tile_y = y / 4; in_x = x & 3; in_y = y & 3;
+        tile = ((size_t) tile_y * tiles_w + tile_x) * 64;
+        break;
+    default:
+        return color;
+    }
+    if (tile >= texture->base_size) return color;
+    data = texture->data + tile;
+    switch (texture->format & 0xf) {
+    case GX_TF_I4:
+        offset = (size_t) in_y * 4 + in_x / 2;
+        if (tile + offset >= texture->base_size) return color;
+        color.r = color.g = color.b = (u8) ((data[offset] >>
+                                      (in_x & 1 ? 0 : 4)) * 17);
+        break;
+    case GX_TF_I8:
+        offset = (size_t) in_y * 8 + in_x;
+        if (tile + offset >= texture->base_size) return color;
+        color.r = color.g = color.b = data[offset];
+        break;
+    case GX_TF_IA4:
+        offset = (size_t) in_y * 8 + in_x;
+        if (tile + offset >= texture->base_size) return color;
+        color.r = color.g = color.b = (u8) ((data[offset] >> 4) * 17);
+        color.a = (u8) ((data[offset] & 0xf) * 17);
+        break;
+    case GX_TF_IA8:
+        offset = ((size_t) in_y * 4 + in_x) * 2;
+        if (tile + offset + 1 >= texture->base_size) return color;
+        color.r = color.g = color.b = data[offset]; color.a = data[offset + 1];
+        break;
+    case GX_TF_RGB565:
+        offset = ((size_t) in_y * 4 + in_x) * 2;
+        if (tile + offset + 1 >= texture->base_size) return color;
+        color = gx_tex_rgb565(gx_tex_be16(data + offset));
+        break;
+    case GX_TF_RGB5A3:
+        offset = ((size_t) in_y * 4 + in_x) * 2;
+        if (tile + offset + 1 >= texture->base_size) return color;
+        color = gx_tex_rgb5a3(gx_tex_be16(data + offset));
+        break;
+    case GX_TF_RGBA8:
+        offset = (size_t) in_y * 8 + in_x * 2;
+        if (tile + offset + 1 >= texture->base_size ||
+            tile + 32 + offset + 1 >= texture->base_size) return color;
+        color.a = data[offset]; color.r = data[offset + 1];
+        color.g = data[32 + offset]; color.b = data[32 + offset + 1];
+        break;
+    case GX_TF_C4:
+        offset = (size_t) in_y * 4 + in_x / 2;
+        if (tile + offset >= texture->base_size) return color;
+        return gx_tex_palette(texture, (data[offset] >> (in_x & 1 ? 0 : 4)) & 0xf);
+    case GX_TF_C8:
+        offset = (size_t) in_y * 8 + in_x;
+        if (tile + offset >= texture->base_size) return color;
+        return gx_tex_palette(texture, data[offset]);
+    case GX_TF_CMPR: {
+        u32 sub = (in_y / 4) * 2 + in_x / 4;
+        u32 local_x = in_x & 3, local_y = in_y & 3;
+        const u8 *block = data + sub * 8;
+        GXColor palette[4];
+        u16 first, second;
+        u8 selector;
+        if (tile + sub * 8 + 7 >= texture->base_size) return color;
+        first = gx_tex_be16(block); second = gx_tex_be16(block + 2);
+        palette[0] = gx_tex_rgb565(first); palette[1] = gx_tex_rgb565(second);
+        if (first > second) {
+            palette[2].r = (u8) ((2 * palette[0].r + palette[1].r) / 3);
+            palette[2].g = (u8) ((2 * palette[0].g + palette[1].g) / 3);
+            palette[2].b = (u8) ((2 * palette[0].b + palette[1].b) / 3);
+            palette[2].a = 255;
+            palette[3].r = (u8) ((palette[0].r + 2 * palette[1].r) / 3);
+            palette[3].g = (u8) ((palette[0].g + 2 * palette[1].g) / 3);
+            palette[3].b = (u8) ((palette[0].b + 2 * palette[1].b) / 3);
+            palette[3].a = 255;
+        } else {
+            palette[2].r = (u8) ((palette[0].r + palette[1].r) / 2);
+            palette[2].g = (u8) ((palette[0].g + palette[1].g) / 2);
+            palette[2].b = (u8) ((palette[0].b + palette[1].b) / 2);
+            palette[2].a = 255;
+            palette[3] = (GXColor) { 0, 0, 0, 0 };
+        }
+        selector = block[4 + local_y] >> (6 - local_x * 2);
+        return palette[selector & 3];
+    }
+    default:
+        break;
+    }
+    return color;
+}
+
+static GXColor gx_modulate_color(GXColor base, GXColor texture)
+{
+    base.r = (u8) ((base.r * texture.r + 127) / 255);
+    base.g = (u8) ((base.g * texture.g + 127) / 255);
+    base.b = (u8) ((base.b * texture.b + 127) / 255);
+    base.a = (u8) ((base.a * texture.a + 127) / 255);
+    return base;
+}
+
+static GXColor gx_shade_color(GXColor base, f32 s, f32 t)
+{
+    GXTexMapID map;
+    GXTexCoordID coord;
+    GXTevMode mode;
+    GXColor texture;
+    if (gx_num_tev_stages == 0) return base;
+    mode = gx_tev_mode[0]; map = gx_tev_map[0]; coord = gx_tev_coord[0];
+    if (mode == GX_PASSCLR || map == GX_TEXMAP_NULL ||
+        map >= GX_MAX_TEXMAP || coord == GX_TEXCOORD_NULL) return base;
+    texture = gx_texture_sample(&gx_textures[map], s, t);
+    switch (mode) {
+    case GX_REPLACE: return texture;
+    case GX_MODULATE: return gx_modulate_color(base, texture);
+    case GX_DECAL:
+        base.r = (u8) ((texture.a * texture.r + (255 - texture.a) * base.r + 127) / 255);
+        base.g = (u8) ((texture.a * texture.g + (255 - texture.a) * base.g + 127) / 255);
+        base.b = (u8) ((texture.a * texture.b + (255 - texture.a) * base.b + 127) / 255);
+        return base;
+    case GX_BLEND:
+        return gx_modulate_color(base, texture);
+    default: return base;
+    }
+}
+
+static void gx_plot(s32 x, s32 y, GXColor color, f32 s, f32 t)
 {
     u32 left = gx_scissor[2] != 0 ? gx_scissor[0] : 0;
     u32 top = gx_scissor[3] != 0 ? gx_scissor[1] : 0;
@@ -122,7 +398,8 @@ static void gx_plot(s32 x, s32 y, GXColor color)
     if (x < (s32) left || y < (s32) top || x >= (s32) right ||
         y >= (s32) bottom || x < 0 || y < 0 || (u32) x >= gx_efb_width ||
         (u32) y >= gx_efb_height || !gx_color_update) return;
-    gx_efb[(size_t) y * gx_efb_width + (u32) x] = gx_pack_rgb565(color);
+    gx_efb[(size_t) y * gx_efb_width + (u32) x] =
+        gx_pack_rgb565(gx_shade_color(color, s, t));
 }
 
 static GXColor gx_lerp_color(const GXSWVertex *a, const GXSWVertex *b,
@@ -134,6 +411,14 @@ static GXColor gx_lerp_color(const GXSWVertex *a, const GXSWVertex *b,
     out.b = (u8) fminf(255.0f, fmaxf(0.0f, wa*a->color.b + wb*b->color.b + wc*c->color.b));
     out.a = (u8) fminf(255.0f, fmaxf(0.0f, wa*a->color.a + wb*b->color.a + wc*c->color.a));
     return out;
+}
+
+static f32 gx_lerp_tex(const GXSWVertex *a, const GXSWVertex *b,
+                       const GXSWVertex *c, f32 wa, f32 wb, f32 wc,
+                       bool t)
+{
+    return wa * (t ? a->t : a->s) + wb * (t ? b->t : b->s) +
+           wc * (t ? c->t : c->s);
 }
 
 static void gx_triangle(const GXSWVertex *a, const GXSWVertex *b,
@@ -151,8 +436,11 @@ static void gx_triangle(const GXSWVertex *a, const GXSWVertex *b,
             f32 wa = ((b->x-px)*(c->y-py) - (b->y-py)*(c->x-px)) / area;
             f32 wb = ((c->x-px)*(a->y-py) - (c->y-py)*(a->x-px)) / area;
             f32 wc = 1.0f - wa - wb;
-            if (wa >= 0.0f && wb >= 0.0f && wc >= 0.0f)
-                gx_plot(x, y, gx_lerp_color(a, b, c, wa, wb, wc));
+            if (wa >= 0.0f && wb >= 0.0f && wc >= 0.0f) {
+                GXColor color = gx_lerp_color(a, b, c, wa, wb, wc);
+                gx_plot(x, y, color, gx_lerp_tex(a, b, c, wa, wb, wc, false),
+                        gx_lerp_tex(a, b, c, wa, wb, wc, true));
+            }
         }
     }
 }
@@ -177,13 +465,13 @@ static void gx_rasterize(void)
     if (gx_vertex_count < 1) return;
     if (gx_primitive == GX_POINTS) {
         for (u16 i = 0; i < gx_vertex_count; i++)
-            gx_plot((s32) lroundf(gx_vertices[i].x), (s32) lroundf(gx_vertices[i].y), gx_vertices[i].color);
+            gx_plot((s32) lroundf(gx_vertices[i].x), (s32) lroundf(gx_vertices[i].y), gx_vertices[i].color, gx_vertices[i].s, gx_vertices[i].t);
     } else if (gx_primitive == GX_LINES || gx_primitive == GX_LINESTRIP) {
         for (u16 i = 0; i + 1 < gx_vertex_count; i += gx_primitive == GX_LINES ? 2 : 1) {
             s32 x0 = (s32) lroundf(gx_vertices[i].x), y0 = (s32) lroundf(gx_vertices[i].y);
             s32 x1 = (s32) lroundf(gx_vertices[i+1].x), y1 = (s32) lroundf(gx_vertices[i+1].y);
             s32 n = abs(x1-x0) > abs(y1-y0) ? abs(x1-x0) : abs(y1-y0);
-            for (s32 j=0; j<=n; j++) { f32 q = n ? (f32)j/n : 0; gx_plot((s32) lroundf(x0+(x1-x0)*q), (s32) lroundf(y0+(y1-y0)*q), gx_vertices[i].color); }
+            for (s32 j=0; j<=n; j++) { f32 q = n ? (f32)j/n : 0; GXColor color = gx_vertices[i].color; gx_plot((s32) lroundf(x0+(x1-x0)*q), (s32) lroundf(y0+(y1-y0)*q), color, gx_vertices[i].s + q * (gx_vertices[i+1].s - gx_vertices[i].s), gx_vertices[i].t + q * (gx_vertices[i+1].t - gx_vertices[i].t)); }
         }
     } else {
         u16 step = gx_primitive == GX_TRIANGLES ? 3 : 1;
@@ -485,7 +773,7 @@ GXRenderModeObj GXNtsc480IntDf = { .fbWidth = 640, .efbHeight = 480,
 GXRenderModeObj GXNtsc480Prog = { .viTVmode = 2, .fbWidth = 640,
                                   .efbHeight = 480, .xfbHeight = 480,
                                   .viWidth = 640, .viHeight = 480 };
-GXFifoObj *GXInit(void *b,u32 s){(void)b;(void)s;memset(&gx_fifo,0,sizeof gx_fifo);gx_cpu_fifo=gx_gp_fifo=&gx_fifo;free(gx_efb);gx_efb=NULL;gx_ensure_efb();memset(gx_projection,0,sizeof gx_projection);memset(gx_scissor,0,sizeof gx_scissor);memset(gx_vtx_state,0,sizeof gx_vtx_state);for (u32 format = 0; format < GX_MAX_VTXFMT; format++) { for (u32 attr = 0; attr < GX_VA_MAX_ATTR; attr++) { gx_vtx_state[format][attr].cnt = GX_POS_XYZ; gx_vtx_state[format][attr].type = GX_F32; } } gx_active_vtxfmt=GX_VTXFMT0;gx_have_projection=GX_FALSE;gx_have_pos_mtx=GX_FALSE;gx_copy_width=640;gx_copy_src_height=480;gx_copy_dst_width=640;gx_copy_height=480;gx_color_update=GX_TRUE;gx_copy_clear_color=(GXColor){0,0,0,255};return &gx_fifo;}
+GXFifoObj *GXInit(void *b,u32 s){(void)b;(void)s;memset(&gx_fifo,0,sizeof gx_fifo);gx_cpu_fifo=gx_gp_fifo=&gx_fifo;free(gx_efb);gx_efb=NULL;gx_ensure_efb();memset(gx_projection,0,sizeof gx_projection);memset(gx_scissor,0,sizeof gx_scissor);memset(gx_vtx_state,0,sizeof gx_vtx_state);memset(gx_textures,0,sizeof gx_textures);memset(gx_tluts,0,sizeof gx_tluts);memset(gx_tev_mode,0,sizeof gx_tev_mode);memset(gx_tev_coord,0xff,sizeof gx_tev_coord);memset(gx_tev_map,0xff,sizeof gx_tev_map);gx_num_tev_stages=0;for (u32 format = 0; format < GX_MAX_VTXFMT; format++) { for (u32 attr = 0; attr < GX_VA_MAX_ATTR; attr++) { gx_vtx_state[format][attr].cnt = GX_POS_XYZ; gx_vtx_state[format][attr].type = GX_F32; } } gx_active_vtxfmt=GX_VTXFMT0;gx_have_projection=GX_FALSE;gx_have_pos_mtx=GX_FALSE;gx_copy_width=640;gx_copy_src_height=480;gx_copy_dst_width=640;gx_copy_height=480;gx_color_update=GX_TRUE;gx_copy_clear_color=(GXColor){0,0,0,255};return &gx_fifo;}
 GXDrawDoneCallback GXSetDrawDoneCallback(GXDrawDoneCallback c){GXDrawDoneCallback o=gx_done_cb;gx_done_cb=c;return o;}
 GXDrawSyncCallback GXSetDrawSyncCallback(GXDrawSyncCallback c){GXDrawSyncCallback o=gx_sync_cb;gx_sync_cb=c;return o;}
 void GXSetDrawSync(u16 t){gx_draw_token=t;if(gx_sync_cb)gx_sync_cb(t);} u16 GXReadDrawSync(void){return gx_draw_token;}
@@ -640,15 +928,15 @@ void GXInitLightDir(GXLightObj *lt_obj, f32 nx, f32 ny, f32 nz) {}
 void GXInitLightDistAttn(GXLightObj *lt_obj, f32 ref_dist, f32 ref_br, GXDistAttnFn dist_func) {}
 void GXInitLightPos(GXLightObj *lt_obj, f32 x, f32 y, f32 z) {}
 void GXInitLightSpot(GXLightObj *lt_obj, f32 cutoff, GXSpotFn spot_func) {}
-void GXInitTlutObj(GXTlutObj *tlut_obj, void *lut, GXTlutFmt fmt, u16 n_entries) {}
+void GXInitTlutObj(GXTlutObj *tlut_obj, void *lut, GXTlutFmt fmt, u16 n_entries) { if (tlut_obj == NULL) return; memset(tlut_obj, 0, sizeof *tlut_obj); tlut_obj->dummy[0] = (uptr) lut; tlut_obj->dummy[1] = (uptr) fmt; tlut_obj->dummy[2] = (uptr) n_entries; }
 void GXInvalidateTexAll(void) {}
 void GXInvalidateVtxCache(void) {}
 void GXLoadLightObjImm(GXLightObj *lt_obj, GXLightID light) {}
 void GXLoadNrmMtxImm(f32 mtx[3][4], u32 id) {}
 void GXLoadPosMtxImm(f32 mtx[3][4], u32 id) { (void) id; if (mtx != NULL) { memcpy(gx_pos_mtx, mtx, sizeof gx_pos_mtx); gx_have_pos_mtx = GX_TRUE; } }
 void GXLoadTexMtxImm(f32 mtx[][4], u32 id, GXTexMtxType type) {}
-void GXLoadTexObj(GXTexObj *obj, GXTexMapID id) {}
-void GXLoadTlut(GXTlutObj *tlut_obj, u32 tlut_name) {}
+void GXLoadTexObj(GXTexObj *obj, GXTexMapID id) { if (obj == NULL || id >= GX_MAX_TEXMAP) return; gx_textures[id].data = (const u8 *) obj->dummy[0]; gx_textures[id].width = (u16) obj->dummy[1]; gx_textures[id].height = (u16) (obj->dummy[1] >> 16); gx_textures[id].format = (GXTexFmt) obj->dummy[2]; gx_textures[id].wrap_s = (GXTexWrapMode) (obj->dummy[2] >> 8); gx_textures[id].wrap_t = (GXTexWrapMode) (obj->dummy[2] >> 16); gx_textures[id].tlut = (u32) obj->dummy[3]; gx_textures[id].base_size = gx_texture_size(gx_textures[id].width, gx_textures[id].height, gx_textures[id].format); gx_textures[id].loaded = GX_TRUE; }
+void GXLoadTlut(GXTlutObj *tlut_obj, u32 tlut_name) { u32 slot = tlut_name & 0x1f; if (tlut_obj == NULL || slot >= sizeof gx_tluts / sizeof gx_tluts[0]) return; gx_tluts[slot].data = (const u8 *) tlut_obj->dummy[0]; gx_tluts[slot].format = (GXTlutFmt) tlut_obj->dummy[1]; gx_tluts[slot].entries = (u16) tlut_obj->dummy[2]; gx_tluts[slot].loaded = GX_TRUE; }
 void GXPixModeSync(void) {}
 void GXSetAlphaCompare(GXCompare comp0, u8 ref0, GXAlphaOp op, GXCompare comp1, u8 ref1) {}
 void GXSetAlphaUpdate(GXBool update_enable) {}
@@ -686,7 +974,7 @@ void GXSetLineWidth(u8 width, GXTexOffset texOffsets) {}
 void GXSetMisc(GXMiscToken token, u32 val) {}
 void GXSetNumChans(u8 nChans) {}
 void GXSetNumIndStages(u8 nIndStages) {}
-void GXSetNumTevStages(u8 nStages) {}
+void GXSetNumTevStages(u8 nStages) { gx_num_tev_stages = nStages > GX_MAX_TEVSTAGE ? GX_MAX_TEVSTAGE : nStages; }
 void GXSetNumTexGens(u8 nTexGens) {}
 void GXSetPixelFmt(GXPixelFmt pix_fmt, GXZFmt16 z_fmt) {}
 void GXSetPointSize(u8 pointSize, GXTexOffset texOffsets) {}
@@ -702,8 +990,8 @@ void GXSetTevIndirect(GXTevStageID tev_stage, GXIndTexStageID ind_stage, GXIndTe
 void GXSetTevKAlphaSel(GXTevStageID stage, GXTevKAlphaSel sel) {}
 void GXSetTevKColor(GXTevKColorID id, GXColor color) {}
 void GXSetTevKColorSel(GXTevStageID stage, GXTevKColorSel sel) {}
-void GXSetTevOp(GXTevStageID id, GXTevMode mode) {}
-void GXSetTevOrder(GXTevStageID stage, GXTexCoordID coord, GXTexMapID map, GXChannelID color) {}
+void GXSetTevOp(GXTevStageID id, GXTevMode mode) { if (id < GX_MAX_TEVSTAGE) gx_tev_mode[id] = mode; }
+void GXSetTevOrder(GXTevStageID stage, GXTexCoordID coord, GXTexMapID map, GXChannelID color) { (void) color; if (stage < GX_MAX_TEVSTAGE) { gx_tev_coord[stage] = coord; gx_tev_map[stage] = map; } }
 void GXSetTevSwapMode(GXTevStageID stage, GXTevSwapSel ras_sel, GXTevSwapSel tex_sel) {}
 void GXSetTevSwapModeTable(GXTevSwapSel table, GXTevColorChan red, GXTevColorChan green, GXTevColorChan blue, GXTevColorChan alpha) {}
 void GXSetTexCoordGen2(GXTexCoordID dst_coord, GXTexGenType func, GXTexGenSrc src_param, u32 mtx, GXBool normalize, u32 pt_texmtx) {}

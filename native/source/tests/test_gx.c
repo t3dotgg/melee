@@ -118,5 +118,37 @@ int main(void)
     memset(xfb, 0, sizeof xfb);
     GXCopyDisp(xfb, GX_FALSE);
     assert((xfb[(32 * 64 + 32) * 2] | xfb[(32 * 64 + 32) * 2 + 1]) != 0);
+
+    /* A 4x4 RGB565 texture occupies one 32-byte GX tile. The sampler must
+     * read its big endian texels and apply a single REPLACE TEV stage. */
+    GXInit(NULL, 0);
+    GXSetViewport(0, 0, 64, 64, 0, 1);
+    GXSetScissor(0, 0, 64, 64);
+    uint8_t __attribute__((aligned(32))) texel[32] = { 0 };
+    for (size_t i = 0; i < sizeof texel; i += 2) {
+        texel[i] = 0xf8;
+        texel[i + 1] = 0x00;
+    }
+    GXTexObj texture;
+    GXInitTexObj(&texture, texel, 4, 4, GX_TF_RGB565, GX_CLAMP, GX_CLAMP, 0);
+    GXLoadTexObj(&texture, GX_TEXMAP0);
+    GXSetNumTevStages(1);
+    GXSetTevOrder(GX_TEVSTAGE0, GX_TEXCOORD0, GX_TEXMAP0, GX_COLOR_NULL);
+    GXSetTevOp(GX_TEVSTAGE0, GX_REPLACE);
+    GXSetVtxDesc(GX_VA_POS, GX_DIRECT);
+    GXSetVtxDesc(GX_VA_TEX0, GX_DIRECT);
+    GXSetVtxAttrFmt(GX_VTXFMT0, GX_VA_POS, GX_POS_XY, GX_F32, 0);
+    GXSetVtxAttrFmt(GX_VTXFMT0, GX_VA_TEX0, GX_TEX_ST, GX_F32, 0);
+    GXBegin(GX_QUADS, GX_VTXFMT0, 4);
+    GXPosition2f32(-1.0f, -1.0f); GXTexCoord2f32(0.0f, 1.0f);
+    GXPosition2f32(1.0f, -1.0f); GXTexCoord2f32(1.0f, 1.0f);
+    GXPosition2f32(1.0f, 1.0f); GXTexCoord2f32(1.0f, 0.0f);
+    GXPosition2f32(-1.0f, 1.0f); GXTexCoord2f32(0.0f, 0.0f);
+    GXEnd();
+    GXSetDispCopySrc(0, 0, 64, 64);
+    GXSetDispCopyDst(64, 64);
+    memset(xfb, 0, sizeof xfb);
+    GXCopyDisp(xfb, GX_FALSE);
+    assert(xfb[(32 * 64 + 32) * 2] > 0xc0);
     return 0;
 }
