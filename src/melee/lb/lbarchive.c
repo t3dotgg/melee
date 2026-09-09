@@ -16,8 +16,9 @@
 #include <sysdolphin/baselib/sobjlib.h>
 
 #ifdef MELEE_NATIVE
-#include <sysdolphin/baselib/sislib.h>
 #include "../../../native/source/assets/archive_internal.h"
+#include "../../../native/source/assets/stage.h"
+#include <sysdolphin/baselib/sislib.h>
 #endif
 
 #ifdef MELEE_NATIVE
@@ -38,6 +39,7 @@ struct NativeArchiveBinding {
     void* input;
     NativeArchive* archive;
     NativeArchiveGraph* graph;
+    NativeStageArchive* stage;
     NativeSisRoot* sis_roots;
     NativeSceneAllocation* scene_allocations;
     NativeArchiveBinding* next;
@@ -85,6 +87,39 @@ static NativeArchiveBinding* native_binding(HSD_Archive* archive)
          binding = binding->next) {
         if (binding->legacy == archive) return binding;
     }
+    return NULL;
+}
+
+/* Resolve a relocated branch word without putting an eight-byte pointer in
+ * the four-byte command stream. Scripts keep their original byte order. */
+void* native_archive_command_target(const void* command_word)
+{
+    NativeArchiveBinding* binding;
+    for (binding = native_archive_bindings; binding != NULL;
+         binding = binding->next)
+    {
+        uintptr_t start = (uintptr_t) binding->archive->data;
+        uintptr_t address = (uintptr_t) command_word;
+        size_t size = NativeArchiveDataSize(binding->archive);
+        if (address >= start && address - start < size) {
+            uint32_t target;
+            bool present;
+            NativeArchiveError error;
+            if (NativeArchiveReference(binding->archive, address - start,
+                                       &target, &present,
+                                       &error) != NATIVE_ARCHIVE_OK ||
+                !present ||
+                !NativeArchiveDataRange(binding->archive, target, 4))
+            {
+                OSPanic(__FILE__, __LINE__,
+                        "invalid native archive command target\n");
+                return NULL;
+            }
+            return (void*) (binding->archive->data + target);
+        }
+    }
+    OSPanic(__FILE__, __LINE__,
+            "command branch is outside a native archive\n");
     return NULL;
 }
 
@@ -547,15 +582,55 @@ void* HSD_ArchiveNativePublicAddress(HSD_Archive* archive, const char* symbol)
         }
         return NULL;
     }
+    NativeArchiveStatus stage_status =
+        NativeStageArchiveRead(binding->stage, symbol, offset, &root, &error);
+    if (stage_status == NATIVE_ARCHIVE_OK) {
+        return root;
+    }
+    if (stage_status != NATIVE_ARCHIVE_NOT_FOUND) {
+        native_archive_error(symbol, &error);
+        return NULL;
+    }
+    if (strcmp(symbol, "map_ptcl") == 0 || strcmp(symbol, "map_texg") == 0) {
+        /* The particle loader decodes these bank-relative byte streams. */
+        if (NativeArchiveDataRange(binding->archive, offset, 12)) {
+            return (void*) (binding->archive->data + offset);
+        }
+        return NULL;
+    }
+    if (strcmp(symbol, "quake_model_set") == 0) {
+        return native_scene_model(binding, offset, &error);
+    }
     if (strncmp(symbol, "SIS_", 4) == 0) {
         return native_sis_root(binding, offset, &error);
     }
     if (strcmp(symbol, "lbRumbleData") == 0) {
         return native_rumble_root(binding, offset, &error);
     }
-    if (strcmp(symbol, "MemCardIconData") == 0 &&
-        NativeArchiveDataRange(binding->archive, offset, 1)) {
-        return (void*) (binding->archive->data + offset);
+    if (strcmp(symbol, "MemCardIconData") == 0 ||
+        strcmp(symbol, "MemSnapIconData") == 0)
+    {
+        size_t count = strcmp(symbol, "MemCardIconData") == 0 ? 4 : 2;
+        void** images = native_scene_alloc(binding, count * sizeof(*images));
+        if (images == NULL) {
+            return NULL;
+        }
+        for (size_t i = 0; i < count; ++i) {
+            uint32_t target;
+            bool present;
+            if (!native_scene_reference(binding, offset + i * 4, &target,
+                                        &present, &error))
+            {
+                return NULL;
+            }
+            if (present) {
+                if (!NativeArchiveDataRange(binding->archive, target, 1)) {
+                    return NULL;
+                }
+                images[i] = (void*) (binding->archive->data + target);
+            }
+        }
+        return images;
     }
     if (strcmp(symbol, "lbRefData") == 0) {
         struct NativeRefractionData* data;
@@ -707,6 +782,11 @@ void* HSD_ArchiveNativePublicAddress(HSD_Archive* archive, const char* symbol)
     if (binding->archive->reloc_count == 0 &&
         NativeArchiveDataRange(binding->archive, offset, 1))
         return (void*) (binding->archive->data + offset);
+    if (error.status == NATIVE_ARCHIVE_OK) {
+        error.status = NATIVE_ARCHIVE_UNSUPPORTED;
+        error.offset = offset;
+        error.message = "no typed reader for this public root";
+    }
     native_archive_error(symbol, &error);
     return NULL;
 }
@@ -735,6 +815,7 @@ void HSD_ArchiveNativeRelease(HSD_Archive* archive)
         free(allocation);
         allocation = next;
     }
+    NativeStageArchiveClose(binding->stage);
     NativeArchiveGraphClose(binding->graph);
     NativeArchiveClose(binding->archive);
     /* The owning heap releases the serialized input.  Preloaded archives can
@@ -784,6 +865,14 @@ void lbArchive_InitializeDAT(HSD_Archive* archive, void* data, size_t length)
     state->input = data;
     state->archive = native;
     state->graph = graph;
+    state->stage = NativeStageArchiveOpen(native, graph);
+    if (state->stage == NULL) {
+        free(state);
+        NativeArchiveGraphClose(graph);
+        NativeArchiveClose(native);
+        HSD_ASSERT(73, 0);
+        return;
+    }
     state->next = native_archive_bindings;
     native_archive_bindings = state;
     memset(archive, 0, sizeof(*archive));

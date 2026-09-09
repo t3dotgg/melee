@@ -1994,7 +1994,12 @@ void Ground_801C36F4(int map_id, HSD_JObj* root, UNK_T joint)
     int entry_count;
     struct {
         void* joint;
+#ifdef MELEE_NATIVE
+        s16* pairs;
+        s32 pair_count;
+#else
         u8 x4_pad[0x8];
+#endif
     }* entry;
     int i;
     u32 unused[4];
@@ -3272,7 +3277,7 @@ static inline s32 randi(s32 max)
 int Ground_801C5940(void)
 {
     struct {
-        u8 x0_pad[0x4];
+        u8 x0_pad[sizeof(void*)];
         struct {
             s16 a, b;
         }* unk4;

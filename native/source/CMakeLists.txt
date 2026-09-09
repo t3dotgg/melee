@@ -80,6 +80,11 @@ add_executable(test_archive tests/test_archive.c assets/archive.c assets/descrip
 target_link_libraries(test_archive PRIVATE melee_host_options)
 add_test(NAME archive COMMAND test_archive)
 
+add_executable(test_stage tests/test_stage.c assets/stage.c assets/archive.c
+    assets/descriptors.c platform/report.c)
+target_link_libraries(test_stage PRIVATE melee_host_options)
+add_test(NAME stage COMMAND test_stage)
+
 add_executable(test_archive_legacy tests/test_archive_legacy.c
     "${MELEE_ROOT}/src/sysdolphin/baselib/archive.c" platform/report.c)
 target_link_libraries(test_archive_legacy PRIVATE melee_host_options)
