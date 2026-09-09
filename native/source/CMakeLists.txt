@@ -108,6 +108,20 @@ add_executable(test_fighter_articles tests/test_fighter_articles.c
 target_link_libraries(test_fighter_articles PRIVATE melee_host_options)
 add_test(NAME fighter_articles COMMAND test_fighter_articles)
 
+add_executable(test_fighter_archive tests/test_fighter_archive.c
+    assets/fighters.c assets/fighter_attributes.c assets/fighter_common.c
+    assets/fighter_parts.c assets/fighter_articles.c assets/items.c
+    assets/items_special.c assets/archive.c assets/descriptors.c
+    platform/report.c)
+target_link_libraries(test_fighter_archive PRIVATE melee_host_options)
+add_test(NAME fighter_archive COMMAND test_fighter_archive)
+
+add_executable(test_item_spawn tests/test_item_spawn.c
+    "${MELEE_ROOT}/src/melee/it/itspawn.c")
+target_link_libraries(test_item_spawn PRIVATE melee_host_options)
+target_link_options(test_item_spawn PRIVATE -Wl,-dead_strip)
+add_test(NAME item_spawn COMMAND test_item_spawn)
+
 add_executable(test_effects tests/test_effects.c)
 target_sources(test_effects PRIVATE "${MELEE_ROOT}/src/melee/ef/eflib.c")
 target_link_libraries(test_effects PRIVATE melee_host_options)
