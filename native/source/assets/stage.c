@@ -83,6 +83,14 @@ static u16 read16(const u8* data)
     return (u16) ((u16) data[0] << 8 | data[1]);
 }
 
+static f32 read_float(const u8* data)
+{
+    u32 value = NativeArchiveBE32(data);
+    f32 result;
+    memcpy(&result, &value, sizeof(result));
+    return result;
+}
+
 static bool reference(NativeStageArchive* stage, uint32_t field,
                       uint32_t* target, bool* present)
 {
@@ -670,6 +678,106 @@ static void* zebes_parameters(NativeStageArchive* stage, uint32_t offset)
     return result;
 }
 
+typedef struct NativeCastleEntry {
+    s16 x0;
+    u8 padding[2];
+    f32 x4;
+    Vec3 rot;
+} NativeCastleEntry;
+
+typedef struct NativeCastleParameters {
+    s16 x0, x2, x4, x6, x8, xA, xC, xE;
+    f32 x10, x14, x18;
+    u8 padding1C[4];
+    f32 x20, x24, x28, x2C, x30, x34, x38, x3C;
+    s16 x40, x42, x44;
+    u8 padding46[2];
+    f32 x48, x4C, x50;
+    s16 x54;
+    u8 padding56[2];
+    s16 x58;
+    u8 padding5A[2];
+    NativeCastleEntry entries[9];
+    f32 x110;
+    void* x114;
+    f32 x118, x11C, x120, x124;
+    u8 padding128[4];
+    s16 x12C[4];
+    f32 x134, x138, x13C, x140;
+} NativeCastleParameters;
+_Static_assert(sizeof(NativeCastleParameters) == 0x150, "native castle parameter layout");
+
+static void* castle_parameters(NativeStageArchive* stage, uint32_t offset)
+{
+    NativeCastleParameters* result;
+    const u8* data;
+    uint32_t target;
+    bool present;
+    if (!range(stage, offset, 0x144)) {
+        return NULL;
+    }
+    result = allocate(stage, 1, sizeof(*result));
+    if (result == NULL) {
+        return NULL;
+    }
+    data = stage->archive->data + offset;
+    /* Scalar fields keep their serialized big-endian bit patterns. */
+    for (size_t i = 0; i < 8; ++i) {
+        ((s16*) result)[i] = (s16) read16(data + i * 2);
+    }
+    for (size_t i = 0; i < 3; ++i) {
+        u32 value = NativeArchiveBE32(data + 0x10 + i * 4);
+        memcpy((u8*) result + offsetof(NativeCastleParameters, x10) + i * 4,
+               &value, 4);
+    }
+    for (size_t i = 0x20; i < 0x40; i += 4) {
+        u32 value = NativeArchiveBE32(data + i);
+        memcpy((u8*) result + offsetof(NativeCastleParameters, x20) + i - 0x20,
+               &value, 4);
+    }
+    result->x40 = (s16) read16(data + 0x40);
+    result->x42 = (s16) read16(data + 0x42);
+    result->x44 = (s16) read16(data + 0x44);
+    result->x48 = read_float(data + 0x48);
+    result->x4C = read_float(data + 0x4C);
+    result->x50 = read_float(data + 0x50);
+    result->x54 = (s16) read16(data + 0x54);
+    result->x58 = (s16) read16(data + 0x58);
+    for (size_t i = 0; i < 9; ++i) {
+        const u8* source = data + 0x5C + i * sizeof(NativeCastleEntry);
+        NativeCastleEntry* entry = &result->entries[i];
+        entry->x0 = (s16) read16(source);
+        entry->x4 = read_float(source + 4);
+        entry->rot.x = read_float(source + 8);
+        entry->rot.y = read_float(source + 12);
+        entry->rot.z = read_float(source + 16);
+    }
+    result->x110 = read_float(data + 0x110);
+    if (!reference(stage, offset + 0x114, &target, &present)) {
+        return NULL;
+    }
+    if (present) {
+        if (!range(stage, target, 4)) {
+            return NULL;
+        }
+        result->x114 = (void*) (stage->archive->data + target);
+    }
+    for (size_t i = 0; i < 4; ++i) {
+        u32 value = NativeArchiveBE32(data + 0x118 + i * 4);
+        memcpy((u8*) result + offsetof(NativeCastleParameters, x118) + i * 4,
+               &value, 4);
+    }
+    for (size_t i = 0; i < 4; ++i) {
+        result->x12C[i] = (s16) read16(data + 0x12C + i * 2);
+    }
+    for (size_t i = 0; i < 4; ++i) {
+        u32 value = NativeArchiveBE32(data + 0x134 + i * 4);
+        memcpy((u8*) result + offsetof(NativeCastleParameters, x134) + i * 4,
+               &value, 4);
+    }
+    return result;
+}
+
 static void* stage_parameters(NativeStageArchive* stage, uint32_t offset)
 {
     uint32_t ground_offset;
@@ -716,6 +824,8 @@ static void* stage_parameters(NativeStageArchive* stage, uint32_t offset)
     }
     case St_Kind_Zebes:
         return zebes_parameters(stage, offset);
+    case St_Kind_Castle:
+        return castle_parameters(stage, offset);
     case St_Kind_Izumi:
         return scalar_array(stage, offset, 21, 4);
     case St_Kind_Story:
