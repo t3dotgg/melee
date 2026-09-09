@@ -34,6 +34,11 @@ static inline u32 sis_load_u32(const u8* ptr)
            ((u32) ptr[2] << 8) | ptr[3];
 }
 
+static inline s32 sis_load_s32(const u8* ptr)
+{
+    return (s32) sis_load_u32(ptr);
+}
+
 /* Preserve the original low-byte fixed-point encoding without invoking
  * undefined float-to-integer conversion when malformed data is out of range. */
 static inline u16 sis_fixed8(f32 value)
@@ -49,11 +54,13 @@ static inline u16 sis_fixed8(f32 value)
 #define SIS_LOAD_U16(ptr) sis_load_u16(ptr)
 #define SIS_LOAD_S16(ptr) sis_load_s16(ptr)
 #define SIS_LOAD_U32(ptr) sis_load_u32(ptr)
+#define SIS_LOAD_S32(ptr) sis_load_s32(ptr)
 #else
 #define sis_fixed8(value) ((u16) (256.0F * (value)))
 #define SIS_LOAD_U16(ptr) (*(u16*) (ptr))
 #define SIS_LOAD_S16(ptr) (*(s16*) (ptr))
 #define SIS_LOAD_U32(ptr) (*(u32*) (ptr))
+#define SIS_LOAD_S32(ptr) (*(s32*) (ptr))
 #endif
 
 static inline f32 HSD_SisLib_GlyphWidth(HSD_Text* text, f32 scale_x)
@@ -287,7 +294,7 @@ uintptr_t HSD_SisLib_803A7F0C(HSD_Text* text, s32 flags)
         case 5:
             pos -= 4;
             if (target_type == 5) {
-                result = SIS_LOAD_U32(text->string_buffer + pos);
+                result = SIS_LOAD_S32(text->string_buffer + pos);
                 if (flag_hi == entry_flags) {
                     remove_size = 5;
                 }
@@ -366,7 +373,7 @@ loop_3:
         HSD_SisLib_803A7684(text, (u8*) cursor, 0x85U);
         /* fallthrough */
     case 8:
-        cursor = (u8*) (uintptr_t) SIS_LOAD_U32((u8*) cursor + 1) - 1;
+        cursor = (u8*) (uintptr_t) SIS_LOAD_S32((u8*) cursor + 1) - 1;
         goto block_33;
     case 14:
         HSD_SisLib_803A7684(text, (u8*) cursor, 0x83U);
@@ -790,7 +797,7 @@ void HSD_SisLib_803A84BC(HSD_GObj* gobj, intptr_t pass)
                             HSD_SisLib_803A7684(text, sis_cursor, 5U);
                             /* fallthrough */
                         case 8:
-                            sis_cursor = (u8*) (uintptr_t) SIS_LOAD_U32(sis_cursor + 1) - 1;
+                            sis_cursor = (u8*) (uintptr_t) SIS_LOAD_S32(sis_cursor + 1) - 1;
                             break;
                         case 10:
                             if (((uintptr_t) text->alloc_data == 0U) || (saved_kerning == 0)) {
