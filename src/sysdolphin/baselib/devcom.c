@@ -261,25 +261,38 @@ static void HSD_DevComDVDARAMEndCallback(ARQRequest* request)
 static void HSD_DevComDVDMemCallback(s32 result, DVDFileInfo* unused)
 {
     HSD_DevCom* dc;
+    HSD_DevCom* active_dc = dvdDC;
     bool enabled;
 
     if (result == -1) {
         HSD_DevCom_804D7804 = 1;
     }
-    if (dvdDC->size > 0x80000) {
-        dvdDC->src += 0x80000;
-        dvdDC->dest += 0x80000;
-        dvdDC->size -= 0x80000;
+    if (active_dc->size > 0x80000) {
+        active_dc->src += 0x80000;
+        active_dc->dest += 0x80000;
+        active_dc->size -= 0x80000;
         HSD_DevCom_804D77F5 = 0;
         HSD_DevComDVDWakeUp();
         return;
     }
-    if (dvdDC->callback != NULL && HSD_DevCom_804D7804 == 0) {
-        dvdDC->callback(dvdDC->dcReq, (intptr_t) dvdDC->args, NULL,
-                        dvdDC->cancelflag);
+#ifdef MELEE_NATIVE
+    /* Remove the completed request before calling a client. Native callbacks
+     * run inline and can submit a replacement request on the same channel. */
+    HSD_DevComUnlink(active_dc);
+    dc = active_dc;
+    if (active_dc->callback != NULL && HSD_DevCom_804D7804 == 0) {
+        active_dc->callback(active_dc->dcReq, (intptr_t) active_dc->args, NULL,
+                            active_dc->cancelflag);
     }
-    HSD_DevComUnlink(dvdDC);
-    dc = dvdDC;
+#else
+    if (active_dc->callback != NULL && HSD_DevCom_804D7804 == 0) {
+        active_dc->callback(active_dc->dcReq, (intptr_t) active_dc->args, NULL,
+                            active_dc->cancelflag);
+    }
+    dvdDC = active_dc;
+    HSD_DevComUnlink(active_dc);
+    dc = active_dc;
+#endif
     enabled = OSDisableInterrupts();
     dc->next = HSD_DevCom_804D77F0;
     HSD_DevCom_804D77F0 = dc;
@@ -291,6 +304,7 @@ static void HSD_DevComDVDMemCallback(s32 result, DVDFileInfo* unused)
 static void HSD_DevComDVDCallback(s32 result, DVDFileInfo* unused)
 {
     HSD_DevCom* dc;
+    HSD_DevCom* active_dc = dvdDC;
     s32 enabled;
     u16 type;
 
@@ -301,15 +315,16 @@ static void HSD_DevComDVDCallback(s32 result, DVDFileInfo* unused)
     }
     type = dvdDC->type;
     if (type == 0x22) {
-        HSD_ASSERT(0x18C, dvdDC->size <= DEVCOM_BUF_SIZE);
-        HSD_ASSERT(0x18D, dvdDC->callback);
+        HSD_ASSERT(0x18C, active_dc->size <= DEVCOM_BUF_SIZE);
+        HSD_ASSERT(0x18D, active_dc->callback);
         if (HSD_DevCom_804D7804 == 0) {
-            dvdDC->callback(dvdDC->dcReq, (intptr_t) dvdDC->args,
+            active_dc->callback(active_dc->dcReq, (intptr_t) active_dc->args,
                             HSD_DevCom_804C6330_bufs[HSD_DevCom_804D77F6],
-                            dvdDC->cancelflag);
+                            active_dc->cancelflag);
         }
-        HSD_DevComUnlink(dvdDC);
-        dc = dvdDC;
+        dvdDC = active_dc;
+        HSD_DevComUnlink(active_dc);
+        dc = active_dc;
         enabled = OSDisableInterrupts();
         dc->next = HSD_DevCom_804D77F0;
         HSD_DevCom_804D77F0 = dc;
@@ -320,23 +335,23 @@ static void HSD_DevComDVDCallback(s32 result, DVDFileInfo* unused)
         HSD_DevComARAMWakeUp();
     } else if (type == 0x23) {
         HSD_DevCom_804D77F7 = HSD_DevCom_804D77F6;
-        if (dvdDC->size > DEVCOM_BUF_SIZE) {
+        if (active_dc->size > DEVCOM_BUF_SIZE) {
             ARQPostRequest(
                 devComARQR[HSD_DevCom_804D77F7], 0, 0, 1,
                 (uintptr_t) HSD_DevCom_804C6330_bufs[HSD_DevCom_804D77F7],
-                dvdDC->dest, DEVCOM_BUF_SIZE, HSD_DevComDVDStdCallback);
-            dvdDC->src += DEVCOM_BUF_SIZE;
-            dvdDC->dest += DEVCOM_BUF_SIZE;
-            dvdDC->size -= DEVCOM_BUF_SIZE;
+                active_dc->dest, DEVCOM_BUF_SIZE, HSD_DevComDVDStdCallback);
+            active_dc->src += DEVCOM_BUF_SIZE;
+            active_dc->dest += DEVCOM_BUF_SIZE;
+            active_dc->size -= DEVCOM_BUF_SIZE;
             HSD_DevCom_804D77F5 = 0;
             HSD_DevComDVDWakeUp();
         } else {
-            HSD_DevCom_804D77FC[HSD_DevCom_804D77F7] = dvdDC;
+            HSD_DevCom_804D77FC[HSD_DevCom_804D77F7] = active_dc;
             ARQPostRequest(
                 devComARQR[HSD_DevCom_804D77F7], 0, 0, 1,
                 (uintptr_t) HSD_DevCom_804C6330_bufs[HSD_DevCom_804D77F7],
-                dvdDC->dest, dvdDC->size, HSD_DevComDVDARAMEndCallback);
-            HSD_DevComUnlink(dvdDC);
+                active_dc->dest, active_dc->size, HSD_DevComDVDARAMEndCallback);
+            HSD_DevComUnlink(active_dc);
             HSD_DevCom_804D77F5 = 0;
             HSD_DevComDVDWakeUp();
         }

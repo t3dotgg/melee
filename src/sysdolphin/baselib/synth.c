@@ -32,6 +32,12 @@ void HSD_AudioFree(void* ptr)
 static int HSD_Synth_804D6028[2] = { 0 };
 static float HSD_Synth_804D6030 = 1.0f;
 
+#ifdef MELEE_NATIVE
+/* Bytes left in the packed SSM stream data while it is expanded. */
+static size_t native_sfx_stream_remaining;
+static u32 native_sfx_stream_index;
+#endif
+
 struct SfxLoadStreamNode {
     /* 0x00 */ struct SfxLoadStreamNode* x0;
     /* 0x04 */ s32 x4;
@@ -77,6 +83,10 @@ static void HSD_SynthSFXSampleLoadCallback(int result, intptr_t length, void* ad
                 hsd_SynthSFXLoadBuf[4U + i];
         }
         HSD_Synth_804D7734 = (u32*) ((u8*) HSD_Synth_804D7730 + (dnw & ~3));
+#ifdef MELEE_NATIVE
+        native_sfx_stream_remaining = (size_t) header_size;
+        native_sfx_stream_index = 0;
+#endif
 
         bankID = HSD_Synth_804C2A60[0].bankID;
         pp = &HSD_Synth_804C2AE0[bankID];
@@ -102,8 +112,27 @@ static void HSD_SynthSFXSampleLoadCallback(int result, intptr_t length, void* ad
             void** bucket;
 
             n = *HSD_Synth_804D7734;
+#ifdef MELEE_NATIVE
+            /* SSM records after the four words copied above stay big endian. */
+            if (native_sfx_stream_index != 0) {
+                n = __builtin_bswap32(n);
+                *HSD_Synth_804D7734 = (u32) n;
+            }
+#endif
             (void) n;
             nbytes = SfxLoadStreamDataSize(n << 6);
+#ifdef MELEE_NATIVE
+            /* A corrupt count must not turn the compacting copy into an
+             * unbounded read. Valid SSM records always fit in this region. */
+            if ((size_t) nbytes > native_sfx_stream_remaining) {
+                HSD_ASSERTREPORT(0x75, 0,
+                                 "invalid native SFX stream record size\n");
+                nbytes = (s32) native_sfx_stream_remaining;
+                n = nbytes >= 8 ? (u32) ((nbytes - 8) >> 6) : 0;
+            }
+            native_sfx_stream_remaining -= (size_t) nbytes;
+            native_sfx_stream_index += 1;
+#endif
 #ifdef MELEE_NATIVE
             /* The stream payload is compacted in place and can overlap. */
             memmove((u8*) HSD_Synth_804D7730 + 8, HSD_Synth_804D7734,
