@@ -120,6 +120,15 @@ void lb_80019880(u64 arg0)
 u8 lb_80019894(void)
 {
     u8 count;
+#ifdef MELEE_NATIVE
+    /* The GameCube PAD interrupt fills this queue independently of the game
+     * loop. A native host has no hardware interrupt, so take one sample when
+     * the queue is empty. This also lets the first scene frame start before
+     * the retrace-driven alarm has had a chance to run. */
+    if (HSD_PadGetRawQueueCount() == 0) {
+        HSD_PadRenewRawStatus(false);
+    }
+#endif
     int enabled = OSDisableInterrupts();
     count = HSD_PadGetRawQueueCount();
     lb_80019628();
