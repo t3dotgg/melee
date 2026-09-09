@@ -717,3 +717,39 @@ ROOT_READER(NativeArchiveJoint, HSD_Joint, SCHEMA_JOINT)
 ROOT_READER(NativeArchiveAnimation, HSD_AnimJoint, SCHEMA_ANIMATION)
 ROOT_READER(NativeArchiveAObj, HSD_AObjDesc, SCHEMA_AOBJ)
 ROOT_READER(NativeArchiveWObj, HSD_WObjDesc, SCHEMA_WOBJ)
+
+static NativeArchiveStatus find_named_root(NativeArchiveGraph* graph,
+                                           const char* name, uint32_t* offset,
+                                           NativeArchiveError* error)
+{
+    if (graph == NULL) {
+        return NativeArchiveFail(error, NATIVE_ARCHIVE_INVALID, 0,
+                                 "descriptor graph is null");
+    }
+    return NativeArchiveFind(graph->archive, name, offset, error);
+}
+
+#define NAMED_ROOT_READER(name, type, reader)                                \
+    NativeArchiveStatus name(NativeArchiveGraph* graph, const char* symbol,  \
+                             type** output, NativeArchiveError* error)       \
+    {                                                                         \
+        uint32_t offset = 0;                                                  \
+        NativeArchiveStatus status;                                           \
+        if (output == NULL) {                                                 \
+            return NativeArchiveFail(error, NATIVE_ARCHIVE_INVALID, 0,        \
+                                     "descriptor output is null");            \
+        }                                                                      \
+        *output = NULL;                                                        \
+        status = find_named_root(graph, symbol, &offset, error);              \
+        if (status != NATIVE_ARCHIVE_OK) {                                    \
+            return status;                                                     \
+        }                                                                      \
+        return reader(graph, offset, output, error);                          \
+    }
+
+NAMED_ROOT_READER(NativeArchiveJointByName, HSD_Joint, NativeArchiveJoint)
+NAMED_ROOT_READER(NativeArchiveAnimationByName, HSD_AnimJoint,
+                  NativeArchiveAnimation)
+NAMED_ROOT_READER(NativeArchiveAObjByName, HSD_AObjDesc, NativeArchiveAObj)
+NAMED_ROOT_READER(NativeArchiveWObjByName, HSD_WObjDesc, NativeArchiveWObj)
+NAMED_ROOT_READER(NativeArchiveFigaTreeByName, FigaTree, NativeArchiveFigaTree)

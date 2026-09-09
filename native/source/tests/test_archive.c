@@ -265,6 +265,10 @@ static void test_joint_graph(void)
     HSD_Joint* root = NULL;
     HSD_Joint* other = NULL;
     CHECK(NativeArchiveJoint(graph, 0, &root, &error) == NATIVE_ARCHIVE_OK);
+    HSD_Joint* named = NULL;
+    CHECK(NativeArchiveJointByName(graph, "joint", &named, &error) ==
+          NATIVE_ARCHIVE_OK);
+    CHECK(named == root);
     CHECK(NativeArchiveJoint(other_graph, 0, &other, &error) ==
           NATIVE_ARCHIVE_OK);
     CHECK(root != other);

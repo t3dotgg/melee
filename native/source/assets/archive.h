@@ -79,21 +79,39 @@ NativeArchiveStatus NativeArchiveJoint(NativeArchiveGraph* graph,
                                       uint32_t offset,
                                       struct HSD_Joint** output,
                                       NativeArchiveError* error);
+NativeArchiveStatus NativeArchiveJointByName(NativeArchiveGraph* graph,
+                                             const char* name,
+                                             struct HSD_Joint** output,
+                                             NativeArchiveError* error);
 NativeArchiveStatus NativeArchiveAnimation(NativeArchiveGraph* graph,
                                           uint32_t offset,
                                           struct HSD_AnimJoint** output,
                                           NativeArchiveError* error);
+NativeArchiveStatus NativeArchiveAnimationByName(
+    NativeArchiveGraph* graph, const char* name, struct HSD_AnimJoint** output,
+    NativeArchiveError* error);
 NativeArchiveStatus NativeArchiveAObj(NativeArchiveGraph* graph,
                                      uint32_t offset,
                                      struct HSD_AObjDesc** output,
                                      NativeArchiveError* error);
+NativeArchiveStatus NativeArchiveAObjByName(NativeArchiveGraph* graph,
+                                            const char* name,
+                                            struct HSD_AObjDesc** output,
+                                            NativeArchiveError* error);
 NativeArchiveStatus NativeArchiveWObj(NativeArchiveGraph* graph,
                                      uint32_t offset,
                                      struct HSD_WObjDesc** output,
                                      NativeArchiveError* error);
+NativeArchiveStatus NativeArchiveWObjByName(NativeArchiveGraph* graph,
+                                            const char* name,
+                                            struct HSD_WObjDesc** output,
+                                            NativeArchiveError* error);
 NativeArchiveStatus NativeArchiveFigaTree(NativeArchiveGraph* graph,
                                          uint32_t offset,
                                          struct FigaTree** output,
                                          NativeArchiveError* error);
+NativeArchiveStatus NativeArchiveFigaTreeByName(
+    NativeArchiveGraph* graph, const char* name, struct FigaTree** output,
+    NativeArchiveError* error);
 
 #endif
