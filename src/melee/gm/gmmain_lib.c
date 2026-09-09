@@ -886,6 +886,17 @@ int gmMainLib_8015ED30(void)
 
 int GetRumbleSettingOfPort(ssize_t port)
 {
+#ifdef MELEE_NATIVE
+    /* The original code reads port 5 to fetch the adjacent deflicker byte
+     * after the four controller settings. Keep that byte-address behavior
+     * explicit on the host instead of indexing past the native array. */
+    if (port == 5) {
+        return gmMainLib_GetSaveData()->x1CB0.deflicker;
+    }
+    if (port < 0 || port >= PAD_MAX_CONTROLLERS) {
+        return 0;
+    }
+#endif
     return gmMainLib_GetSaveData()->x1CB0.rumble_enabled[port];
 }
 
