@@ -19,6 +19,7 @@
 #include "../../../native/source/assets/archive_internal.h"
 #include "../../../native/source/assets/stage.h"
 #include "../../../native/source/assets/items.h"
+#include "../../../native/source/assets/effects.h"
 #include <sysdolphin/baselib/sislib.h>
 #endif
 
@@ -42,6 +43,7 @@ struct NativeArchiveBinding {
     NativeArchiveGraph* graph;
     NativeStageArchive* stage;
     NativeItemArchive* items;
+    NativeEffectArchive* effects;
     NativeSisRoot* sis_roots;
     NativeSceneAllocation* scene_allocations;
     NativeArchiveBinding* next;
@@ -58,11 +60,6 @@ struct NativeRefractionData {
     f32* values;
 };
 
-struct NativeEffectDataEntry {
-    char* file;
-    char* table;
-    void* data;
-};
 
 static NativeArchiveBinding* native_archive_bindings;
 
@@ -636,6 +633,13 @@ void* HSD_ArchiveNativePublicAddress(HSD_Archive* archive, const char* symbol)
         native_archive_error(symbol, &error);
         return NULL;
     }
+    NativeArchiveStatus effect_status = NativeEffectArchiveRead(
+        binding->effects, symbol, offset, &root, &error);
+    if (effect_status == NATIVE_ARCHIVE_OK) return root;
+    if (effect_status != NATIVE_ARCHIVE_NOT_FOUND) {
+        native_archive_error(symbol, &error);
+        return NULL;
+    }
     if (strcmp(symbol, "map_ptcl") == 0 || strcmp(symbol, "map_texg") == 0) {
         /* The particle loader decodes these bank-relative byte streams. */
         if (NativeArchiveDataRange(binding->archive, offset, 12)) {
@@ -736,41 +740,6 @@ void* HSD_ArchiveNativePublicAddress(HSD_Archive* archive, const char* symbol)
         *slot = converted;
         return slot;
     }
-    if (native_name_ends_with(symbol, "DataTable")) {
-        struct NativeEffectDataEntry* table;
-        /* Each effect archive exports one EF_DAT_Entry. */
-        size_t count = 1;
-        if (!NativeArchiveDataRange(binding->archive, offset, count * 12))
-            return NULL;
-        table = native_scene_alloc(binding,
-                                   (count + 1) * sizeof(*table));
-        if (table == NULL) return NULL;
-        for (size_t i = 0; i < count; ++i) {
-            uint32_t target;
-            bool present;
-            if (!native_scene_reference(binding, offset + (uint32_t) (i * 12),
-                                        &target, &present, &error))
-                return NULL;
-            table[i].file = present
-                                ? (char*) (binding->archive->data + target)
-                                : NULL;
-            if (!native_scene_reference(binding,
-                                        offset + (uint32_t) (i * 12 + 4),
-                                        &target, &present, &error))
-                return NULL;
-            table[i].table = present
-                                 ? (char*) (binding->archive->data + target)
-                                 : NULL;
-            if (!native_scene_reference(binding,
-                                        offset + (uint32_t) (i * 12 + 8),
-                                        &target, &present, &error))
-                return NULL;
-            table[i].data = present
-                                ? (void*) (binding->archive->data + target)
-                                : NULL;
-        }
-        return table;
-    }
     if (native_name_ends_with(symbol, "_scene_data")) {
         root = native_scene_root(binding, offset, &error);
         if (root != NULL) return root;
@@ -860,6 +829,7 @@ void HSD_ArchiveNativeRelease(HSD_Archive* archive)
         free(allocation);
         allocation = next;
     }
+    NativeEffectArchiveClose(binding->effects);
     NativeItemArchiveClose(binding->items);
     NativeStageArchiveClose(binding->stage);
     NativeArchiveGraphClose(binding->graph);
@@ -913,15 +883,11 @@ void lbArchive_InitializeDAT(HSD_Archive* archive, void* data, size_t length)
     state->archive = native;
     state->graph = graph;
     state->stage = NativeStageArchiveOpen(native, graph);
-    if (state->stage == NULL) {
-        free(state);
-        NativeArchiveGraphClose(graph);
-        NativeArchiveClose(native);
-        HSD_ASSERT(73, 0);
-        return;
-    }
     state->items = NativeItemArchiveOpen(native, graph);
-    if (state->items == NULL) {
+    state->effects = NativeEffectArchiveOpen(native, graph);
+    if (state->stage == NULL || state->items == NULL || state->effects == NULL) {
+        NativeEffectArchiveClose(state->effects);
+        NativeItemArchiveClose(state->items);
         NativeStageArchiveClose(state->stage);
         free(state);
         NativeArchiveGraphClose(graph);
