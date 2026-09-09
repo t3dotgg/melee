@@ -118,7 +118,7 @@ target_link_libraries(test_fighter_archive PRIVATE melee_host_options)
 add_test(NAME fighter_archive COMMAND test_fighter_archive)
 
 add_executable(test_fighter_motions tests/test_fighter_motions.c
-    assets/archive.c assets/descriptors.c platform/report.c)
+    assets/archive.c assets/descriptors.c platform/report.c platform/ar.c)
 target_link_libraries(test_fighter_motions PRIVATE melee_host_options)
 target_link_options(test_fighter_motions PRIVATE -Wl,-dead_strip)
 add_test(NAME fighter_motions COMMAND test_fighter_motions)
