@@ -26,7 +26,8 @@ ordered, pointer-free handoff to a future D3D12 or Vulkan backend.
 `NativeScene` adds stable object IDs, deterministic callback ordering, and safe
 mutation during dispatch. `NativeFighter` and `NativeAudioMixer` demonstrate
 typed gameplay and voice scheduling slices; the latter exposes a backend seam
-for WASAPI/XAudio2.
+for WASAPI/XAudio2. `NativeRendererBackend` provides a pointer-free submission
+contract, a headless implementation for tests, and a D3D12 capability probe.
 
 New native systems should use typed C++ fields and pointers instead of guest
 addresses. The existing matching/recompiled runtime remains the reference
