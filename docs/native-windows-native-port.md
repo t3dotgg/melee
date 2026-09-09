@@ -98,6 +98,10 @@ and deterministic demo game; a small typed fighter rules slice now covers
 movement, jump, gravity, attack, and special actions. Full fighter rules,
 scenes, collision, GX-compatible rendering, audio, and the complete asset
 catalog still require source-level ports.
+The object/scene kernel now provides stable IDs, deterministic priority order,
+safe callback mutation, and pointer-free snapshots. A deterministic null audio
+mixer also provides typed voices, priority eviction, stop/completion semantics,
+and a backend seam for WASAPI/XAudio2.
 
 ## Acceptance tests
 
