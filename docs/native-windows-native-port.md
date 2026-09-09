@@ -171,7 +171,8 @@ GX/TEV translation remain to be connected.
 The asset layer now decodes GX I4/I8/IA4/IA8, RGB565, RGB5A3, RGBA8, and
 palette-indexed C4/C8/C14X2 tiled blocks into host RGBA8 pixels with
 dimension, truncation, and palette-index checks. Material, mipmap, and TEV
-state conversion still remain.
+state conversion now has a validated host-side model that preserves raw GX
+enum values and unknown render flags; backend shader emission remains.
 `NativeDisc` now maps validated numeric entry IDs to the rooted asset service,
 providing synchronous and ordered asynchronous reads with cancellation. DVD
 seek timing and the complete original disc table still need to be derived from
