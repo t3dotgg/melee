@@ -18,6 +18,7 @@
 #ifdef MELEE_NATIVE
 #include "../../../native/source/assets/archive_internal.h"
 #include "../../../native/source/assets/effects.h"
+#include "../../../native/source/assets/fighters.h"
 #include "../../../native/source/assets/items.h"
 #include "../../../native/source/assets/stage.h"
 #include "../../../native/source/command.h"
@@ -44,6 +45,7 @@ struct NativeArchiveBinding {
     NativeArchiveGraph* graph;
     NativeStageArchive* stage;
     NativeItemArchive* items;
+    NativeFighterArchive* fighters;
     NativeEffectArchive* effects;
     NativeSisRoot* sis_roots;
     NativeSceneAllocation* scene_allocations;
@@ -627,6 +629,13 @@ void* HSD_ArchiveNativePublicAddress(HSD_Archive* archive, const char* symbol)
         native_archive_error(symbol, &error);
         return NULL;
     }
+    NativeArchiveStatus fighter_status = NativeFighterArchiveRead(
+        binding->fighters, symbol, offset, &root, &error);
+    if (fighter_status == NATIVE_ARCHIVE_OK) return root;
+    if (fighter_status != NATIVE_ARCHIVE_NOT_FOUND) {
+        native_archive_error(symbol, &error);
+        return NULL;
+    }
     NativeArchiveStatus item_status = NativeItemArchiveRead(
         binding->items, symbol, offset, &root, &error);
     if (item_status == NATIVE_ARCHIVE_OK) return root;
@@ -831,6 +840,7 @@ void HSD_ArchiveNativeRelease(HSD_Archive* archive)
         allocation = next;
     }
     NativeEffectArchiveClose(binding->effects);
+    NativeFighterArchiveClose(binding->fighters);
     NativeItemArchiveClose(binding->items);
     NativeStageArchiveClose(binding->stage);
     NativeArchiveGraphClose(binding->graph);
@@ -886,8 +896,12 @@ void lbArchive_InitializeDAT(HSD_Archive* archive, void* data, size_t length)
     state->stage = NativeStageArchiveOpen(native, graph);
     state->items = NativeItemArchiveOpen(native, graph);
     state->effects = NativeEffectArchiveOpen(native, graph);
-    if (state->stage == NULL || state->items == NULL || state->effects == NULL) {
+    state->fighters = NativeFighterArchiveOpen(native, graph, state->items);
+    if (state->stage == NULL || state->items == NULL || state->effects == NULL ||
+        state->fighters == NULL)
+    {
         NativeEffectArchiveClose(state->effects);
+        NativeFighterArchiveClose(state->fighters);
         NativeItemArchiveClose(state->items);
         NativeStageArchiveClose(state->stage);
         free(state);
