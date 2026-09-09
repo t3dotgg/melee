@@ -35,11 +35,20 @@ Run on an Apple Silicon Mac with Xcode command line tools:
 python3 native/source/compile.py --jobs 8
 ```
 
-This compiles 984 game and engine files plus the native support files under
-`native/source` and the required MSL floating point constants. The current
-inventory is 1005/1005 ARM64 files. It returns a failure status if any file
-fails. The JSON report and compiler logs are under `build/native-source`.
+This compiles 984 game and engine files plus 20 native support files under
+`native/source` and one MSL floating point source file. The current inventory
+is 1005/1005 ARM64 files. It returns a failure status if any file fails. The
+JSON report and compiler logs are under `build/native-source`.
 It requires no game image and does not fetch or run a translator.
+
+The forced-load link check verifies every compiled object:
+
+```sh
+python3 native/source/archive.py --build-dir build/native-source
+```
+
+The checked report has `linked: true` and `undefined_symbol_count: 0`. The
+native executable still imports normal macOS system frameworks at runtime.
 
 To check a changed directory:
 
@@ -62,6 +71,20 @@ cmake -S native/source -B build/native-source/game -G Ninja \
 cmake --build build/native-source/game --target native_melee
 ```
 
+The focused host tests use the default AddressSanitizer and UndefinedBehavior
+Sanitizer build:
+
+```sh
+cmake -S native/source -B build/native-source/tests -G Ninja \
+  -DMELEE_BUILD_NATIVE_GAME=OFF -DMELEE_SANITIZERS=ON
+cmake --build build/native-source/tests --parallel 8
+ctest --test-dir build/native-source/tests --output-on-failure
+```
+
+The current run passes all 13 tests: heap, memory, GObj links, math, scene
+sorting and bytecode, fighter storage, effects, both archive readers,
+scheduler, controller input, and GX.
+
 Run it with an extracted game directory or a disc image:
 
 ```sh
@@ -73,12 +96,29 @@ A single path is accepted too. The launcher detects directories and regular
 files. The same paths can be supplied with `MELEE_GAME_ROOT` and
 `MELEE_DISC_IMAGE`.
 
+The verified test image is Melee USA revision 2. Its disc ID is `GALE01` and
+its SHA-256 is
+`979c42a2cda2d022370ceeace9afb0bb6e1374287aea61c77e8f5b27f53ee526`.
+For the local copy used during validation:
+
+```sh
+IMAGE="/Users/theo-mini-pro/Downloads/Super Smash Bros. Melee (USA) (En,Ja) (Rev 2).iso"
+shasum -a 256 "$IMAGE"
+build/native-source/game/melee-native --disc "$IMAGE"
+```
+
+The launcher starts the native game loop and stays alive during a ten-second
+headless run with this image. Stop it with Control-C. A longer AddressSanitizer
+startup run also stays alive without a sanitizer report. These runs have not
+yet reached a playable menu or a real match.
+
 ## Current state
 
-The full direct-source target now links successfully with no undefined
-symbols. The host services include 64-bit heap and context storage, typed
-archive loading for the supported descriptor schemas, filesystem or ISO disc
-reads, ARAM, controller state, headless 60 Hz retraces with OS alarm
+The full direct-source target now links successfully after the forced-load
+check reports no missing game symbols. The host services include 64-bit heap
+and context storage, typed archive loading for the supported descriptor
+schemas, filesystem or ISO disc reads, ARAM, controller state, headless 60 Hz
+retraces with OS alarm
 callbacks, a software GX EFB for direct vertices and common display lists,
 cache operations, card stubs, and an explicit unavailable THP decoder. The
 scheduler uses the host monotonic clock by default. Tests can advance a
