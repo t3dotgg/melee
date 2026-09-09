@@ -9,7 +9,7 @@
 
 #include <dolphin/mtx.h>
 
-/* 213458 */ void grGreens_80213458(bool);
+/* 213458 */ void grGreens_80213458(int);
 /* 213464 */ void grGreens_Init(void);
 /* 2134F4 */ void grGreens_802134F4(void);
 /* 2134F8 */ void grGreens_802134F8(void);
@@ -54,10 +54,20 @@
 /* 2150C4 */ void grGreens_802150C4(Ground_GObj*, int, int);
 /* 215358 */ void grGreens_80215358(Ground_GObj*, int, int, int, int);
 /* 2159B4 */ void fn_802159B4(Item_GObj*, Ground*);
-/* 2159B8 */ void grGreens_802159B8(Ground*, int, int, int);
+/* 2159B8 */
+#ifdef MELEE_NATIVE
+void grGreens_802159B8(Ground*, int, int, HSD_GObj*);
+#else
+void grGreens_802159B8(Ground*, int, int, int);
+#endif
 /* 215B84 */ void fn_80215B84(Item_GObj*, Ground*, Vec*, HSD_GObj*, float);
 /* 215D50 */ void fn_80215D50(Item_GObj*, Ground*, HSD_GObj*);
-/* 215D54 */ s32 grGreens_80215D54(Ground_GObj*, int, int);
+/* 215D54 */
+#ifdef MELEE_NATIVE
+Ground_GObj* grGreens_80215D54(Ground_GObj*, int, int);
+#else
+s32 grGreens_80215D54(Ground_GObj*, int, int);
+#endif
 /* 215ED8 */ void grGreens_80215ED8(Ground_GObj*, int, int);
 /* 2166C4 */ void grGreens_802166C4(Ground_GObj*);
 /* 216C20 */ void grGreens_80216C20(Ground_GObj*);

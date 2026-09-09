@@ -126,15 +126,22 @@ struct ItemAttr {
     s32 x80; // 0x80
 };
 
-/// @sz{8}
+struct ItCollDynamicsDesc {
+    s32 bone_id;
+    Vec3 offset;
+    f32 size;
+};
+
+/// @sz{10}
 struct ItemDynamics {
-    /// @todo Combine with ftDynamics? Can see in it_8027163C that this struct
-    /// does not work perfectly
     /// @at{0} @sz{4}
     int count;
 
     /// @at{4} @sz{4}
     BoneDynamicsDesc* dyn_descs;
+
+    /* +8 */ s32 collision_count;
+    /* +C */ struct ItCollDynamicsDesc* collision_descs;
 };
 
 /// @sz{10}
@@ -153,7 +160,12 @@ struct ItemStateDesc {
 };
 
 struct ItemStateArray {
+#ifdef MELEE_NATIVE
+    /* DAT state arrays have different lengths, including more than eight. */
+    struct ItemStateDesc* x0_itemStateDesc;
+#else
     struct ItemStateDesc x0_itemStateDesc[8];
+#endif
 };
 
 /// @sz{10}

@@ -134,7 +134,7 @@ void lbArq_80014BD0(unsigned int source, void* dest, size_t length,
     /* The DMA callback recovers this node from ARQRequest.owner. */
     request_owner = rp;
     aram_source = source;
-    ARQPostRequest(&rp->arq, (u32) request_owner, ARQ_TYPE_ARAM_TO_MRAM,
+    ARQPostRequest(&rp->arq, (uintptr_t) request_owner, ARQ_TYPE_ARAM_TO_MRAM,
                    ARQ_PRIORITY_LOW, aram_source, (uintptr_t) dest, length,
                    lbArq_80014AC4);
 

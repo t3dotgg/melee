@@ -252,7 +252,7 @@ void mnEvent_8024D15C(s32 idx, s32 event_id)
         if (data->gobjs[idx] != NULL) {
             HSD_GObj** gobjs = data->gobjs;
             HSD_GObj* old_gobj = gobjs[idx];
-            HSD_GObjPLink_80390228(old_gobj);
+            HSD_GObjFree(old_gobj);
             data->gobjs[idx] = NULL;
         }
 
@@ -588,32 +588,27 @@ static inline MnEventData* GET_EVENTDATA(HSD_GObj* gobj)
 void fn_8024E1B4(HSD_GObj* gobj)
 {
     HSD_JObj* tree = gobj->hsd_obj;
-    MnEventData* tmp;
     MnEventData* data = GET_EVENTDATA(gobj);
-    MnEventData* iter;
     int i;
 
     if (mn_8022EC18(tree, &mnEvent_803EF74C, 0x80) >=
         mnEvent_803EF74C.end_frame)
     {
-        tmp = data;
-        iter = data;
         for (i = 0; i < 9; i++) {
-            if (iter->gobjs[0] != NULL) {
-                HSD_GObjPLink_80390228(tmp->gobjs[i]);
-                iter->gobjs[0] = NULL;
+            if (data->gobjs[i] != NULL) {
+                HSD_GObjFree(data->gobjs[i]);
+                data->gobjs[i] = NULL;
             }
-            if (iter->texts[0] != NULL) {
-                HSD_SisLib_803A5CC4(tmp->texts[i]);
-                iter->texts[0] = NULL;
+            if (data->texts[i] != NULL) {
+                HSD_SisLib_803A5CC4(data->texts[i]);
+                data->texts[i] = NULL;
             }
-            if (iter->icons[0] != NULL) {
-                HSD_SisLib_803A5CC4(tmp->icons[i]);
-                iter->icons[0] = NULL;
+            if (data->icons[i] != NULL) {
+                HSD_SisLib_803A5CC4(data->icons[i]);
+                data->icons[i] = NULL;
             }
-            iter = (MnEventData*) ((u8*) iter + 4);
         }
-        HSD_GObjPLink_80390228(gobj);
+        HSD_GObjFree(gobj);
     }
 }
 
@@ -628,7 +623,7 @@ void fn_8024E2A0(HSD_GObj* gobj)
     tree = gobj->hsd_obj;
 
     if (mn_804A04F0.cur_menu != 7) {
-        HSD_GObjProc_8038FE24(HSD_GObj_804D7838);
+        HSD_GObjProc_RemoveProc(HSD_GObj_CurrentInvokedProc);
         proc = HSD_GObj_SetupProc(gobj, fn_8024E1B4, 0);
         proc->flags_3 = HSD_GObj_804D783C;
         HSD_SisLib_803A5CC4(data->desc_text);
@@ -647,7 +642,7 @@ void fn_8024E34C(HSD_GObj* gobj)
     PAD_STACK(16);
 
     if (mn_804A04F0.cur_menu != 7) {
-        HSD_GObjProc_8038FE24(HSD_GObj_804D7838);
+        HSD_GObjProc_RemoveProc(HSD_GObj_CurrentInvokedProc);
         proc = HSD_GObj_SetupProc(gobj, fn_8024E1B4, 0);
         proc->flags_3 = HSD_GObj_804D783C;
         HSD_SisLib_803A5CC4(data->desc_text);
@@ -655,7 +650,7 @@ void fn_8024E34C(HSD_GObj* gobj)
     } else {
         float frame = mn_8022EC18(tree, &mnEvent_803EF740, 0x80);
         if (frame == mnEvent_803EF740.end_frame) {
-            HSD_GObjProc_8038FE24(HSD_GObj_804D7838);
+            HSD_GObjProc_RemoveProc(HSD_GObj_CurrentInvokedProc);
             proc = HSD_GObj_SetupProc(gobj, fn_8024E2A0, 0);
             proc->flags_3 = HSD_GObj_804D783C;
         }

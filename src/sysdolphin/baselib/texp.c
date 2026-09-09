@@ -1041,6 +1041,9 @@ void HSD_TExpSetReg(HSD_TExp* texp)
     u32 changed;
     HSD_TECnst* clist;
 
+    if (texp == NULL) {
+        return;
+    }
     clist = &texp->cnst;
     changed = 0;
 
@@ -1146,7 +1149,7 @@ void HSD_TExpSetReg(HSD_TExp* texp)
                 }
             }
         }
-        clist = &clist->next->cnst;
+        clist = clist->next == NULL ? NULL : &clist->next->cnst;
     }
     if (changed != 0) {
         GXPixModeSync();
@@ -1215,7 +1218,7 @@ int HSD_TExpCompile(HSD_TExp* texp, HSD_TExpTevDesc** tevdesc,
         HSD_TExpTevDesc* tdesc = hsdAllocMemPiece(sizeof(HSD_TExpTevDesc));
         tdesc->desc.stage = HSD_Index2TevStage(i);
         TExp2TevDesc(order[(num - i) - 1], tdesc, &init_cprev, &init_aprev);
-        tdesc->desc.next = &(*tevdesc)->desc;
+        tdesc->desc.next = *tevdesc == NULL ? NULL : &(*tevdesc)->desc;
         *tevdesc = tdesc;
     }
 

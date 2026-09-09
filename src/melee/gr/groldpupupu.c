@@ -135,7 +135,7 @@ StageData grOp_StageData = {
     0,
 };
 
-void grOldPupupu_802107DC(bool arg) {}
+void grOldPupupu_802107DC(int arg) {}
 
 void grOldPupupu_802107E0(void)
 {
@@ -240,7 +240,7 @@ void grOldPupupu_80210A24(Ground_GObj* gobj)
 {
     Ground* gp = GET_GROUND(gobj);
 
-    if ((int) grOp_804D6A9C == 0 && gp->u.oldpupupu.xD0 == 1) {
+    if (grOp_804D6A9C == NULL && gp->u.oldpupupu.xD0 == 1) {
         gp->u.oldpupupu.xD0 = 0;
         switch (gp->u.oldpupupu.xC8) {
         case 0:
@@ -587,7 +587,7 @@ void grOldPupupu_802113E0(Ground_GObj* gobj)
 {
     Ground* gp = gobj->user_data;
 
-    if ((int) grOp_804D6A9C == 0) {
+    if (grOp_804D6A9C == NULL) {
         gp->u.oldpupupu.xE0 += 1;
         gp->u.oldpupupu.xDC = 0;
 

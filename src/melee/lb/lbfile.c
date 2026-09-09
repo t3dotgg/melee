@@ -7,6 +7,7 @@
 #include "lbdvd.h"
 #include "lbheap.h"
 #include "lblanguage.h"
+#include <dolphin/ar.h>
 #include <dolphin/dvd.h>
 #include <sysdolphin/baselib/debug.h>
 #include <sysdolphin/baselib/devcom.h>
@@ -14,7 +15,8 @@
 // Despite its name, this flag becomes true after a completed read.
 static bool cancel;
 
-static void lbFile_8001615C(int dcreq, int args, void* buf, bool cancelflag)
+static void lbFile_8001615C(int dcreq, intptr_t args, void* buf,
+                            bool cancelflag)
 {
     HSD_ASSERT(71, !cancelflag);
     cancel = true;
@@ -124,7 +126,12 @@ void lbFile_800164A4(int file, uintptr_t dst, size_t* size, int pri,
 {
     int type;
     *size = lbFile_8001634C(file);
+#ifdef MELEE_NATIVE
+    /* ARAM addresses remain offsets into the separate audio memory bank. */
+    type = dst < ARGetSize() ? 0x23 : 0x21;
+#else
     type = (dst >= 0x80000000) ? 0x21 : 0x23;
+#endif
     HSD_DevComRequest(file, 0, dst, ROUND_UP_32(*size), type, pri, callback,
                       args);
 }

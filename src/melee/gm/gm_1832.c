@@ -635,18 +635,10 @@ void fn_80185408(int x, float arg8, float arg9, float argA, float argB)
     MTXOrtho(sp1C, 0.0F, 480.0F, 0.0F, 640.0F, 0.0F, 5000.0F);
     GXSetProjection(sp1C, GX_ORTHOGRAPHIC);
     GXBegin(GX_QUADS, GX_VTXFMT0, 4);
-    GXWGFifo.f32 = argA;
-    GXWGFifo.f32 = arg8;
-    GXWGFifo.f32 = -4932.0F;
-    GXWGFifo.f32 = argB;
-    GXWGFifo.f32 = arg8;
-    GXWGFifo.f32 = -4932.0F;
-    GXWGFifo.f32 = argB;
-    GXWGFifo.f32 = arg9;
-    GXWGFifo.f32 = -4932.0F;
-    GXWGFifo.f32 = argA;
-    GXWGFifo.f32 = arg9;
-    GXWGFifo.f32 = -4932.0F;
+    GXPosition3f32(argA, arg8, -4932.0F);
+    GXPosition3f32(argB, arg8, -4932.0F);
+    GXPosition3f32(argB, arg9, -4932.0F);
+    GXPosition3f32(argA, arg9, -4932.0F);
     GXSetColorUpdate(1);
     HSD_StateInvalidate(-1);
     gm_1832_sdata2_order(0);
@@ -742,7 +734,7 @@ void fn_801857C4(HSD_GObj* arg0)
     s32 i;
 
     if (lbl_804735E8.xE1 != 0) {
-        HSD_GObjPLink_80390228(lbl_804D65F0);
+        HSD_GObjFree(lbl_804D65F0);
         img_idx = (u8*) lbl_804735E8.x40;
         i = 0;
         delay = 1;
@@ -769,7 +761,7 @@ void fn_801857C4(HSD_GObj* arg0)
             delay += 8;
             sobj->x40 |= 9;
         }
-        HSD_GObjPLink_80390228(arg0);
+        HSD_GObjFree(arg0);
     }
 }
 

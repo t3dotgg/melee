@@ -16,6 +16,7 @@
 #include <sysdolphin/baselib/gobjproc.h>
 #include <sysdolphin/baselib/jobj.h>
 #include <sysdolphin/baselib/lobj.h>
+#include <sysdolphin/baselib/wobj.h>
 
 /* 09F480 */ static void ftCo_8009F480(Fighter_GObj* gobj);
 /* 09F54C */ static void ftCo_8009F54C(HSD_GObj* gobj, int code);
@@ -23,11 +24,11 @@
 static HSD_LObj* lobj0;
 static HSD_LObj* lobj1;
 
-static float floats[] = { 0, 0.57, 0.57, 0.57, 0 };
+static HSD_WObjDesc light_position = { NULL, { 0.57, 0.57, 0.57 }, NULL };
 
 static HSD_LightDesc node0 = {
-    NULL,           NULL, 0x0005, 0x0000, { 0xFF, 0xFF, 0xFF, 0xFF },
-    (void*) floats, 0,    0,
+    NULL, NULL, 0x0005, 0x0000, { 0xFF, 0xFF, 0xFF, 0xFF }, &light_position,
+    0,    0,
 };
 
 static LightList node1 = { &node0, NULL };

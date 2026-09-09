@@ -1,10 +1,12 @@
 #ifndef _DOLPHIN_OSSTOPWATCH_H_
 #define _DOLPHIN_OSSTOPWATCH_H_
 
+#include <dolphin/types.h>
+
 struct OSStopwatch {
     char * name;
     long long total;
-    unsigned long hits;
+    u32 hits;
     long long min;
     long long max;
     long long last;

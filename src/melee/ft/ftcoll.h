@@ -26,8 +26,9 @@
 /* 0765F0 */ float ftColl_800765F0(Fighter* fp, Fighter_GObj* victim,
                                    float unk_floatvar);
 /* 076640 */ bool ftColl_80076640(Fighter*, float*);
-/* 076764 */ void ftColl_80076764(int, enum_t, Fighter_GObj*, DynamicsDesc*,
-                                  Fighter* fp, FighterHurtCapsule*);
+/* 076764 */ void ftColl_80076764(int, enum_t, Fighter_GObj*,
+                                  lbColl_80008D30_arg1*, Fighter* fp,
+                                  FighterHurtCapsule*);
 /* 076808 */ void ftColl_80076808(Fighter* fp, HitCapsule* hit, int arg2,
                                   void* victim, bool arg4);
 /* 0768A0 */ void ftColl_800768A0(Fighter* fp, HitCapsule* dst);
@@ -48,7 +49,11 @@
                                      int, int, UNK_T, u16, UNK_T, int);
 /* 078710 */ void ftColl_80078710(Fighter_GObj*, Fighter_GObj*, UNK_T arg2);
 /* 078754 */ void ftColl_80078754(Fighter_GObj*, Fighter_GObj*, bool);
+#ifdef MELEE_NATIVE
+/* 0787B4 */ void ftColl_800787B4(Item_GObj*, Fighter_GObj*, void*);
+#else
 /* 0787B4 */ void ftColl_800787B4(Item_GObj*, Fighter_GObj*, int);
+#endif
 /* 0788D4 */ void ftColl_800788D4(Fighter_GObj* gobj);
 /* 07891C */ void ftColl_8007891C(Fighter_GObj*, Fighter_GObj*, float);
 /* 078998 */ void ftColl_80078998(HSD_GObj*, HSD_GObj*, float);

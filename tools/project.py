@@ -286,7 +286,7 @@ class ProjectConfig:
         machine = platform.machine()
         supported_host = (
             sys.platform == "linux"
-            and machine in ("i386", "x86_64", "aarch64", "arm64")
+            and machine in ("i386", "x86_64")
         ) or (sys.platform == "darwin" and machine in ("x86_64", "arm64"))
         return (
             self.wibo_tag is not None

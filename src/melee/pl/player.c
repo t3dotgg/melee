@@ -40,7 +40,8 @@ struct Unk_Struct_w_Array {
 char str_PdPmdat_start_of_data[] = "PdPm.dat";
 char str_plLoadCommonData[] = "plLoadCommonData";
 
-ftMapping ftMapping_list[CHKIND_MAX] = { //////ftMapping_list
+ftMapping ftMapping_list[CHKIND_MAX] = {
+    //////ftMapping_list
     /* CKIND_CAPTAIN   */ { FTKIND_CAPTAIN, 0xFF },
     /* CKIND_DONKEY    */ { FTKIND_DONKEY, 0xFF },
     /* CKIND_FOX       */ { FTKIND_FOX, 0xFF },
@@ -329,8 +330,7 @@ void Player_80031EBC(int slot)
                 ftCo_800D4F24(player->player_entity[player->transformed[i]],
                               1);
             }
-            HSD_GObjPLink_80390228(
-                player->player_entity[player->transformed[i]]);
+            HSD_GObjFree(player->player_entity[player->transformed[i]]);
         }
     }
 }
@@ -355,8 +355,6 @@ void Player_80031FB0(int slot, s32 entity_index)
 void Player_80032070(int slot, bool bool_arg)
 {
     StaticPlayer* player;
-    struct Unk_Struct_w_Array* unkStruct =
-        (struct Unk_Struct_w_Array*) &str_PdPmdat_start_of_data;
     Player_CheckSlot(slot);
     player = &player_slots[slot];
 
@@ -364,7 +362,7 @@ void Player_80032070(int slot, bool bool_arg)
         ftCo_800D4FF4(player->player_entity[player->transformed[0]]);
 
         if (player->flags.b2 &&
-            unkStruct->vec_arr[player->player_character].z == 0 &&
+            ftMapping_list[player->player_character].has_transformation == 0 &&
             ftLib_8008701C(player->player_entity[player->transformed[1]]))
         {
             ftCo_800D4FF4(player->player_entity[player->transformed[1]]);
@@ -444,8 +442,6 @@ Gm_PKind Player_GetPlayerSlotType(s32 slot)
 Gm_PKind Player_8003248C(s32 slot, bool arg1)
 {
     Gm_PKind slot_type;
-    struct Unk_Struct_w_Array* unk_struct =
-        (struct Unk_Struct_w_Array*) &str_PdPmdat_start_of_data;
     StaticPlayer* player;
 
     Player_CheckSlot(slot);
@@ -453,7 +449,7 @@ Gm_PKind Player_8003248C(s32 slot, bool arg1)
     player = &player_slots[slot];
 
     if (arg1 == 1) {
-        if (unk_struct->vec_arr[player->player_character].z == 0) {
+        if (ftMapping_list[player->player_character].has_transformation == 0) {
             if (player->slot_type == Gm_PKind_Human ||
                 player->slot_type == Gm_PKind_Cpu)
             {
@@ -488,8 +484,6 @@ s8 Player_800325C8(CharacterKind kind, bool b)
 s8 Player_80032610(s32 slot, bool arg1)
 { //// decomp.me/scratch/pHTx2
 
-    struct Unk_Struct_w_Array* some_struct =
-        (struct Unk_Struct_w_Array*) &str_PdPmdat_start_of_data;
     StaticPlayer* player;
     s32 error_value = -1;
 
@@ -497,10 +491,10 @@ s8 Player_80032610(s32 slot, bool arg1)
     player = &player_slots[slot];
 
     if (arg1 == 0) {
-        return some_struct->vec_arr[player->player_character].x;
+        return ftMapping_list[player->player_character].internal_id;
     }
     if (arg1 == 1) {
-        return some_struct->vec_arr[player->player_character].y;
+        return ftMapping_list[player->player_character].extra_internal_id;
     }
 
     return error_value;
@@ -1294,13 +1288,12 @@ s32 Player_GetRemainingHPByIndex(s32 slot, s32 index)
 s32 Player_GetFalls(s32 slot)
 { /// decomp.me/scratch/8ijor
     StaticPlayer* player;
-    struct Unk_Struct_w_Array* unkStruct =
-        (struct Unk_Struct_w_Array*) &str_PdPmdat_start_of_data;
     Player_CheckSlot(slot);
     player = &player_slots[slot];
 
-    if (unkStruct->vec_arr[player->player_character].y != -1 &&
-        unkStruct->vec_arr[player->player_character].z != 0)
+    if (player->player_character < CHKIND_MAX &&
+        ftMapping_list[player->player_character].extra_internal_id != -1 &&
+        ftMapping_list[player->player_character].has_transformation != 0)
     {
         return player->falls[player->transformed[0]] +
                player->falls[player->transformed[1]];
@@ -2051,13 +2044,11 @@ void Player_80036DD8(void)
 
 void Player_80036E20(CharacterKind ckind, HSD_Archive* archive, s32 arg2)
 {
-    struct Unk_Struct_w_Array* unkStruct =
-        (struct Unk_Struct_w_Array*) &str_PdPmdat_start_of_data;
-    ftDemo_SetArchiveData(unkStruct->vec_arr[ckind].x, archive, arg2);
-    if ((unkStruct->vec_arr[ckind].y != -1) &&
-        (unkStruct->vec_arr[ckind].z == 0))
+    ftDemo_SetArchiveData(ftMapping_list[ckind].internal_id, archive, arg2);
+    if ((ftMapping_list[ckind].extra_internal_id != -1) &&
+        (ftMapping_list[ckind].has_transformation == 0))
     {
-        ftDemo_SetArchiveData(unkStruct->vec_arr[ckind].y, archive, arg2);
+        ftDemo_SetArchiveData(ftMapping_list[ckind].extra_internal_id, archive, arg2);
     }
 }
 

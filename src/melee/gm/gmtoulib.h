@@ -46,14 +46,14 @@
 /* 18F808 */ int fn_8018F808(void);
 /* 18F888 */ void fn_8018F888(void);
 /* 18FA24 */ void fn_8018FA24(void);
-/* 18FBD8 */ void fn_8018FBD8(UNK_T arg0, s32 arg1);
+/* 18FBD8 */ void fn_8018FBD8(HSD_GObj* gobj, s32 menu_index);
 /* 18FBE0 */ void fn_8018FBE0(s32, s32, s32, s32, s32, s32, s32);
 /* 18FDC4 */ void fn_8018FDC4(HSD_JObj*, float x, float y, float z);
 /* 18FF9C */ void fn_8018FF9C(HSD_JObj*, float x, float y, float z);
 /* 190174 */ HSD_GObj* fn_80190174(HSD_CObjDesc*);
 /* 1901F8 */ HSD_GObj* fn_801901F8(HSD_CObjDesc*);
 /* 19027C */ void fn_8019027C(UNK_T lights);
-/* 1902F0 */ void fn_801902F0(int arg0);
+/* 1902F0 */ void fn_801902F0(HSD_GObj* sis_param);
 /* 19035C */ HSD_GObj* fn_8019035C(bool, DynamicModelDesc*, int, int, int,
                                    bool, void (*)(HSD_GObj*), float);
 /* 19044C */ void fn_8019044C(HSD_JObj*, float);

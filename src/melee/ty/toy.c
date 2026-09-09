@@ -17,11 +17,11 @@
 #include <dolphin/os.h>
 #include <melee/db/db.h>
 #include <melee/gm/gm_1601.h>
-#include <melee/gm/gm_16AE.h>
 #include <melee/gm/gm_16F1.h>
 #include <melee/gm/gm_1A3F.h>
 #include <melee/gm/gm_1A45.h>
 #include <melee/gm/gmmain_lib.h>
+#include <melee/gm/gmvs.h>
 #include <melee/if/textdraw.h>
 #include <melee/if/textlib.h>
 #include <melee/lb/lb_00B0.h>
@@ -241,11 +241,20 @@ bool un_80304780(void)
     { 7, 65 }, { 6, 66 }, { 5, 67 }, { 4, 68 }, { 3, 69 },
     { 2, 70 }, { 0, 73 }, { 1, 88 }, { 8, 83 },
 };
+#ifdef MELEE_NATIVE
+Toy26B8 Toy_native_state;
+#define _Toy_804A26B8 Toy_native_state
+STATIC_ASSERT(offsetof(Toy26B8, mode_data) == 0x194);
+STATIC_ASSERT(offsetof(Toy26B8, anim) == 0x3F0);
+#else
 /* 4A26B8 */ static struct _Toy_804A26B8_t _Toy_804A26B8;
+#endif
 /* 4A26C4 */ static char _Toy_devtext_buf_804A26C4[0x8C];
 /* 4A2750 */ static char _Toy_devtext_buf_804A2750[0xFC];
+#ifndef MELEE_NATIVE
 /* 4A284C */ u16 Toy_804A284C[302];
 /* 4A2AA8 */ ToyAnimState Toy_804A2AA8;
+#endif
 /* 4D5A40 */ static GXColor _Toy_color_E2E2E2FF = { 0xE2, 0xE2, 0xE2, 0xFF };
 /* 4D5A44 */ static GXColor _Toy_color_FF8020FF = { 0xFF, 0x80, 0x20, 0xFF };
 
@@ -1971,7 +1980,7 @@ void Toy_80306BB8(HSD_GObj* gobj)
                 HSD_JObjClearFlagsAll(gobj->hsd_obj, JOBJ_HIDDEN);
             }
 
-            HSD_GObjProc_8038FE24(HSD_GObj_804D7838);
+            HSD_GObjProc_RemoveProc(HSD_GObj_CurrentInvokedProc);
         }
     } else {
         if (!lb_8000B09C(jobj)) {
@@ -2049,8 +2058,8 @@ void Toy_80306D70(s32 arg0)
         data = (TyLightData*) Toy_sbss_804D6ED4;
 
         if (data->archive != NULL && data->gobj != NULL) {
-            HSD_GObjProc_8038FED4(data->gobj);
-            HSD_GObjPLink_80390228(data->gobj);
+            HSD_GObjProc_RemoveAllProcs(data->gobj);
+            HSD_GObjFree(data->gobj);
             data->gobj = NULL;
             idx = base->entries[arg0].idx;
             sym = base->symbols[idx].name;
@@ -2339,7 +2348,7 @@ void Toy_80307470(s32 arg0)
     }
 
     if (tg->x0 != NULL) {
-        HSD_GObjPLink_80390228(tg->x0);
+        HSD_GObjFree(tg->x0);
         tg->x0 = NULL;
     }
 
@@ -2394,8 +2403,8 @@ void _Toy_803075E8(s32 arg0)
     }
 
     if (td->gobj != NULL) {
-        HSD_GObjProc_8038FED4(td->gobj);
-        HSD_GObjPLink_80390228(td->gobj);
+        HSD_GObjProc_RemoveAllProcs(td->gobj);
+        HSD_GObjFree(td->gobj);
         td->gobj = NULL;
     }
 
@@ -2405,8 +2414,8 @@ void _Toy_803075E8(s32 arg0)
         Toy_sbss_804D6ED8->x8->x28->x4->x4->x40 = 9;
     }
 
-    ptr = (char**) (data + arg0 * 4);
-    if (*(ptr += 0x69) != NULL) {
+    ptr = &_Toy_803FDEBC[arg0];
+    if (*ptr != NULL) {
         joint = HSD_ArchiveGetPublicAddress(td->archive, *ptr);
         if (joint != NULL) {
             td->gobj = GObj_Create(4, 7, 0);
@@ -2415,12 +2424,12 @@ void _Toy_803075E8(s32 arg0)
             HSD_GObjObject_80390A70(td->gobj, kind, jobj);
             GObj_SetupGXLink(td->gobj, HSD_GObj_JObjCallback, 0x33, 0);
 
-            arg0 = (u32) data + arg0 * 0xC;
-            ptr = ((ToyPanelLabelData*) arg0)->ptrs;
-            joint = HSD_ArchiveGetPublicAddress(td->archive, ptr[0x290 / 4]);
-            data = HSD_ArchiveGetPublicAddress(td->archive, ptr[0x294 / 4]);
-            shapanim =
-                HSD_ArchiveGetPublicAddress(td->archive, ptr[0x298 / 4]);
+            joint = HSD_ArchiveGetPublicAddress(td->archive,
+                                                _Toy_803FDFA8[arg0].animjoint);
+            data = HSD_ArchiveGetPublicAddress(
+                td->archive, _Toy_803FDFA8[arg0].matanim_joint);
+            shapanim = HSD_ArchiveGetPublicAddress(
+                td->archive, _Toy_803FDFA8[arg0].shapeanim_joint);
 
             if (joint != NULL || data != NULL || shapanim != NULL) {
                 HSD_JObjAddAnimAll(jobj, (HSD_AnimJoint*) joint,
@@ -2581,19 +2590,17 @@ HSD_JObj* _Toy_80307BA0(HSD_JObj* parent_jobj, s16 arg1)
 
 void Toy_80307E84(HSD_GObj* gobj)
 {
-    s32* base;
     ToyAnimState* state;
     s8 idx;
     s8 x0F_val;
     HSD_JObj* jobj0;
     HSD_JObj* jobj1;
 
-    base = (s32*) &_Toy_804A26B8;
-    state = (ToyAnimState*) ((u8*) base + 0x3F0);
-    idx = M2C_FIELD(base, s8*, 0x3FE);
-    x0F_val = M2C_FIELD(base, s8*, 0x3FF);
-    jobj0 = (HSD_JObj*) base[idx + (0x3F4 / 4)];
-    jobj1 = (HSD_JObj*) base[(idx ^ 1) + (0x3F4 / 4)];
+    state = &Toy_804A2AA8;
+    idx = state->x0E;
+    x0F_val = state->x0F;
+    jobj0 = state->jobj[idx];
+    jobj1 = state->jobj[idx ^ 1];
 
     if (x0F_val <= 0) {
         if (state->x10 == 1) {
@@ -2603,7 +2610,7 @@ void Toy_80307E84(HSD_GObj* gobj)
         state->x10 = 0;
         HSD_JObjRemoveAnimAll(jobj0);
         HSD_JObjRemoveAnimAll(jobj1);
-        HSD_GObjProc_8038FED4(gobj);
+        HSD_GObjProc_RemoveAllProcs(gobj);
     } else {
         state->x0F = state->x0F - 1;
         HSD_JObjAnimAll(jobj0);
@@ -2724,24 +2731,24 @@ char* Toy_8030813C(int trophy_id)
     return ptr;
 }
 
-void Toy_80308250(u8* arg0, s16 arg1, s32 arg2)
+void Toy_80308250(ToyListEntry* entry, s16 arg1, s32 arg2)
 {
     void* sym;
     char* ptr;
     ptr = Toy_8030813C(arg1);
 
-    if (*(HSD_Archive**) (arg0 + 0x14) != NULL) {
-        lbArchive_80016EFC(*(HSD_Archive**) (arg0 + 0x14));
-        *(HSD_Archive**) (arg0 + 0x14) = NULL;
+    if (entry->archive != NULL) {
+        lbArchive_80016EFC(entry->archive);
+        entry->archive = NULL;
     }
 
-    *(char**) (arg0 + 0x8) = ptr + 4;
-    *(char**) (arg0 + 0xC) = ptr + 0x24;
-    *(u16*) (arg0 + 0x10) = arg1;
+    entry->archive_name = ptr + 4;
+    entry->symbol_name = ptr + 0x24;
+    entry->trophy_id = arg1;
 
     if (arg2 == 0) {
-        *(HSD_Archive**) (arg0 + 0x14) = lbArchive_LoadSymbols(
-            *(char**) (arg0 + 0x8), &sym, *(char**) (arg0 + 0xC), 0);
+        entry->archive = lbArchive_LoadSymbols(entry->archive_name, &sym,
+                                               entry->symbol_name, 0);
     }
 }
 
@@ -2926,7 +2933,7 @@ void _Toy_803084A0(s32 arg0)
 
 HSD_GObj* Toy_803087F4(void* arg0)
 {
-    ToyEntryData* entry = arg0;
+    ToyListEntry* entry = arg0;
     ToyAnimState* anim;
     HSD_JObj* parent_jobj;
     HSD_JObj* trophy_jobj;
@@ -2941,33 +2948,34 @@ HSD_GObj* Toy_803087F4(void* arg0)
 
     anim = &Toy_804A2AA8;
 
-    if (entry->x14 == NULL) {
-        trophy_id = entry->x10;
+    if (entry->archive == NULL) {
+        trophy_id = entry->trophy_id;
         model_name = Toy_8030813C(trophy_id);
-        if (entry->x14 != NULL) {
-            lbArchive_80016EFC(entry->x14);
-            entry->x14 = NULL;
+        if (entry->archive != NULL) {
+            lbArchive_80016EFC(entry->archive);
+            entry->archive = NULL;
         }
-        entry->x8 = model_name + 4;
-        entry->xC = model_name + 0x24;
-        entry->x10 = trophy_id;
-        entry->x14 = lbArchive_LoadSymbols(entry->x8, &spC, entry->xC, 0);
+        entry->archive_name = model_name + 4;
+        entry->symbol_name = model_name + 0x24;
+        entry->trophy_id = trophy_id;
+        entry->archive = lbArchive_LoadSymbols(entry->archive_name, &spC,
+                                               entry->symbol_name, 0);
     }
 
-    joint = HSD_ArchiveGetPublicAddress(entry->x14, entry->xC);
+    joint = HSD_ArchiveGetPublicAddress(entry->archive, entry->symbol_name);
     if (joint == NULL) {
         goto assert_fail;
     }
 
     if (anim->gobj != NULL) {
-        HSD_GObjPLink_80390228(anim->gobj);
+        HSD_GObjFree(anim->gobj);
         anim->gobj = NULL;
         anim->jobj[1] = NULL;
         anim->jobj[0] = NULL;
     }
 
     anim->gobj = GObj_Create(6, 7, 0);
-    anim->xC = entry->x10;
+    anim->xC = entry->trophy_id;
 
     parent_jobj = HSD_JObjAlloc();
     _Toy_80307BA0(parent_jobj, anim->xC);
@@ -3433,7 +3441,7 @@ void _Toy_80309404(HSD_GObj* gobj)
 
     if (mn_8022F218() != 0) {
         sfxBack();
-        HSD_GObjProc_8038FE24(HSD_GObj_804D7838);
+        HSD_GObjProc_RemoveProc(HSD_GObj_CurrentInvokedProc);
         Toy_80310660(1);
         HSD_GObj_80390CD4(gobj);
         mn_8022F268();
@@ -5510,7 +5518,8 @@ static inline void _Toy_8030FE48_init_sort_key(s16** ptr)
     (void) sort_mode;
 }
 
-inline void _Toy_8030FE48_setup_entry(ToyListEntry* entry, s16 trophy_idx)
+static inline void _Toy_8030FE48_setup_entry(ToyListEntry* entry,
+                                             s16 trophy_idx)
 {
     char* result = Toy_8030813C(trophy_idx);
 
@@ -5523,7 +5532,8 @@ inline void _Toy_8030FE48_setup_entry(ToyListEntry* entry, s16 trophy_idx)
     entry->trophy_id = trophy_idx;
 }
 
-inline void _Toy_8030FE48_link_entries(ToyDisplayList* data, s32 entry_count)
+static inline void _Toy_8030FE48_link_entries(ToyDisplayList* data,
+                                              s32 entry_count)
 {
     s32 i;
     ToyListEntry* last_entry;
@@ -5944,7 +5954,7 @@ void Toy_80310660(s32 arg0)
             do {
                 if (loopPtr->x14 != NULL) {
                     lbArchive_80016EFC(loopPtr->x14);
-                    loopPtr->x14 = (void*) arg;
+                    loopPtr->x14 = NULL;
                 }
                 count += 1;
                 loopPtr += 1;
@@ -5964,75 +5974,75 @@ void Toy_80310660(s32 arg0)
         if (ty30->x58 != NULL) {
             lbArchive_80016EFC(ty30->x58);
             arg = 0;
-            ty30->x58 = (void*) arg;
+            ty30->x58 = NULL;
             if (ty30->x0C != NULL) {
-                HSD_GObjPLink_80390228(ty30->x0C);
-                ty30->x0C = (void*) arg;
+                HSD_GObjFree(ty30->x0C);
+                ty30->x0C = NULL;
             }
         }
 
         if (*(void**) ty27 != NULL) {
-            HSD_GObjPLink_80390228(*(void**) ty27);
+            HSD_GObjFree(*(void**) ty27);
             *(void**) ty27 = NULL;
             *(void**) (ty27 + 0x8) = NULL;
             *(void**) (ty27 + 0x4) = NULL;
         }
 
         if (*(void**) ty26 != NULL) {
-            HSD_GObjPLink_80390228(*(void**) ty26);
+            HSD_GObjFree(*(void**) ty26);
             *(void**) ty26 = NULL;
         }
 
         if (ty28->x0 != NULL) {
-            HSD_GObjPLink_80390228(ty28->x0);
+            HSD_GObjFree(ty28->x0);
             ty28->x0 = NULL;
             ty28->x10 = NULL;
         }
 
         if (ty28->x4 != NULL) {
-            HSD_GObjProc_8038FED4(ty28->x4);
-            HSD_GObjPLink_80390228(ty28->x4);
+            HSD_GObjProc_RemoveAllProcs(ty28->x4);
+            HSD_GObjFree(ty28->x4);
             ty28->x4 = NULL;
         }
 
         if (ty28->x8 != NULL) {
-            HSD_GObjPLink_80390228(ty28->x8);
+            HSD_GObjFree(ty28->x8);
             ty28->x8 = NULL;
             HSD_FogSet(NULL);
         }
 
         if (ty30->x0C != NULL) {
-            HSD_GObjPLink_80390228(ty30->x0C);
+            HSD_GObjFree(ty30->x0C);
             ty30->x0C = NULL;
         }
 
         if (ty31[0] != NULL) {
-            HSD_GObjPLink_80390228(ty31[0]);
+            HSD_GObjFree(ty31[0]);
             ty31[0] = NULL;
         }
 
         if (ty31[1] != NULL) {
-            HSD_GObjPLink_80390228(ty31[1]);
+            HSD_GObjFree(ty31[1]);
             ty31[1] = NULL;
         }
 
         if (ty31[2] != NULL) {
-            HSD_GObjPLink_80390228(ty31[2]);
+            HSD_GObjFree(ty31[2]);
             ty31[2] = NULL;
         }
 
         if (ty31[3] != NULL) {
-            HSD_GObjPLink_80390228(ty31[3]);
+            HSD_GObjFree(ty31[3]);
             ty31[3] = NULL;
         }
 
         if (ty31[4] != NULL) {
-            HSD_GObjPLink_80390228(ty31[4]);
+            HSD_GObjFree(ty31[4]);
             ty31[4] = NULL;
         }
 
         if (ty31[5] != NULL) {
-            HSD_GObjPLink_80390228(ty31[5]);
+            HSD_GObjFree(ty31[5]);
             ty31[5] = NULL;
         }
     }
@@ -6136,7 +6146,7 @@ void _Toy_80310B48(HSD_GObj* gobj)
 
     if (buttons & HSD_PAD_B) {
         sfxBack();
-        HSD_GObjPLink_80390228(gobj);
+        HSD_GObjFree(gobj);
         editor->gobj = NULL;
         ((TyModeState*) Toy_804A284C)->x4 = 1;
         return;
@@ -6173,7 +6183,7 @@ void _Toy_80310B48(HSD_GObj* gobj)
         DevText_HideBackground(_Toy_sbss_804D6E98);
         DevText_HideText(_Toy_sbss_804D6E98);
         Toy_80310324();
-        HSD_GObjPLink_80390228(gobj);
+        HSD_GObjFree(gobj);
         editor->gobj = NULL;
         return;
     }

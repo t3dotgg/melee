@@ -48,20 +48,20 @@ void it_80278F2C(Item_GObj* item_gobj, CommandInfo* cmd)
     s32 arg6;
     PAD_STACK(4);
 
-    arg2 = ((u16*) cmd->u)[0];
+    arg2 = CMD_U16(cmd->u, 0);
     arg2 = arg2 & 0x3FF;
     ++cmd->u;
-    arg6 = (f32) ((u16*) cmd->u)[1];
-    ef_id = ((u16*) cmd->u)[0];
+    arg6 = (f32) CMD_U16(cmd->u, 1);
+    ef_id = CMD_U16(cmd->u, 0);
     ++cmd->u;
-    sp20.x = 0.003906f * ((s16*) cmd->u)[0];
-    sp20.y = 0.003906f * ((s16*) cmd->u)[1];
+    sp20.x = 0.003906f * CMD_S16(cmd->u, 0);
+    sp20.y = 0.003906f * CMD_S16(cmd->u, 1);
     ++cmd->u;
-    sp20.z = 0.003906f * ((s16*) cmd->u)[0];
-    sp14.x = 0.003906f * ((s16*) cmd->u)[1];
+    sp20.z = 0.003906f * CMD_S16(cmd->u, 0);
+    sp14.x = 0.003906f * CMD_S16(cmd->u, 1);
     ++cmd->u;
-    sp14.y = 0.003906f * ((s16*) cmd->u)[0];
-    sp14.z = 0.003906f * ((s16*) cmd->u)[1];
+    sp14.y = 0.003906f * CMD_S16(cmd->u, 0);
+    sp14.z = 0.003906f * CMD_S16(cmd->u, 1);
     ++cmd->u;
     it_80278800(item_gobj, ef_id, arg2, &sp20, &sp14, 0, arg6);
 }
@@ -78,8 +78,8 @@ void it_802790C0(Item_GObj* item_gobj, CommandInfo* cmd)
     struct ItemHitbox* hb;
     HitCapsule* hit;
     union CmdUnion* u = cmd->u;
-    u32 hitbox_idx = u->it_create_hitbox_0.id;
-    u32 x4 = u->it_create_hitbox_0.hit_group;
+    u32 hitbox_idx = CMD_FIELD(u, it_create_hitbox_0, id);
+    u32 x4 = CMD_FIELD(u, it_create_hitbox_0, hit_group);
     u32 bone_idx;
     hb = &item->x5D4_hitboxes[hitbox_idx];
     hit = &hb->hit;
@@ -92,7 +92,7 @@ void it_802790C0(Item_GObj* item_gobj, CommandInfo* cmd)
         it_8026FCF8(item, hit);
     }
 
-    bone_idx = cmd->u->it_create_hitbox_0.bone;
+    bone_idx = CMD_FIELD(cmd->u, it_create_hitbox_0, bone);
     if (bone_idx != 0) {
         if (item->xBBC_dynamicBoneTable == NULL) {
             HSD_ASSERTREPORT(0x8B, 0, "item can\'t set attack!\n");
@@ -101,36 +101,37 @@ void it_802790C0(Item_GObj* item_gobj, CommandInfo* cmd)
     } else {
         hit->jobj = item_gobj->hsd_obj;
     }
-    it_80272460(hit,
-                item->xC3C *
-                    ((f32) cmd->u->it_create_hitbox_0.damage * item->xC40),
-                item_gobj);
+    it_80272460(
+        hit,
+        item->xC3C *
+            ((f32) CMD_FIELD(cmd->u, it_create_hitbox_0, damage) * item->xC40),
+        item_gobj);
     ++cmd->u;
 
-    hit->scale = 0.003906f * cmd->u->create_hitbox_1.size;
+    hit->scale = 0.003906f * CMD_FIELD(cmd->u, create_hitbox_1, size);
     item->x3C = hit->scale;
     it_80275594(item_gobj, hitbox_idx, 1.0f / item->scl);
-    hit->b_offset.x = 0.003906f * cmd->u->create_hitbox_1.z_offset;
+    hit->b_offset.x = 0.003906f * CMD_FIELD(cmd->u, create_hitbox_1, z_offset);
     ++cmd->u;
-    hit->b_offset.y = 0.003906f * cmd->u->create_hitbox_2.y_offset;
-    hit->b_offset.z = 0.003906f * cmd->u->create_hitbox_2.x_offset;
+    hit->b_offset.y = 0.003906f * CMD_FIELD(cmd->u, create_hitbox_2, y_offset);
+    hit->b_offset.z = 0.003906f * CMD_FIELD(cmd->u, create_hitbox_2, x_offset);
     ++cmd->u;
 
-    hit->kb_angle = cmd->u->create_hitbox_3.angle;
-    hit->x24 = cmd->u->create_hitbox_3.knockback_growth;
-    hit->x28 = cmd->u->create_hitbox_3.weight_set_knockback;
+    hit->kb_angle = CMD_FIELD(cmd->u, create_hitbox_3, angle);
+    hit->x24 = CMD_FIELD(cmd->u, create_hitbox_3, knockback_growth);
+    hit->x28 = CMD_FIELD(cmd->u, create_hitbox_3, weight_set_knockback);
     hit->x43_b1 = 0;
     ++cmd->u;
 
-    hit->x2C = cmd->u->it_create_hitbox_4.base_knockback;
-    hit->element = cmd->u->it_create_hitbox_4.element;
-    hit->x40_b0 = cmd->u->it_create_hitbox_4.x40_b0;
+    hit->x2C = CMD_FIELD(cmd->u, it_create_hitbox_4, base_knockback);
+    hit->element = CMD_FIELD(cmd->u, it_create_hitbox_4, element);
+    hit->x40_b0 = CMD_FIELD(cmd->u, it_create_hitbox_4, x40_b0);
     hit->x40_b1 = 0;
-    hit->x34 = cmd->u->it_create_hitbox_4.shield_damage;
-    hit->sfx_severity = cmd->u->it_create_hitbox_4.sfx_severity;
-    hit->sfx_kind = cmd->u->it_create_hitbox_4.sfx_kind;
-    hit->x40_b2 = cmd->u->it_create_hitbox_4.x40_b2;
-    hit->x40_b3 = cmd->u->it_create_hitbox_4.x40_b3;
+    hit->x34 = CMD_FIELD(cmd->u, it_create_hitbox_4, shield_damage);
+    hit->sfx_severity = CMD_FIELD(cmd->u, it_create_hitbox_4, sfx_severity);
+    hit->sfx_kind = CMD_FIELD(cmd->u, it_create_hitbox_4, sfx_kind);
+    hit->x40_b2 = CMD_FIELD(cmd->u, it_create_hitbox_4, x40_b2);
+    hit->x40_b3 = CMD_FIELD(cmd->u, it_create_hitbox_4, x40_b3);
     ++cmd->u;
 
     hit->x40_b4 = ((u8*) cmd->u)[0];
@@ -151,7 +152,9 @@ void it_802790C0(Item_GObj* item_gobj, CommandInfo* cmd)
     ++cmd->u;
 
     hit->x43_b2 = 0;
-    if (HSD_GObj_804D7838 != NULL && HSD_GObj_804D7838->s_link > 11) {
+    if (HSD_GObj_CurrentInvokedProc != NULL &&
+        HSD_GObj_CurrentInvokedProc->s_link > 11)
+    {
         it_8027129C(item_gobj, hitbox_idx);
     }
 }
@@ -168,8 +171,9 @@ void it_802790C0(Item_GObj* item_gobj, CommandInfo* cmd)
 void it_80279544(Item_GObj* item_gobj, CommandInfo* cmd)
 {
     Item* item = item_gobj->user_data;
-    HitCapsule* hit = &item->x5D4_hitboxes[cmd->u->set_hitbox_damage.idx].hit;
-    u32 val = ((u16*) cmd->u)[1] & 0x1FFF;
+    HitCapsule* hit =
+        &item->x5D4_hitboxes[CMD_FIELD(cmd->u, set_hitbox_damage, idx)].hit;
+    u32 val = CMD_U16(cmd->u, 1) & 0x1FFF;
     PAD_STACK(8);
     it_80272460(hit, (u32) (item->xC3C * ((f32) val * item->xC40)), item_gobj);
     ++cmd->u;
@@ -177,11 +181,11 @@ void it_80279544(Item_GObj* item_gobj, CommandInfo* cmd)
 
 void it_802795EC(Item_GObj* item_gobj, CommandInfo* cmd)
 {
-    s32 idx = cmd->u->set_hitbox_scale.idx;
+    s32 idx = CMD_FIELD(cmd->u, set_hitbox_scale, idx);
     Item* item = item_gobj->user_data;
     HitCapsule* hit = &item->x5D4_hitboxes[idx].hit;
     PAD_STACK(8);
-    hit->scale = 0.003906f * cmd->u->set_hitbox_scale.value;
+    hit->scale = 0.003906f * CMD_FIELD(cmd->u, set_hitbox_scale, value);
     item->x3C = hit->scale;
     it_80275594(item_gobj, idx, 1.0f / item->scl);
     ++cmd->u;
@@ -198,7 +202,7 @@ void it_802795EC(Item_GObj* item_gobj, CommandInfo* cmd)
 
 void it_80279680(Item_GObj* item_gobj, CommandInfo* cmd)
 {
-    it_80272560(item_gobj, cmd->u->set_throw_flags.hit_idx);
+    it_80272560(item_gobj, CMD_FIELD(cmd->u, set_throw_flags, hit_idx));
     ++cmd->u;
 }
 
@@ -215,21 +219,21 @@ void it_802796C4(Item_GObj* item_gobj, CommandInfo* cmd)
 void it_802796FC(Item_GObj* item_gobj, CommandInfo* cmd)
 {
     Item* it = GET_ITEM(item_gobj);
-    it->xDAC_itcmd_var0 = cmd->u->set_throw_flags.hit_idx;
+    it->xDAC_itcmd_var0 = CMD_FIELD(cmd->u, set_throw_flags, hit_idx);
     ++cmd->u;
 }
 
 void it_80279720(Item_GObj* item_gobj, CommandInfo* cmd)
 {
     Item* it = GET_ITEM(item_gobj);
-    it->xDB0_itcmd_var1 = cmd->u->set_throw_flags.hit_idx;
+    it->xDB0_itcmd_var1 = CMD_FIELD(cmd->u, set_throw_flags, hit_idx);
     ++cmd->u;
 }
 
 void it_80279744(Item_GObj* item_gobj, CommandInfo* cmd)
 {
     Item* it = GET_ITEM(item_gobj);
-    it->xDB4_itcmd_var2 = cmd->u->set_throw_flags.hit_idx;
+    it->xDB4_itcmd_var2 = CMD_FIELD(cmd->u, set_throw_flags, hit_idx);
     ++cmd->u;
 }
 
@@ -248,7 +252,11 @@ void it_8027978C(Item_GObj* item_gobj, CommandInfo* cmd)
 {
     Item* item = item_gobj->user_data;
     itAnimlistCmdUnk* ptr = (itAnimlistCmdUnk*) cmd->u;
+#ifdef MELEE_NATIVE
+    s32 opcode = (CMD_U16(cmd->u, 0) >> 2) & 0xFF;
+#else
     s32 opcode = ptr->opcode;
+#endif
     u32 arg1;
     u8 arg2;
     u8 arg3;
@@ -269,7 +277,7 @@ void it_8027978C(Item_GObj* item_gobj, CommandInfo* cmd)
     }
 
 low_opcode:
-    arg1 = *(u32*) cmd->u;
+    arg1 = CMD_U32(cmd->u);
     ++cmd->u;
     arg2 = ((u8*) cmd->u)[2];
     arg3 = ((u8*) cmd->u)[3];
@@ -312,7 +320,8 @@ done:
 void it_80279888(Item_GObj* item_gobj, CommandInfo* cmd)
 {
     PAD_STACK(4);
-    it_80273598(item_gobj, cmd->u->unk33.unk0, cmd->u->unk33.unk1);
+    it_80273598(item_gobj, CMD_FIELD(cmd->u, unk33, unk0),
+                CMD_FIELD(cmd->u, unk33, unk1));
     NEXT_CMD(cmd);
 }
 
@@ -326,7 +335,8 @@ void it_802798D4(Item_GObj* item_gobj, CommandInfo* cmd)
 void it_8027990C(Item_GObj* item_gobj, CommandInfo* cmd)
 {
     PAD_STACK(4);
-    it_80273648(item_gobj, cmd->u->unk33.unk0, cmd->u->unk33.unk1);
+    it_80273648(item_gobj, CMD_FIELD(cmd->u, unk33, unk0),
+                CMD_FIELD(cmd->u, unk33, unk1));
     NEXT_CMD(cmd);
 }
 
@@ -337,7 +347,8 @@ void it_8027990C(Item_GObj* item_gobj, CommandInfo* cmd)
 void it_80279958(Item_GObj* item_gobj, CommandInfo* cmd)
 {
     Item* it = GET_ITEM(item_gobj);
-    it_80279B88(it, cmd->u->unk13.unk1, cmd->u->unk13.unk2);
+    it_80279B88(it, CMD_FIELD(cmd->u, unk13, unk1),
+                CMD_FIELD(cmd->u, unk13, unk2));
     NEXT_CMD(cmd);
 }
 
@@ -377,11 +388,16 @@ loop:
         return;
     }
 
-    opcode = cmd->u->unk0.opcode;
+    opcode = CMD_FIELD(cmd->u, unk0, opcode);
     if (Command_Execute(cmd, opcode) != 0) {
         goto loop;
     }
     opcode -= 10;
+#ifdef MELEE_NATIVE
+    if (opcode >= 16) {
+        abort();
+    }
+#endif
     it_803F22A8[opcode](item_gobj, cmd);
     goto loop;
 }

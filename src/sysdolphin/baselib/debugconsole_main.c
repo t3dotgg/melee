@@ -25,6 +25,16 @@ typedef struct PSNode {
     /* 0x08 */ void (*callback)(struct PSNode*);
 } PSNode;
 
+#ifdef MELEE_NATIVE
+typedef struct NativeDisplayNode {
+    struct NativeDisplayNode* next;
+    void* x4;
+    void* x8;
+    s32 (*callback)(void*);
+    void* x10;
+} NativeDisplayNode;
+#endif
+
 /// @todo misnomer - moved from particle file, not particle-related
 struct ParticleScreenState {
     /* 0x00 */ u8 x0_b7 : 1;
@@ -40,9 +50,15 @@ struct ParticleScreenState {
     /* 0x18 */ s32 x18;
     /* 0x1C */ s32 x1C;
     /* 0x20 */ s32 x20;
+#ifdef MELEE_NATIVE
+    /* Native XFBs are host pointers. */
+    void* xfb[2];
+    void* x2C;
+#else
     /* 0x24 */ s32 x24;
     /* 0x28 */ u32 x28;
     /* 0x2C */ s32 x2C;
+#endif
     /* 0x30 */ void* x30;
     /* 0x34 */ s32 x34;
     /* 0x38 */ s32 x38;
@@ -61,6 +77,14 @@ struct ParticleScreenState {
     /* 0xD0 */ void* xD0;
     /* 0xD4 */ OSContext* xD4;
 };
+
+#ifdef MELEE_NATIVE
+#define PARTICLE_XFB(state, index) ((state)->xfb[(index)])
+typedef uintptr_t ParticleAddress;
+#else
+#define PARTICLE_XFB(state, index) ((&((state)->x24))[(index)])
+typedef u32 ParticleAddress;
+#endif
 
 /* 4D78CC */ u32 hsd_804D78CC;
 /* 4D78C8 */ int hsd_804D78C8;
@@ -560,11 +584,15 @@ void hsd_80394314(void)
     struct ParticleScreenState* sp = &hsd_804CF810;
 
     memset(sp, 0, sizeof(*sp));
+#ifdef MELEE_NATIVE
+    hsd_803941E8(sp->xfb, &sp->x2C);
+#else
     hsd_803941E8(&sp->x24, &sp->x2C);
+#endif
 
     {
         s32 mode;
-        if (sp->x28 != 0) {
+        if (PARTICLE_XFB(sp, 1) != NULL) {
             mode = 2;
         } else {
             mode = 1;
@@ -630,12 +658,12 @@ void hsd_80394434(void* text)
         default:
             if (mode != 0) {
                 hsd_803922FC(font + (*ptr & 0x7F) * 0x38, x, y, interlace,
-                             (&sp->x24)[sp->x34], sp->x3C, sp->x40, sp->x44,
-                             sp->x50);
+                             PARTICLE_XFB(sp, sp->x34), sp->x3C, sp->x40,
+                             sp->x44, sp->x50);
             } else {
                 hsd_803921B8(font + (*ptr & 0x7F) * 0x38, x, y,
-                             (&sp->x24)[sp->x34], sp->x3C, sp->x40, sp->x44,
-                             sp->x50);
+                             PARTICLE_XFB(sp, sp->x34), sp->x3C, sp->x40,
+                             sp->x44, sp->x50);
             }
             x += 11;
             break;
@@ -645,8 +673,8 @@ void hsd_80394434(void* text)
 }
 
 void hsd_80394544(s32 col, s32 row, u32 num_cols, u32 num_rows, s32 x, s32 y,
-                  s32 xfb_buf, s32 xfb_w, s32 xfb_h, s32 xfb_stride,
-                  s32 font_data, void* color_data)
+                  HSD_XFBBuffer xfb_buf, s32 xfb_w, s32 xfb_h, s32 xfb_stride,
+                  HSD_XFBBuffer font_data, void* color_data)
 {
     u32 r;
     u32 c;
@@ -692,16 +720,14 @@ void hsd_80394668(void)
     PAD_STACK(24);
 
     {
-        s32* dst_base;
         struct ParticleScreenBuffer* dst;
         u32 size;
         struct ParticleScreenBuffer* src;
 
         src = (struct ParticleScreenBuffer*) sp->x2C;
-        if ((u32) src != 0) {
+        if (src != NULL) {
             /* Copy XFB data with brightness adjustment */
-            dst_base = (s32*) sp + sp->x34;
-            dst = (struct ParticleScreenBuffer*) dst_base[9];
+            dst = (struct ParticleScreenBuffer*) PARTICLE_XFB(sp, sp->x34);
             size = sp->x48;
 
             for (pos = 0; pos < size; pos += 2) {
@@ -743,12 +769,13 @@ void hsd_80394668(void)
                         if (sp->x0_b7 != 0) {
                             hsd_803922FC(((ParticleFontData*) sp->x4C)->x700,
                                          *x4_ptr, *x8_ptr, interlace,
-                                         (&sp->x24)[sp->x34], sp->x3C,
+                                         PARTICLE_XFB(sp, sp->x34), sp->x3C,
                                          *x40_ptr, sp->x44, *x50_ptr);
                         } else {
                             hsd_803921B8(((ParticleFontData*) sp->x4C)->x700,
-                                         *x4_ptr, *x8_ptr, (&sp->x24)[sp->x34],
-                                         sp->x3C, *x40_ptr, sp->x44, *x50_ptr);
+                                         *x4_ptr, *x8_ptr,
+                                         PARTICLE_XFB(sp, sp->x34), sp->x3C,
+                                         *x40_ptr, sp->x44, *x50_ptr);
                         }
                     }
                     cur_x += 11;
@@ -821,6 +848,14 @@ static void unused(OSContext* ctx)
 }
 #endif
 
+#ifdef MELEE_NATIVE
+void Exception_ReportStackTrace(OSContext* ctx, int max_depth)
+{
+    (void) ctx;
+    (void) max_depth;
+    OSReport("Stack trace is unavailable on the native host.\n");
+}
+#else
 void Exception_ReportStackTrace(OSContext* ctx, int max_depth)
 {
     u32 i;
@@ -832,12 +867,15 @@ void Exception_ReportStackTrace(OSContext* ctx, int max_depth)
     sp = (u32*) ctx->gpr[1];
     i = 0;
 
-    while (sp != NULL && (u32) (sp + 0x4000) != 0xFFFF && i < (u32) max_depth)
+    while (sp != NULL && (u32) (sp + 0x4000) != 0xFFFF &&
+           i < (u32) (uintptr_t) max_depth)
     {
-        if ((u32) sp < 0x80000000u) {
+        if ((u32) (uintptr_t) sp < 0x80000000u) {
             break;
         }
-        if ((s64) (u32) sp >= (s64) OSGetPhysicalMemSize() + 0x800000000) {
+        if ((s64) (u32) (uintptr_t) sp >=
+            (s64) OSGetPhysicalMemSize() + 0x800000000)
+        {
             break;
         }
         OSReport("%08X:   %08X   %08X\n", sp, sp[0], sp[1]);
@@ -845,6 +883,7 @@ void Exception_ReportStackTrace(OSContext* ctx, int max_depth)
         i++;
     }
 }
+#endif
 
 void Exception_ReportCodeline(u16 error, int dsisr, int dar, OSContext* ctx)
 {
@@ -1037,15 +1076,15 @@ static inline void hsd_80394F48_putc(u8 ch, void* const* color)
     s32 b6 = hsd_804CF810.x0_b6;
 
     if (hsd_804CF810.x0_b7 != 0) {
-        hsd_803922FC((void*) (hsd_804CF810.x4C + ch * 0x38), hsd_804CF810.x4,
-                     hsd_804CF810.x8, b6,
-                     (&hsd_804CF810.x24)[hsd_804CF810.x34], hsd_804CF810.x3C,
-                     hsd_804CF810.x40, hsd_804CF810.x44, *color);
+        hsd_803922FC(
+            (void*) (hsd_804CF810.x4C + ch * 0x38), hsd_804CF810.x4,
+            hsd_804CF810.x8, b6, PARTICLE_XFB(&hsd_804CF810, hsd_804CF810.x34),
+            hsd_804CF810.x3C, hsd_804CF810.x40, hsd_804CF810.x44, *color);
     } else {
-        hsd_803921B8((void*) (hsd_804CF810.x4C + ch * 0x38), hsd_804CF810.x4,
-                     hsd_804CF810.x8, (&hsd_804CF810.x24)[hsd_804CF810.x34],
-                     hsd_804CF810.x3C, hsd_804CF810.x40, hsd_804CF810.x44,
-                     *color);
+        hsd_803921B8(
+            (void*) (hsd_804CF810.x4C + ch * 0x38), hsd_804CF810.x4,
+            hsd_804CF810.x8, PARTICLE_XFB(&hsd_804CF810, hsd_804CF810.x34),
+            hsd_804CF810.x3C, hsd_804CF810.x40, hsd_804CF810.x44, *color);
     }
 }
 
@@ -1296,12 +1335,12 @@ void hsd_803957C0(void* input)
         if (draw_sp->x0_b7) {
             hsd_803922FC((void*) (draw_sp->x4C + (ch & 0x7F) * 0x38),
                          hsd_804CF810.x4, hsd_804CF810.x8, b6,
-                         (&hsd_804CF810.x24)[draw_sp->x34], draw_sp->x3C,
+                         PARTICLE_XFB(draw_sp, draw_sp->x34), draw_sp->x3C,
                          hsd_804CF810.x40, hsd_804CF810.x44, hsd_804CF810.x50);
         } else {
             hsd_803921B8((void*) (draw_sp->x4C + (ch & 0x7F) * 0x38),
                          hsd_804CF810.x4, hsd_804CF810.x8,
-                         (&hsd_804CF810.x24)[draw_sp->x34], draw_sp->x3C,
+                         PARTICLE_XFB(draw_sp, draw_sp->x34), draw_sp->x3C,
                          hsd_804CF810.x40, hsd_804CF810.x44, hsd_804CF810.x50);
         }
     }
@@ -1375,7 +1414,12 @@ extern struct lbl_8040BAF0_t {
     /* 0x04 */ void* x4;
     /* 0x08 */ void* x8;
     /* 0x0C */ void* xC;
-    /* 0x10 */ u32 x10;
+    /* 0x10 */
+#ifdef MELEE_NATIVE
+    uintptr_t x10;
+#else
+    u32 x10;
+#endif
 } lbl_8040BAF0;
 
 extern struct lbl_8040BC3C_t {
@@ -1438,7 +1482,7 @@ bool hsd_80395A78(void)
         case 0x2:
             new_col = hsd_804CF810.x0C;
             new_scroll = hsd_804CF810.x18;
-            if ((u32) new_col < (u32) (hsd_804CF810.x20 - 1)) {
+            if ((u32) (uintptr_t) new_col < (u32) (hsd_804CF810.x20 - 1)) {
                 new_col += 1;
             } else {
                 new_scroll += 1;
@@ -1688,9 +1732,10 @@ static inline void hsd_80396188_draw_rows(char* buf, s32 col, u32** addr,
         hsd_80394434(buf);
         {
             u32 memsize = OSGetPhysicalMemSize();
-            *addr = (u32*) ((((u32) *addr & 0x0FFFFFFF) + memsize + 0x10) %
-                                memsize +
-                            0x80000000);
+            *addr = (u32*) (uintptr_t) ((((uintptr_t) *addr & 0x0FFFFFFF) +
+                                         memsize + 0x10) %
+                                            memsize +
+                                        0x80000000);
         }
         (*i)++;
     } while (*i < 4);
@@ -1712,7 +1757,7 @@ void hsd_80396188(void)
     void* saved;
     PAD_STACK(12);
 
-    addr = (u32*) lbl_8040BAF0.x10;
+    addr = (u32*) (uintptr_t) lbl_8040BAF0.x10;
     saved = hsd_80396188_get_x50();
     i = hsd_804CF810.x20 - 0x2E;
     hsd_804CF810.x50 = &lbl_8040AB00;
@@ -1737,7 +1782,7 @@ s32 hsd_803962A8(void* data)
     struct ParticleScreenState* sp = &hsd_804CF810;
     u32 bit;
     s32 old8, old4, old1, old2;
-    u32 *ptr8, *ptr4, *ptr1, *ptr2;
+    ParticleAddress *ptr8, *ptr4, *ptr1, *ptr2;
     u8* addr;
     s32 i, j, k;
     PAD_STACK(32);
@@ -1787,13 +1832,13 @@ s32 hsd_803962A8(void* data)
         }
         case 0x400:
             hsd_80393D2C(1);
-            addr = (u8*) lbl_8040BAF0.x10;
+            addr = (u8*) (uintptr_t) lbl_8040BAF0.x10;
             if (hsd_80394128(0, 0)) {
                 OSReport(lbl_804D62D8);
             }
             i = 0;
             do {
-                OSReport(lbl_804D62DC, (u32) addr);
+                OSReport(lbl_804D62DC, (u32) (uintptr_t) addr);
                 j = 0;
                 do {
                     OSReport(lbl_804D62E4);
@@ -1815,7 +1860,7 @@ s32 hsd_803962A8(void* data)
             hsd_804CF810.x14 = 0;
             return 1;
         case 0x100:
-            lbl_8040BC3C.x10 = (s32) lbl_8040BAF0.x10;
+            lbl_8040BC3C.x10 = (s32) (uintptr_t) lbl_8040BAF0.x10;
             lbl_8040BC3C.x18 = &lbl_8040BAF0;
 #ifdef MUST_MATCH
             if (&lbl_8040BC3C != NULL)
@@ -1931,7 +1976,8 @@ static char* lbl_804D62F8 = "| INPUT ADDRESS : 8%07X |";
 static inline void hsd_80396884_draw_char(s8 ch, s32 b6)
 {
     hsd_803922FC(hsd_804CF810.x4C + (ch & 0x7F) * 0x38, hsd_804CF810.x4,
-                 hsd_804CF810.x8, b6, (&hsd_804CF810.x24)[hsd_804CF810.x34],
+                 hsd_804CF810.x8, b6,
+                 PARTICLE_XFB(&hsd_804CF810, hsd_804CF810.x34),
                  hsd_804CF810.x3C, hsd_804CF810.x40, hsd_804CF810.x44,
                  hsd_804CF810.x50);
 }
@@ -1973,7 +2019,7 @@ void hsd_80396884(void)
     } else {
         u8* bitmap = hsd_804CF810.x4C + (ch & 0x7F) * 0x38;
         s32 x = hsd_804CF810.x4;
-        s32 dst = (&hsd_804CF810.x24)[hsd_804CF810.x34];
+        void* dst = PARTICLE_XFB(&hsd_804CF810, hsd_804CF810.x34);
         hsd_803921B8(bitmap, x, hsd_804CF810.x8, dst, hsd_804CF810.x3C,
                      hsd_804CF810.x40, hsd_804CF810.x44, hsd_804CF810.x50);
     }
@@ -2731,9 +2777,9 @@ void* fn_80397814(void* arg)
 
         hsd_80394544(hsd_804CF810.x18, hsd_804CF810.x14, hsd_804CF810.x20,
                      hsd_804CF810.x1C, 20, hsd_804CF810.x40 - 40,
-                     (&hsd_804CF810.x24)[hsd_804CF810.x34], hsd_804CF810.x3C,
-                     hsd_804CF810.x40, hsd_804CF810.x44,
-                     (s32) HSD_DebugFontAtlas, NULL);
+                     PARTICLE_XFB(&hsd_804CF810, hsd_804CF810.x34),
+                     hsd_804CF810.x3C, hsd_804CF810.x40, hsd_804CF810.x44,
+                     HSD_DebugFontAtlas, NULL);
 
         hsd_804CF810.xC8 = 0;
         hsd_804CF810.xCC = hsd_804CF810.x1C - 1;
@@ -2755,9 +2801,9 @@ void* fn_80397814(void* arg)
         /* Flush and display first frame */
         size_ptr = &sp->x48;
         fb_idx = hsd_804CF810.x34;
-        DCFlushRange((void*) (&hsd_804CF810.x24)[fb_idx], *size_ptr);
+        DCFlushRange((void*) PARTICLE_XFB(&hsd_804CF810, fb_idx), *size_ptr);
         fb_idx = hsd_804CF810.x34;
-        VISetNextFrameBuffer((void*) (&hsd_804CF810.x24)[fb_idx]);
+        VISetNextFrameBuffer((void*) PARTICLE_XFB(&hsd_804CF810, fb_idx));
         VIFlush();
 
         retrace2 = VIGetRetraceCount();
@@ -2779,10 +2825,22 @@ void* fn_80397814(void* arg)
             /* Walk display callback list */
             disp_node = *(void**) keybuf;
             result = 0;
+#ifdef MELEE_NATIVE
+            while (disp_node != NULL && !sp->x0_b5) {
+                NativeDisplayNode* node = disp_node;
+                if (node->callback != NULL) {
+                    result = node->callback(node);
+                    if (result != 0) {
+                        goto walk_done;
+                    }
+                }
+                disp_node = node->next;
+            }
+#else
             while (disp_node != NULL && !sp->x0_b5) {
                 if (*(void* (**) (void*) )((u8*) disp_node + 0xC) != NULL) {
-                    result = (s32) (*(void* (**) (void*) )((u8*) disp_node +
-                                                           0xC))(disp_node);
+                    result =
+                        (*(s32(**)(void*))((u8*) disp_node + 0xC))(disp_node);
                     switch (result) {
                     case 0:
                         break;
@@ -2792,6 +2850,7 @@ void* fn_80397814(void* arg)
                 }
                 disp_node = *(void**) disp_node;
             }
+#endif
 
             if (sp->x0_b5) {
                 goto restart_walk;
@@ -2810,8 +2869,8 @@ void* fn_80397814(void* arg)
                 hsd_80394544(
                     hsd_804CF810.x18, hsd_804CF810.x14, hsd_804CF810.x20,
                     hsd_804CF810.x1C, 20, hsd_804CF810.x40 - 40,
-                    (&sp->x24)[hsd_804CF810.x34], hsd_804CF810.x3C,
-                    hsd_804CF810.x40, hsd_804CF810.x44, (s32) lbl_ptr, NULL);
+                    PARTICLE_XFB(sp, hsd_804CF810.x34), hsd_804CF810.x3C,
+                    hsd_804CF810.x40, hsd_804CF810.x44, lbl_ptr, NULL);
 
                 hsd_804CF810.xC8 = 0;
                 hsd_804CF810.xCC = hsd_804CF810.x1C - 1;
@@ -2829,9 +2888,9 @@ void* fn_80397814(void* arg)
 
                 /* Flush and display */
                 fb_idx = hsd_804CF810.x34;
-                DCFlushRange((void*) (&sp->x24)[fb_idx], *size_ptr);
+                DCFlushRange((void*) PARTICLE_XFB(sp, fb_idx), *size_ptr);
                 fb_idx = hsd_804CF810.x34;
-                VISetNextFrameBuffer((void*) (&sp->x24)[fb_idx]);
+                VISetNextFrameBuffer((void*) PARTICLE_XFB(sp, fb_idx));
                 VIFlush();
             }
 
@@ -2842,7 +2901,7 @@ void* fn_80397814(void* arg)
         }
     }
 
-    OSPanic("debugconsole_main.c", 2228, "debug thread finished.");
+    OSPanic(__FILE__, 2228, "debug thread finished.");
 
     return NULL;
 }

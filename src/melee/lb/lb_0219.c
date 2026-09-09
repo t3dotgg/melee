@@ -29,10 +29,20 @@ void fn_800219E4(void* arg0)
     HSD_ObjFree(&lbl_804336A0, arg0);
 }
 
+typedef struct BgFlashUserData {
+    u8 x0;
+    u8 pad_01[3];
+    ColorOverlay x4;
+} BgFlashUserData;
+
+#ifdef MELEE_NATIVE
+typedef HSD_GObj BgFlashGlobal;
+#else
 typedef struct {
     char pad[0x2C];
     void* x2C;
 } BgFlashGlobal;
+#endif
 
 BgFlashGlobal* lbl_804D63E0;
 struct Fighter_804D653C_t* lbl_804D63DC;
@@ -48,7 +58,12 @@ void lbBgFlash_80021A18(int arg0)
     HSD_GObj* gobj;
     u8* user_data;
 
+#ifdef MELEE_NATIVE
+    HSD_ObjAllocInit(&lbl_804336A0, sizeof(BgFlashUserData),
+                     _Alignof(BgFlashUserData));
+#else
     HSD_ObjAllocInit(&lbl_804336A0, 0x84, 4);
+#endif
     gobj = GObj_Create(0xE, 0xE, 0);
     if (gobj != NULL) {
         user_data = HSD_ObjAlloc(&lbl_804336A0);
@@ -64,15 +79,9 @@ void lbBgFlash_80021A18(int arg0)
             HSD_GObj_SetupProc(gobj, (HSD_GObjEvent) fn_80021B04, 1);
             return;
         }
-        HSD_GObjPLink_80390228(gobj);
+        HSD_GObjFree(gobj);
     }
 }
-
-typedef struct BgFlashUserData {
-    u8 x0;
-    u8 pad_01[3];
-    ColorOverlay x4;
-} BgFlashUserData;
 
 #ifdef MUST_MATCH
 #pragma push
@@ -112,16 +121,25 @@ static void fn_80021C18(HSD_GObj* gobj, CommandInfo* cmd, int arg2) {}
 void fn_80021C1C(void)
 {
     HSD_GObj* gobj = (HSD_GObj*) lbl_804D63E0;
+#ifdef MELEE_NATIVE
+    BgFlashUserData* user_data = gobj->user_data;
+    lb_80014498(&user_data->x4);
+#else
     u8* user_data = gobj->user_data;
     lb_80014498((ColorOverlay*) (user_data + 4));
+#endif
 }
 
 void lbBgFlash_80021C48(u32 arg0, u32 arg1)
 {
+#ifdef MELEE_NATIVE
+    BgFlashUserData* data = lbl_804D63E0->user_data;
+#else
     struct {
         u8 unk0[4];
         ColorOverlay x4;
     }* data = lbl_804D63E0->x2C;
+#endif
     lb_800144C8(&data->x4, lbl_804D63DC, arg0, arg1);
 }
 

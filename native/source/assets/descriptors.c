@@ -1,0 +1,1880 @@
+#include <math.h>
+#include <stdlib.h>
+#include <string.h>
+
+#include "archive_internal.h"
+#include <melee/lb/lbanim.h>
+#include <sysdolphin/baselib/aobj.h>
+#include <sysdolphin/baselib/cobj.h>
+#include <sysdolphin/baselib/dobj.h>
+#include <sysdolphin/baselib/fog.h>
+#include <sysdolphin/baselib/jobj.h>
+#include <sysdolphin/baselib/lobj.h>
+#include <sysdolphin/baselib/mobj.h>
+#include <sysdolphin/baselib/pobj.h>
+#include <sysdolphin/baselib/robj.h>
+#include <sysdolphin/baselib/sobjlib.h>
+#include <sysdolphin/baselib/spline.h>
+#include <sysdolphin/baselib/tobj.h>
+#include <sysdolphin/baselib/wobj.h>
+
+#ifndef MELEE_NATIVE
+#error "DAT descriptor conversion requires MELEE_NATIVE"
+#endif
+
+_Static_assert(sizeof(u32) == 4, "serialized words must be 32 bits");
+_Static_assert(sizeof(float) == 4, "serialized floats must be 32 bits");
+
+typedef enum Schema {
+    SCHEMA_JOINT,
+    SCHEMA_SPLINE,
+    SCHEMA_FLOATS,
+    SCHEMA_DOBJ,
+    SCHEMA_MOBJ,
+    SCHEMA_TOBJ,
+    SCHEMA_POBJ,
+    SCHEMA_ENVELOPETBL,
+    SCHEMA_ENVELOPE,
+    SCHEMA_SHAPESET,
+    SCHEMA_SHAPEIDXTBL,
+    SCHEMA_VTXLIST,
+    SCHEMA_MATERIAL,
+    SCHEMA_PEDESC,
+    SCHEMA_IMAGE,
+    SCHEMA_TLUT,
+    SCHEMA_TEXLOD,
+    SCHEMA_TOBJTEV,
+    SCHEMA_IMAGETBL,
+    SCHEMA_TLUTTBL,
+    SCHEMA_TEXANIM,
+    SCHEMA_MATANIMJOINT,
+    SCHEMA_MATANIM,
+    SCHEMA_SHAPEANIMJOINT,
+    SCHEMA_SHAPEANIMDOBJ,
+    SCHEMA_SHAPEANIM,
+    SCHEMA_ANIMATION,
+    SCHEMA_AOBJ,
+    SCHEMA_FOBJ,
+    SCHEMA_FIGATREE,
+    SCHEMA_FIGATRACKS,
+    SCHEMA_WOBJ,
+    SCHEMA_COBJ,
+    SCHEMA_CANIM,
+    SCHEMA_WOBJANIM,
+    SCHEMA_ROBJANIM,
+    SCHEMA_ROBJ,
+    SCHEMA_BCEXP,
+    SCHEMA_RVALUE,
+    SCHEMA_IKHINT,
+    SCHEMA_LIGHT,
+    SCHEMA_LIGHTANIM,
+    SCHEMA_LIGHTPOINT,
+    SCHEMA_LIGHTSPOT,
+    SCHEMA_LIGHTATTN,
+    SCHEMA_FOG,
+    SCHEMA_FOGADJ,
+    SCHEMA_SOBJ,
+    SCHEMA_VECTOR,
+    SCHEMA_MATRIX,
+    SCHEMA_STRING,
+    SCHEMA_BYTES,
+} Schema;
+
+typedef struct Node {
+    struct Node* next;
+    struct Node* hash_next;
+    uint32_t offset;
+    Schema schema;
+    size_t length;
+    void* value;
+} Node;
+
+struct NativeArchiveGraph {
+    const NativeArchive* archive;
+    Node** buckets;
+    size_t bucket_count;
+    size_t node_count;
+    Node* first;
+    Node* last;
+    Node* pending;
+    NativeArchiveError failure;
+};
+
+static bool read_reference(NativeArchiveGraph* graph, uint32_t field,
+                           uint32_t* target, bool* present);
+static void* add_node(NativeArchiveGraph* graph, uint32_t offset,
+                      Schema schema, size_t length);
+
+static NativeArchiveStatus graph_fail(NativeArchiveGraph* graph,
+                                      NativeArchiveStatus status,
+                                      uint32_t offset, const char* message)
+{
+    return NativeArchiveFail(&graph->failure, status, 32u + (size_t) offset,
+                             message);
+}
+
+static float read_float(const uint8_t* bytes)
+{
+    uint32_t bits = NativeArchiveBE32(bytes);
+    float value;
+    memcpy(&value, &bits, sizeof(value));
+    return value;
+}
+
+static Vec3 read_vec(const uint8_t* bytes)
+{
+    Vec3 vector = { read_float(bytes), read_float(bytes + 4),
+                    read_float(bytes + 8) };
+    return vector;
+}
+
+static size_t hash_offset(uint32_t offset, size_t buckets)
+{
+    return ((uint64_t) offset * UINT64_C(11400714819323198485) >> 32) &
+           (buckets - 1);
+}
+
+/* DAT does not store a byte count for buffers. The writer lays out every
+ * object at a relocation target, so the next target is the end of a buffer.
+ * This is the same extent rule used by HSDRaw and does not inspect payload
+ * bytes as pointers. */
+static bool next_target_length(const NativeArchive* archive, uint32_t offset,
+                               size_t* length)
+{
+    uint32_t next = archive->data_size;
+    uint32_t i;
+    if (offset > archive->data_size) {
+        return false;
+    }
+    for (i = 0; i < archive->reloc_count; ++i) {
+        uint32_t target =
+            NativeArchiveBE32(archive->data + archive->relocations[i]);
+        if (target > offset && target < next) {
+            next = target;
+        }
+    }
+    for (i = 0; i < archive->public_count; ++i) {
+        size_t at = archive->public_at + (size_t) i * 8;
+        uint32_t target = NativeArchiveBE32(archive->file + at);
+        if (target > offset && target < next) {
+            next = target;
+        }
+    }
+    *length = (size_t) next - offset;
+    return true;
+}
+
+static bool link_tail(NativeArchiveGraph* graph, uint32_t field, void** output)
+{
+    uint32_t target;
+    bool present;
+    size_t length;
+    *output = NULL;
+    if (!read_reference(graph, field, &target, &present) || !present) {
+        return true;
+    }
+    if (!next_target_length(graph->archive, target, &length) || length == 0) {
+        graph_fail(graph, NATIVE_ARCHIVE_BOUNDS, target,
+                   "buffer extent is outside archive data");
+        return false;
+    }
+    *output = add_node(graph, target, SCHEMA_BYTES, length);
+    return *output != NULL;
+}
+
+static bool vtxlist_length(NativeArchiveGraph* graph, uint32_t offset,
+                           size_t* length)
+{
+    size_t count;
+    if ((offset & 3u) || offset > graph->archive->data_size ||
+        graph->archive->data_size - offset < 24)
+    {
+        graph_fail(graph, NATIVE_ARCHIVE_INVALID, offset,
+                   "vertex descriptor list is unaligned");
+        return false;
+    }
+    for (count = 0; count < (graph->archive->data_size - offset) / 24; ++count)
+    {
+        uint32_t attr =
+            NativeArchiveBE32(graph->archive->data + offset + count * 24);
+        if (attr == GX_VA_NULL) {
+            *length = (count + 1) * 24;
+            return true;
+        }
+    }
+    graph_fail(graph, NATIVE_ARCHIVE_BOUNDS, offset,
+               "vertex descriptor list has no GX_VA_NULL terminator");
+    return false;
+}
+
+/* Descriptor arrays end at a null reference. Consult relocations so a
+ * reference to the joint at offset zero stays valid. */
+static bool terminated_reference_length(NativeArchiveGraph* graph,
+                                        uint32_t offset, size_t stride,
+                                        size_t pointer_offset, size_t* length)
+{
+    size_t remaining = offset <= graph->archive->data_size
+                           ? graph->archive->data_size - offset
+                           : 0;
+    for (size_t at = 0; at <= remaining && stride <= remaining - at;
+         at += stride)
+    {
+        uint32_t target;
+        bool present;
+        if (!read_reference(graph, offset + (uint32_t) (at + pointer_offset),
+                            &target, &present))
+        {
+            return false;
+        }
+        if (!present) {
+            *length = at + stride;
+            return true;
+        }
+    }
+    graph_fail(graph, NATIVE_ARCHIVE_BOUNDS, offset,
+               "descriptor array has no null terminator");
+    return false;
+}
+
+static bool grow_index(NativeArchiveGraph* graph)
+{
+    size_t count = graph->bucket_count == 0 ? 64 : graph->bucket_count * 2;
+    Node** buckets;
+    Node* node;
+    if (count < graph->bucket_count || count > SIZE_MAX / sizeof(*buckets)) {
+        graph_fail(graph, NATIVE_ARCHIVE_NO_MEMORY, 0,
+                   "descriptor index size overflow");
+        return false;
+    }
+    buckets = calloc(count, sizeof(*buckets));
+    if (buckets == NULL) {
+        graph_fail(graph, NATIVE_ARCHIVE_NO_MEMORY, 0,
+                   "cannot allocate descriptor index");
+        return false;
+    }
+    for (node = graph->first; node != NULL; node = node->next) {
+        size_t bucket = hash_offset(node->offset, count);
+        node->hash_next = buckets[bucket];
+        buckets[bucket] = node;
+    }
+    free(graph->buckets);
+    graph->buckets = buckets;
+    graph->bucket_count = count;
+    return true;
+}
+
+static Node* find_node(NativeArchiveGraph* graph, uint32_t offset,
+                       Schema schema)
+{
+    Node* node;
+    if (graph->bucket_count == 0) {
+        return NULL;
+    }
+    for (node = graph->buckets[hash_offset(offset, graph->bucket_count)];
+         node != NULL; node = node->hash_next)
+    {
+        if (node->offset == offset && node->schema == schema) {
+            return node;
+        }
+    }
+    return NULL;
+}
+
+static void* add_node(NativeArchiveGraph* graph, uint32_t offset,
+                      Schema schema, size_t length)
+{
+    const NativeArchive* archive = graph->archive;
+    size_t disk_size;
+    size_t host_size;
+    size_t bucket;
+    Node* node;
+
+    if (graph->failure.status != NATIVE_ARCHIVE_OK) {
+        return NULL;
+    }
+    if (graph->bucket_count == 0 && !grow_index(graph)) {
+        return NULL;
+    }
+    bucket = hash_offset(offset, graph->bucket_count);
+    for (node = graph->buckets[bucket]; node != NULL; node = node->hash_next) {
+        if (node->offset == offset) {
+            if (node->schema != schema ||
+                ((schema == SCHEMA_BYTES || schema == SCHEMA_VTXLIST ||
+                  schema == SCHEMA_SHAPEIDXTBL || schema == SCHEMA_FLOATS ||
+                  schema == SCHEMA_FIGATRACKS) &&
+                 node->length != length) ||
+                ((schema == SCHEMA_IMAGETBL || schema == SCHEMA_TLUTTBL) &&
+                 node->length / 4 != length))
+            {
+                graph_fail(graph, NATIVE_ARCHIVE_TYPE_CONFLICT, offset,
+                           "archive offset has conflicting descriptor types");
+                return NULL;
+            }
+            return node->value;
+        }
+    }
+    switch (schema) {
+    case SCHEMA_SPLINE:
+        disk_size = 24;
+        host_size = sizeof(HSD_Spline);
+        break;
+    case SCHEMA_FLOATS:
+        if (length == 0 || length % 4 != 0) {
+            graph_fail(graph, NATIVE_ARCHIVE_INVALID, offset,
+                       "float array has an invalid size");
+            return NULL;
+        }
+        disk_size = length;
+        host_size = length;
+        break;
+    case SCHEMA_JOINT:
+        disk_size = 64;
+        host_size = sizeof(HSD_Joint);
+        break;
+    case SCHEMA_DOBJ:
+        disk_size = 16;
+        host_size = sizeof(HSD_DObjDesc);
+        break;
+    case SCHEMA_MOBJ:
+        disk_size = 24;
+        host_size = sizeof(HSD_MObjDesc);
+        break;
+    case SCHEMA_TOBJ:
+        disk_size = 92;
+        host_size = sizeof(HSD_TObjDesc);
+        break;
+    case SCHEMA_POBJ:
+        disk_size = 24;
+        host_size = sizeof(HSD_PObjDesc);
+        break;
+    case SCHEMA_SHAPESET:
+        disk_size = 28;
+        host_size = sizeof(HSD_ShapeSetDesc);
+        break;
+    case SCHEMA_SHAPEIDXTBL:
+        if (length == 0 || length % 4 != 0) {
+            graph_fail(graph, NATIVE_ARCHIVE_INVALID, offset,
+                       "shape index table has an invalid length");
+            return NULL;
+        }
+        disk_size = length;
+        host_size = (length / 4) * sizeof(u8*);
+        break;
+    case SCHEMA_ENVELOPETBL:
+        if (!terminated_reference_length(graph, offset, 4, 0, &disk_size)) {
+            return NULL;
+        }
+        host_size = (disk_size / 4) * sizeof(HSD_EnvelopeDesc*);
+        break;
+    case SCHEMA_ENVELOPE:
+        if (!terminated_reference_length(graph, offset, 8, 0, &disk_size)) {
+            return NULL;
+        }
+        host_size = (disk_size / 8) * sizeof(HSD_EnvelopeDesc);
+        break;
+    case SCHEMA_VTXLIST:
+        if (length == 0 || length % 24 != 0) {
+            graph_fail(graph, NATIVE_ARCHIVE_INVALID, offset,
+                       "vertex descriptor list has invalid size");
+            return NULL;
+        }
+        disk_size = length;
+        host_size = (length / 24) * sizeof(HSD_VtxDescList);
+        break;
+    case SCHEMA_MATERIAL:
+        disk_size = 20;
+        host_size = sizeof(HSD_Material);
+        break;
+    case SCHEMA_PEDESC:
+        disk_size = 12;
+        host_size = sizeof(HSD_PEDesc);
+        break;
+    case SCHEMA_IMAGE:
+        disk_size = 24;
+        host_size = sizeof(HSD_ImageDesc);
+        break;
+    case SCHEMA_TLUT:
+        disk_size = 16;
+        host_size = sizeof(HSD_TlutDesc);
+        break;
+    case SCHEMA_TEXLOD:
+        disk_size = 16;
+        host_size = sizeof(HSD_TexLODDesc);
+        break;
+    case SCHEMA_TOBJTEV:
+        disk_size = 32;
+        host_size = sizeof(HSD_TObjTevDesc);
+        break;
+    case SCHEMA_IMAGETBL:
+    case SCHEMA_TLUTTBL:
+        if (length > SIZE_MAX / 4 || length > (SIZE_MAX / sizeof(void*)) - 1) {
+            graph_fail(graph, NATIVE_ARCHIVE_BOUNDS, offset,
+                       "texture animation table size overflows");
+            return NULL;
+        }
+        disk_size = length * 4;
+        host_size = (length + 1) * sizeof(void*);
+        break;
+    case SCHEMA_TEXANIM:
+        disk_size = 24;
+        host_size = sizeof(HSD_TexAnim);
+        break;
+    case SCHEMA_MATANIMJOINT:
+        disk_size = 12;
+        host_size = sizeof(HSD_MatAnimJoint);
+        break;
+    case SCHEMA_MATANIM:
+        disk_size = 16;
+        host_size = sizeof(HSD_MatAnim);
+        break;
+    case SCHEMA_SHAPEANIMJOINT:
+        disk_size = 12;
+        host_size = sizeof(HSD_ShapeAnimJoint);
+        break;
+    case SCHEMA_SHAPEANIMDOBJ:
+        disk_size = 8;
+        host_size = sizeof(HSD_ShapeAnimDObj);
+        break;
+    case SCHEMA_SHAPEANIM:
+        disk_size = 8;
+        host_size = sizeof(HSD_ShapeAnim);
+        break;
+    case SCHEMA_ANIMATION:
+        disk_size = 20;
+        host_size = sizeof(HSD_AnimJoint);
+        break;
+    case SCHEMA_AOBJ:
+        disk_size = 16;
+        host_size = sizeof(HSD_AObjDesc);
+        break;
+    case SCHEMA_FIGATREE:
+        disk_size = 20;
+        host_size = sizeof(FigaTree);
+        break;
+    case SCHEMA_FIGATRACKS:
+        if (length == 0 || length % 12 != 0) {
+            graph_fail(graph, NATIVE_ARCHIVE_INVALID, offset,
+                       "figatree track array has an invalid size");
+            return NULL;
+        }
+        disk_size = length;
+        host_size = (length / 12) * sizeof(FigaTrack);
+        break;
+    case SCHEMA_FOBJ:
+        disk_size = 20;
+        host_size = sizeof(HSD_FObjDesc);
+        break;
+    case SCHEMA_WOBJ:
+        disk_size = 20;
+        host_size = sizeof(HSD_WObjDesc);
+        break;
+    case SCHEMA_COBJ:
+        /* HSD_CObjDesc is a 0x40-byte GameCube union. Its pointer fields are
+         * decoded below into the wider native union members. */
+        disk_size = 64;
+        host_size = sizeof(HSD_CObjDesc);
+        break;
+    case SCHEMA_CANIM:
+        disk_size = 12;
+        host_size = sizeof(HSD_CameraAnim);
+        break;
+    case SCHEMA_WOBJANIM:
+        disk_size = 8;
+        host_size = sizeof(HSD_WObjAnim);
+        break;
+    case SCHEMA_ROBJ:
+        disk_size = 12;
+        host_size = sizeof(HSD_RObjDesc);
+        break;
+    case SCHEMA_BCEXP:
+        disk_size = 8;
+        host_size = sizeof(HSD_ByteCodeExpDesc);
+        break;
+    case SCHEMA_RVALUE:
+        if (!terminated_reference_length(graph, offset, 8, 4, &disk_size)) {
+            return NULL;
+        }
+        host_size = (disk_size / 8) * sizeof(HSD_RvalueList);
+        break;
+    case SCHEMA_IKHINT:
+        disk_size = 8;
+        host_size = sizeof(HSD_IKHintDesc);
+        break;
+    case SCHEMA_ROBJANIM:
+        disk_size = 8;
+        host_size = sizeof(HSD_RObjAnimJoint);
+        break;
+    case SCHEMA_LIGHT:
+        disk_size = 28;
+        host_size = sizeof(HSD_LightDesc);
+        break;
+    case SCHEMA_LIGHTANIM:
+        disk_size = 16;
+        host_size = sizeof(HSD_LightAnim);
+        break;
+    case SCHEMA_LIGHTPOINT:
+        disk_size = 12;
+        host_size = sizeof(HSD_LightPointDesc);
+        break;
+    case SCHEMA_LIGHTSPOT:
+        disk_size = 20;
+        host_size = sizeof(HSD_LightSpotDesc);
+        break;
+    case SCHEMA_LIGHTATTN:
+        disk_size = 24;
+        host_size = sizeof(HSD_LightAttn);
+        break;
+    case SCHEMA_FOG:
+        disk_size = 20;
+        host_size = sizeof(HSD_FogDesc);
+        break;
+    case SCHEMA_FOGADJ:
+        disk_size = 68;
+        host_size = sizeof(HSD_FogAdjDesc);
+        break;
+    case SCHEMA_SOBJ:
+        disk_size = 8;
+        host_size = sizeof(HSD_SObjDesc);
+        break;
+    case SCHEMA_VECTOR:
+        disk_size = 12;
+        host_size = sizeof(Vec3);
+        break;
+    case SCHEMA_MATRIX:
+        disk_size = 48;
+        host_size = sizeof(Mtx);
+        break;
+    case SCHEMA_STRING: {
+        const uint8_t* end;
+        if (offset >= archive->data_size ||
+            (end = memchr(archive->data + offset, 0,
+                          archive->data_size - offset)) == NULL)
+        {
+            graph_fail(graph, NATIVE_ARCHIVE_BOUNDS, offset,
+                       "descriptor string is not terminated in data");
+            return NULL;
+        }
+        disk_size = (size_t) (end - (archive->data + offset)) + 1;
+        host_size = disk_size;
+        break;
+    }
+    case SCHEMA_BYTES:
+        disk_size = length;
+        host_size = length == 0 ? 1 : length;
+        break;
+    default:
+        graph_fail(graph, NATIVE_ARCHIVE_UNSUPPORTED, offset,
+                   "descriptor schema is not implemented");
+        return NULL;
+    }
+    if (offset > archive->data_size ||
+        disk_size > (size_t) archive->data_size - offset)
+    {
+        graph_fail(graph, NATIVE_ARCHIVE_BOUNDS, offset,
+                   "descriptor extends beyond archive data");
+        return NULL;
+    }
+    if (schema != SCHEMA_BYTES && schema != SCHEMA_STRING && (offset & 3u)) {
+        graph_fail(graph, NATIVE_ARCHIVE_INVALID, offset,
+                   "descriptor offset is unaligned");
+        return NULL;
+    }
+    if (graph->node_count >= graph->bucket_count - graph->bucket_count / 4 &&
+        !grow_index(graph))
+    {
+        return NULL;
+    }
+    node = calloc(1, sizeof(*node));
+    if (node == NULL) {
+        graph_fail(graph, NATIVE_ARCHIVE_NO_MEMORY, offset,
+                   "cannot allocate descriptor record");
+        return NULL;
+    }
+    node->value = calloc(1, host_size);
+    if (node->value == NULL) {
+        free(node);
+        graph_fail(graph, NATIVE_ARCHIVE_NO_MEMORY, offset,
+                   "cannot allocate host descriptor");
+        return NULL;
+    }
+    node->offset = offset;
+    node->schema = schema;
+    node->length = disk_size;
+    bucket = hash_offset(offset, graph->bucket_count);
+    node->hash_next = graph->buckets[bucket];
+    graph->buckets[bucket] = node;
+    if (graph->last != NULL) {
+        graph->last->next = node;
+    } else {
+        graph->first = node;
+    }
+    graph->last = node;
+    if (graph->pending == NULL) {
+        graph->pending = node;
+    }
+    ++graph->node_count;
+    return node->value;
+}
+
+static bool read_reference(NativeArchiveGraph* graph, uint32_t field,
+                           uint32_t* target, bool* present)
+{
+    return NativeArchiveReference(graph->archive, field, target, present,
+                                  &graph->failure) == NATIVE_ARCHIVE_OK;
+}
+
+static void* link_node(NativeArchiveGraph* graph, uint32_t field,
+                       Schema schema, size_t length)
+{
+    uint32_t target;
+    bool present;
+    if (graph->failure.status != NATIVE_ARCHIVE_OK ||
+        !read_reference(graph, field, &target, &present) || !present)
+    {
+        return NULL;
+    }
+    return add_node(graph, target, schema, length);
+}
+
+/* Shape vertices stay in GPU byte order. The CPU shape reader decodes their
+ * components. Shape data uses the first descriptor and a table of index data.
+ */
+static bool link_shape_arrays(NativeArchiveGraph* graph, uint32_t field,
+                              size_t shape_count, int32_t index_count,
+                              bool normal, HSD_VtxDescList** descriptor,
+                              u8*** indices)
+{
+    uint32_t vertex_offset, table_offset, data_offset;
+    bool present;
+    *descriptor = NULL;
+    *indices = NULL;
+    if (!read_reference(graph, field, &vertex_offset, &present)) {
+        return false;
+    }
+    if (!present) {
+        if (index_count != 0) {
+            graph_fail(graph, NATIVE_ARCHIVE_INVALID, field,
+                       "shape indices require a vertex descriptor");
+            return false;
+        }
+        if (!read_reference(graph, field + 4, &table_offset, &present)) {
+            return false;
+        }
+        if (present) {
+            graph_fail(graph, NATIVE_ARCHIVE_INVALID, field + 4,
+                       "shape index table has no vertex descriptor");
+            return false;
+        }
+        return true;
+    }
+    size_t descriptor_length;
+    if (!vtxlist_length(graph, vertex_offset, &descriptor_length)) {
+        return false;
+    }
+    *descriptor =
+        add_node(graph, vertex_offset, SCHEMA_VTXLIST, descriptor_length);
+    if (*descriptor == NULL) {
+        return false;
+    }
+    const uint8_t* vertex = graph->archive->data + vertex_offset;
+    uint32_t attr = NativeArchiveBE32(vertex);
+    uint32_t attr_type = NativeArchiveBE32(vertex + 4);
+    uint32_t comp_count = NativeArchiveBE32(vertex + 8);
+    uint32_t comp_type = NativeArchiveBE32(vertex + 12);
+    size_t stride = ((size_t) vertex[18] << 8) | vertex[19];
+    size_t components = normal && attr == GX_VA_NBT ? 9 : 3;
+    size_t width;
+    switch (comp_type) {
+    case GX_U8:
+    case GX_S8:
+        width = 1;
+        break;
+    case GX_U16:
+    case GX_S16:
+        width = 2;
+        break;
+    case GX_F32:
+        width = 4;
+        break;
+    default:
+        graph_fail(graph, NATIVE_ARCHIVE_UNSUPPORTED, vertex_offset + 12,
+                   "shape vertex component type is not supported");
+        return false;
+    }
+    if ((normal ? attr != GX_VA_NRM && attr != GX_VA_NBT
+                : attr != GX_VA_POS) ||
+        comp_count != (normal ? GX_NRM_XYZ : GX_POS_XYZ) ||
+        (attr_type != GX_INDEX8 && attr_type != GX_INDEX16) ||
+        stride < components * width ||
+        (comp_type != GX_F32 && vertex[16] > 31))
+    {
+        graph_fail(graph, NATIVE_ARCHIVE_UNSUPPORTED, vertex_offset,
+                   "shape vertex format is not supported");
+        return false;
+    }
+    if (!read_reference(graph, vertex_offset + 20, &data_offset, &present)) {
+        return false;
+    }
+    size_t data_length;
+    if (!present ||
+        !next_target_length(graph->archive, data_offset, &data_length))
+    {
+        graph_fail(graph, NATIVE_ARCHIVE_INVALID, vertex_offset + 20,
+                   "shape vertex data is missing");
+        return false;
+    }
+    if (!read_reference(graph, field + 4, &table_offset, &present)) {
+        return false;
+    }
+    if (!present) {
+        graph_fail(graph, NATIVE_ARCHIVE_INVALID, field + 4,
+                   "shape vertex descriptor requires an index table");
+        return false;
+    }
+    *indices =
+        add_node(graph, table_offset, SCHEMA_SHAPEIDXTBL, shape_count * 4);
+    if (*indices == NULL) {
+        return false;
+    }
+    for (size_t shape = 0; shape < shape_count; ++shape) {
+        uint32_t index_offset;
+        size_t index_length;
+        size_t index_width = attr_type == GX_INDEX16 ? 2 : 1;
+        uint32_t entry = table_offset + (uint32_t) shape * 4;
+        if (!read_reference(graph, entry, &index_offset, &present)) {
+            return false;
+        }
+        if (!present ||
+            !next_target_length(graph->archive, index_offset, &index_length) ||
+            (size_t) index_count > index_length / index_width)
+        {
+            graph_fail(graph, NATIVE_ARCHIVE_BOUNDS, entry,
+                       "shape index data is missing or truncated");
+            return false;
+        }
+        const uint8_t* source = graph->archive->data + index_offset;
+        for (size_t i = 0; i < (size_t) index_count; ++i) {
+            size_t index = index_width == 1 ? source[i]
+                                            : ((size_t) source[i * 2] << 8) |
+                                                  source[i * 2 + 1];
+            if (data_length < components * width ||
+                index > (data_length - components * width) / stride)
+            {
+                graph_fail(graph, NATIVE_ARCHIVE_BOUNDS,
+                           index_offset + (uint32_t) (i * index_width),
+                           "shape index exceeds the vertex data");
+                return false;
+            }
+        }
+    }
+    return true;
+}
+
+static bool unsupported_link(NativeArchiveGraph* graph, uint32_t field,
+                             const char* message)
+{
+    uint32_t target;
+    bool present;
+    if (!read_reference(graph, field, &target, &present)) {
+        return false;
+    }
+    if (present) {
+        graph_fail(graph, NATIVE_ARCHIVE_UNSUPPORTED, field, message);
+        return false;
+    }
+    return true;
+}
+
+static size_t fraction_size(uint8_t fraction)
+{
+    if (fraction == HSD_A_FRAC_FLOAT) {
+        return 4;
+    }
+    if ((fraction & 31u) == 31u) {
+        return 0;
+    }
+    switch (fraction & 0xe0u) {
+    case HSD_A_FRAC_S16:
+    case HSD_A_FRAC_U16:
+        return 2;
+    case HSD_A_FRAC_S8:
+    case HSD_A_FRAC_U8:
+        return 1;
+    default:
+        return 0;
+    }
+}
+
+/* fobj.c consumes an opcode, a packed sample count, then values and waits.
+ * Its values are explicitly little endian and must stay in byte form. */
+static bool validate_stream(NativeArchiveGraph* graph, uint32_t offset,
+                            size_t length, uint8_t value, uint8_t slope)
+{
+    const uint8_t* bytes = graph->archive->data + offset;
+    size_t cursor = 0;
+    size_t value_size = fraction_size(value);
+    size_t slope_size = fraction_size(slope);
+    if (value_size == 0 || slope_size == 0) {
+        graph_fail(graph, NATIVE_ARCHIVE_UNSUPPORTED, offset,
+                   "unsupported animation value format");
+        return false;
+    }
+    while (cursor < length) {
+        uint8_t byte = bytes[cursor++];
+        unsigned opcode = byte & 15u;
+        uint32_t count = ((byte >> 4) & 7u) + 1;
+        unsigned shift = 3;
+        size_t sample_size;
+        while (byte & 128u) {
+            if (cursor == length || shift >= 16) {
+                goto invalid;
+            }
+            byte = bytes[cursor++];
+            count += (uint32_t) (byte & 127u) << shift;
+            shift += 7;
+        }
+        if (count > UINT16_MAX || opcode < HSD_A_OP_CON ||
+            opcode > HSD_A_OP_KEY)
+        {
+            goto invalid;
+        }
+        sample_size = opcode == HSD_A_OP_SLP ? slope_size : value_size;
+        if (opcode == HSD_A_OP_SPL) {
+            sample_size += slope_size;
+        }
+        while (count-- != 0) {
+            if (sample_size > length - cursor) {
+                goto invalid;
+            }
+            cursor += sample_size;
+            if (opcode != HSD_A_OP_SLP && cursor < length) {
+                uint32_t wait = 0;
+                shift = 0;
+                do {
+                    if (cursor == length || shift >= 21) {
+                        goto invalid;
+                    }
+                    byte = bytes[cursor++];
+                    wait |= (uint32_t) (byte & 127u) << shift;
+                    shift += 7;
+                } while (byte & 128u);
+                if (wait > UINT16_MAX) {
+                    goto invalid;
+                }
+            }
+        }
+    }
+    return true;
+
+invalid:
+    graph_fail(graph, NATIVE_ARCHIVE_INVALID, offset + (uint32_t) cursor,
+               "invalid or truncated animation byte stream");
+    return false;
+}
+
+static bool convert_node(NativeArchiveGraph* graph, Node* node)
+{
+    uint32_t offset = node->offset;
+    const uint8_t* bytes = graph->archive->data + offset;
+    switch (node->schema) {
+    case SCHEMA_JOINT: {
+        HSD_Joint* joint = node->value;
+        if ((NativeArchiveBE32(bytes + 4) & JOBJ_PTCL) != 0) {
+            if (!unsupported_link(graph, offset + 16,
+                                  "joint particle schema is not implemented"))
+            {
+                return false;
+            }
+        }
+        joint->flags = NativeArchiveBE32(bytes + 4);
+        joint->rotation = read_vec(bytes + 20);
+        joint->scale = read_vec(bytes + 32);
+        joint->position = read_vec(bytes + 44);
+        joint->class_name = link_node(graph, offset, SCHEMA_STRING, 0);
+        joint->child = link_node(graph, offset + 8, SCHEMA_JOINT, 0);
+        joint->next = link_node(graph, offset + 12, SCHEMA_JOINT, 0);
+        if ((joint->flags & JOBJ_SPLINE) != 0) {
+            joint->u.spline = link_node(graph, offset + 16, SCHEMA_SPLINE, 0);
+        } else if ((joint->flags & JOBJ_PTCL) == 0) {
+            joint->u.dobjdesc = link_node(graph, offset + 16, SCHEMA_DOBJ, 0);
+        }
+        joint->mtx = link_node(graph, offset + 56, SCHEMA_MATRIX, 0);
+        joint->robjdesc = link_node(graph, offset + 60, SCHEMA_ROBJ, 0);
+        break;
+    }
+    case SCHEMA_SPLINE: {
+        HSD_Spline* spline = node->value;
+        spline->type = bytes[0];
+        spline->numcv = (s16) ((bytes[2] << 8) | bytes[3]);
+        spline->tension = read_float(bytes + 4);
+        spline->totalLength = read_float(bytes + 12);
+        if (spline->type > 3 || spline->numcv < 2) {
+            graph_fail(graph, NATIVE_ARCHIVE_INVALID, offset,
+                       "spline has an invalid type or control point count");
+            return false;
+        }
+        size_t points = (size_t) spline->numcv;
+        if (spline->type == 1) {
+            points = (points - 1) * 3 + 1;
+        } else if (spline->type >= 2) {
+            points += 2;
+        }
+        spline->cv = link_node(graph, offset + 8, SCHEMA_FLOATS, points * 12);
+        spline->segLength = link_node(graph, offset + 16, SCHEMA_FLOATS,
+                                      (size_t) spline->numcv * 4);
+        spline->segPoly = link_node(graph, offset + 20, SCHEMA_FLOATS,
+                                    (size_t) (spline->numcv - 1) * 20);
+        if (graph->failure.status != NATIVE_ARCHIVE_OK) {
+            return false;
+        }
+        if (spline->cv == NULL || spline->segLength == NULL ||
+            (spline->type != 0 && spline->segPoly == NULL))
+        {
+            graph_fail(graph, NATIVE_ARCHIVE_INVALID, offset,
+                       "spline is missing a required data array");
+            return false;
+        }
+        uint32_t lengths_offset;
+        bool present;
+        if (!read_reference(graph, offset + 16, &lengths_offset, &present)) {
+            return false;
+        }
+        float previous = 0.0f;
+        for (size_t i = 0; i < (size_t) spline->numcv; ++i) {
+            float value =
+                read_float(graph->archive->data + lengths_offset + i * 4);
+            if (!isfinite(value) || value < previous ||
+                (i == 0 && value != 0.0f) ||
+                (i + 1 == (size_t) spline->numcv && value < 1.0f))
+            {
+                graph_fail(graph, NATIVE_ARCHIVE_INVALID,
+                           lengths_offset + (uint32_t) i * 4,
+                           "spline segment lengths do not cover the curve");
+                return false;
+            }
+            previous = value;
+        }
+        break;
+    }
+    case SCHEMA_FLOATS: {
+        float* values = node->value;
+        for (size_t i = 0; i < node->length / 4; ++i) {
+            values[i] = read_float(bytes + i * 4);
+        }
+        break;
+    }
+    case SCHEMA_DOBJ: {
+        HSD_DObjDesc* dobj = node->value;
+        dobj->class_name = link_node(graph, offset, SCHEMA_STRING, 0);
+        dobj->next = link_node(graph, offset + 4, SCHEMA_DOBJ, 0);
+        dobj->mobjdesc = link_node(graph, offset + 8, SCHEMA_MOBJ, 0);
+        dobj->pobjdesc = link_node(graph, offset + 12, SCHEMA_POBJ, 0);
+        break;
+    }
+    case SCHEMA_POBJ: {
+        HSD_PObjDesc* pobj = node->value;
+        uint32_t flags = ((uint32_t) bytes[12] << 8) | bytes[13];
+        uint32_t display_size = ((uint32_t) bytes[14] << 8 | bytes[15]) * 32u;
+        uint32_t target;
+        bool present;
+        size_t vtx_length;
+        pobj->class_name = link_node(graph, offset, SCHEMA_STRING, 0);
+        pobj->next = link_node(graph, offset + 4, SCHEMA_POBJ, 0);
+        if (!read_reference(graph, offset + 8, &target, &present)) {
+            return false;
+        }
+        if (present) {
+            if (!vtxlist_length(graph, target, &vtx_length)) {
+                return false;
+            }
+            pobj->verts = add_node(graph, target, SCHEMA_VTXLIST, vtx_length);
+        }
+        pobj->flags = (u16) flags;
+        pobj->n_display = (u16) ((bytes[14] << 8) | bytes[15]);
+        if (display_size != 0) {
+            if (!read_reference(graph, offset + 16, &target, &present)) {
+                return false;
+            }
+            if (!present) {
+                graph_fail(graph, NATIVE_ARCHIVE_INVALID, offset + 16,
+                           "polygon display list is null but nonempty");
+                return false;
+            }
+            pobj->display =
+                add_node(graph, target, SCHEMA_BYTES, display_size);
+            if (pobj->display == NULL) {
+                return false;
+            }
+        }
+        switch (flags & 0x3000u) {
+        case POBJ_SKIN:
+            pobj->u.joint = link_node(graph, offset + 20, SCHEMA_JOINT, 0);
+            break;
+        case POBJ_SHAPEANIM:
+            pobj->u.shape_set =
+                link_node(graph, offset + 20, SCHEMA_SHAPESET, 0);
+            if (pobj->u.shape_set == NULL) {
+                graph_fail(graph, NATIVE_ARCHIVE_INVALID, offset + 20,
+                           "shape polygon requires a shape set");
+                return false;
+            }
+            break;
+        case POBJ_ENVELOPE:
+            pobj->u.envelope_p =
+                link_node(graph, offset + 20, SCHEMA_ENVELOPETBL, 0);
+            break;
+        default:
+            graph_fail(graph, NATIVE_ARCHIVE_INVALID, offset + 12,
+                       "polygon descriptor has invalid type flags");
+            return false;
+        }
+        break;
+    }
+    case SCHEMA_SHAPESET: {
+        HSD_ShapeSetDesc* shape = node->value;
+        shape->flags = (u16) ((bytes[0] << 8) | bytes[1]);
+        shape->nb_shape = (u16) ((bytes[2] << 8) | bytes[3]);
+        shape->nb_vertex_index = (int32_t) NativeArchiveBE32(bytes + 4);
+        shape->nb_normal_index = (int32_t) NativeArchiveBE32(bytes + 16);
+        u16 mode = shape->flags & (SHAPESET_AVERAGE | SHAPESET_ADDITIVE);
+        if ((mode != SHAPESET_AVERAGE && mode != SHAPESET_ADDITIVE) ||
+            shape->nb_shape == 0 || shape->nb_vertex_index < 0 ||
+            shape->nb_normal_index < 0)
+        {
+            graph_fail(graph, NATIVE_ARCHIVE_INVALID, offset,
+                       "shape set has an invalid mode or count");
+            return false;
+        }
+        size_t count = (size_t) shape->nb_shape + (mode == SHAPESET_ADDITIVE);
+        if (!link_shape_arrays(graph, offset + 8, count,
+                               shape->nb_vertex_index, false,
+                               &shape->vertex_desc, &shape->vertex_idx_list) ||
+            !link_shape_arrays(graph, offset + 20, count,
+                               shape->nb_normal_index, true,
+                               &shape->normal_desc, &shape->normal_idx_list))
+        {
+            return false;
+        }
+        break;
+    }
+    case SCHEMA_SHAPEIDXTBL: {
+        u8** indices = node->value;
+        for (size_t i = 0; i < node->length / 4; ++i) {
+            if (!link_tail(graph, offset + (uint32_t) i * 4,
+                           (void**) &indices[i]))
+            {
+                return false;
+            }
+        }
+        break;
+    }
+    case SCHEMA_ENVELOPETBL: {
+        HSD_EnvelopeDesc** table = node->value;
+        for (size_t i = 0; i + 1 < node->length / 4; ++i) {
+            table[i] = link_node(graph, offset + (uint32_t) i * 4,
+                                 SCHEMA_ENVELOPE, 0);
+        }
+        break;
+    }
+    case SCHEMA_ENVELOPE: {
+        HSD_EnvelopeDesc* weights = node->value;
+        for (size_t i = 0; i + 1 < node->length / 8; ++i) {
+            weights[i].joint =
+                link_node(graph, offset + (uint32_t) i * 8, SCHEMA_JOINT, 0);
+            weights[i].weight = read_float(bytes + i * 8 + 4);
+        }
+        break;
+    }
+    case SCHEMA_VTXLIST: {
+        HSD_VtxDescList* list = node->value;
+        size_t i;
+        for (i = 0; i < node->length / 24; ++i) {
+            const uint8_t* item = bytes + i * 24;
+            list[i].attr = NativeArchiveBE32(item);
+            list[i].attr_type = NativeArchiveBE32(item + 4);
+            list[i].comp_cnt = NativeArchiveBE32(item + 8);
+            list[i].comp_type = NativeArchiveBE32(item + 12);
+            list[i].frac = item[16];
+            list[i].stride = (u16) ((item[18] << 8) | item[19]);
+            if (!link_tail(graph, offset + (uint32_t) (i * 24) + 20,
+                           &list[i].vertex))
+            {
+                return false;
+            }
+        }
+        break;
+    }
+    case SCHEMA_MOBJ: {
+        HSD_MObjDesc* mobj = node->value;
+        bool present;
+        mobj->class_name = link_node(graph, offset, SCHEMA_STRING, 0);
+        mobj->rendermode = NativeArchiveBE32(bytes + 4);
+        mobj->texdesc = link_node(graph, offset + 8, SCHEMA_TOBJ, 0);
+        mobj->mat = link_node(graph, offset + 12, SCHEMA_MATERIAL, 0);
+        if (mobj->mat == NULL) {
+            graph_fail(graph, NATIVE_ARCHIVE_INVALID, offset + 12,
+                       "material descriptor is required by MObjLoad");
+            return false;
+        }
+        if (!read_reference(graph, offset + 16, &(uint32_t){ 0 }, &present)) {
+            return false;
+        }
+        if (present) {
+            graph_fail(graph, NATIVE_ARCHIVE_UNSUPPORTED, offset + 16,
+                       "MObj render descriptor is not implemented");
+            return false;
+        }
+        mobj->renderdesc = NULL;
+        mobj->pedesc = link_node(graph, offset + 20, SCHEMA_PEDESC, 0);
+        break;
+    }
+    case SCHEMA_TOBJ: {
+        HSD_TObjDesc* tobj = node->value;
+        tobj->class_name = link_node(graph, offset, SCHEMA_STRING, 0);
+        tobj->next = link_node(graph, offset + 4, SCHEMA_TOBJ, 0);
+        tobj->id = NativeArchiveBE32(bytes + 8);
+        tobj->src = NativeArchiveBE32(bytes + 12);
+        tobj->rotate = read_vec(bytes + 16);
+        tobj->scale = read_vec(bytes + 28);
+        tobj->translate = read_vec(bytes + 40);
+        tobj->wrap_s = NativeArchiveBE32(bytes + 52);
+        tobj->wrap_t = NativeArchiveBE32(bytes + 56);
+        tobj->repeat_s = bytes[60];
+        tobj->repeat_t = bytes[61];
+        tobj->blend_flags = NativeArchiveBE32(bytes + 64);
+        tobj->blending = read_float(bytes + 68);
+        tobj->magFilt = NativeArchiveBE32(bytes + 72);
+        tobj->imagedesc = link_node(graph, offset + 76, SCHEMA_IMAGE, 0);
+        tobj->tlutdesc = link_node(graph, offset + 80, SCHEMA_TLUT, 0);
+        tobj->lod = link_node(graph, offset + 84, SCHEMA_TEXLOD, 0);
+        tobj->tev = link_node(graph, offset + 88, SCHEMA_TOBJTEV, 0);
+        break;
+    }
+    case SCHEMA_MATERIAL: {
+        HSD_Material* material = node->value;
+        memcpy(&material->ambient, bytes, 4);
+        memcpy(&material->diffuse, bytes + 4, 4);
+        memcpy(&material->specular, bytes + 8, 4);
+        material->alpha = read_float(bytes + 12);
+        material->shininess = read_float(bytes + 16);
+        break;
+    }
+    case SCHEMA_PEDESC: {
+        HSD_PEDesc* pe = node->value;
+        memcpy(pe, bytes, 12);
+        break;
+    }
+    case SCHEMA_IMAGE: {
+        HSD_ImageDesc* image = node->value;
+        image->width = (u16) ((bytes[4] << 8) | bytes[5]);
+        image->height = (u16) ((bytes[6] << 8) | bytes[7]);
+        image->format = NativeArchiveBE32(bytes + 8);
+        image->mipmap = NativeArchiveBE32(bytes + 12);
+        image->minLOD = read_float(bytes + 16);
+        image->maxLOD = read_float(bytes + 20);
+        if (!link_tail(graph, offset, &image->image_ptr)) {
+            return false;
+        }
+        break;
+    }
+    case SCHEMA_TLUT: {
+        HSD_TlutDesc* tlut = node->value;
+        void* data = NULL;
+        tlut->fmt = NativeArchiveBE32(bytes + 4);
+        tlut->tlut_name = NativeArchiveBE32(bytes + 8);
+        tlut->n_entries = (u16) ((bytes[12] << 8) | bytes[13]);
+        if (tlut->n_entries != 0) {
+            data = link_node(graph, offset, SCHEMA_BYTES,
+                             (size_t) tlut->n_entries * 2);
+            if (data == NULL && graph->failure.status != NATIVE_ARCHIVE_OK) {
+                return false;
+            }
+        } else if (!link_tail(graph, offset, &data)) {
+            return false;
+        }
+        tlut->lut = data;
+        break;
+    }
+    case SCHEMA_TEXLOD: {
+        HSD_TexLODDesc* lod = node->value;
+        lod->minFilt = NativeArchiveBE32(bytes);
+        lod->LODBias = read_float(bytes + 4);
+        lod->bias_clamp = bytes[8];
+        lod->edgeLODEnable = bytes[9];
+        lod->max_anisotropy = NativeArchiveBE32(bytes + 12);
+        break;
+    }
+    case SCHEMA_TOBJTEV: {
+        HSD_TObjTevDesc* tev = node->value;
+        memcpy(tev, bytes, 28);
+        tev->active = NativeArchiveBE32(bytes + 28);
+        break;
+    }
+    case SCHEMA_MATANIMJOINT: {
+        HSD_MatAnimJoint* animation = node->value;
+        animation->child = link_node(graph, offset, SCHEMA_MATANIMJOINT, 0);
+        animation->next = link_node(graph, offset + 4, SCHEMA_MATANIMJOINT, 0);
+        animation->matanim = link_node(graph, offset + 8, SCHEMA_MATANIM, 0);
+        break;
+    }
+    case SCHEMA_MATANIM: {
+        HSD_MatAnim* animation = node->value;
+        animation->next = link_node(graph, offset, SCHEMA_MATANIM, 0);
+        animation->aobjdesc = link_node(graph, offset + 4, SCHEMA_AOBJ, 0);
+        animation->texanim = link_node(graph, offset + 8, SCHEMA_TEXANIM, 0);
+        if (!unsupported_link(
+                graph, offset + 12,
+                "material render animation schema is not implemented"))
+        {
+            return false;
+        }
+        break;
+    }
+    case SCHEMA_SHAPEANIMJOINT: {
+        HSD_ShapeAnimJoint* animation = node->value;
+        animation->child = link_node(graph, offset, SCHEMA_SHAPEANIMJOINT, 0);
+        animation->next =
+            link_node(graph, offset + 4, SCHEMA_SHAPEANIMJOINT, 0);
+        animation->shapeanimdobj =
+            link_node(graph, offset + 8, SCHEMA_SHAPEANIMDOBJ, 0);
+        break;
+    }
+    case SCHEMA_SHAPEANIMDOBJ: {
+        HSD_ShapeAnimDObj* animation = node->value;
+        animation->next = link_node(graph, offset, SCHEMA_SHAPEANIMDOBJ, 0);
+        animation->shapeanim =
+            link_node(graph, offset + 4, SCHEMA_SHAPEANIM, 0);
+        break;
+    }
+    case SCHEMA_SHAPEANIM: {
+        HSD_ShapeAnim* animation = node->value;
+        animation->next = link_node(graph, offset, SCHEMA_SHAPEANIM, 0);
+        animation->aobjdesc = link_node(graph, offset + 4, SCHEMA_AOBJ, 0);
+        break;
+    }
+    case SCHEMA_TEXANIM: {
+        HSD_TexAnim* animation = node->value;
+        uint32_t table_offset;
+        bool table_present;
+        uint16_t image_count = (uint16_t) ((bytes[20] << 8) | bytes[21]);
+        uint16_t tlut_count = (uint16_t) ((bytes[22] << 8) | bytes[23]);
+        animation->id = NativeArchiveBE32(bytes + 4);
+        animation->aobjdesc = link_node(graph, offset + 8, SCHEMA_AOBJ, 0);
+        animation->n_imagetbl = image_count;
+        animation->n_tluttbl = tlut_count;
+        if (!read_reference(graph, offset + 12, &table_offset, &table_present))
+        {
+            return false;
+        }
+        if (image_count == 0 && table_present) {
+            graph_fail(
+                graph, NATIVE_ARCHIVE_INVALID, offset + 12,
+                "texture animation image table is present with zero count");
+            return false;
+        }
+        animation->imagetbl =
+            table_present
+                ? add_node(graph, table_offset, SCHEMA_IMAGETBL, image_count)
+                : NULL;
+        if (!read_reference(graph, offset + 16, &table_offset, &table_present))
+        {
+            return false;
+        }
+        if (tlut_count == 0 && table_present) {
+            graph_fail(
+                graph, NATIVE_ARCHIVE_INVALID, offset + 16,
+                "texture animation TLUT table is present with zero count");
+            return false;
+        }
+        animation->tluttbl =
+            table_present
+                ? add_node(graph, table_offset, SCHEMA_TLUTTBL, tlut_count)
+                : NULL;
+        animation->next = link_node(graph, offset, SCHEMA_TEXANIM, 0);
+        break;
+    }
+    case SCHEMA_IMAGETBL:
+    case SCHEMA_TLUTTBL: {
+        size_t count = node->length / 4;
+        void** table = node->value;
+        size_t i;
+        for (i = 0; i < count; ++i) {
+            Schema target_schema =
+                node->schema == SCHEMA_IMAGETBL ? SCHEMA_IMAGE : SCHEMA_TLUT;
+            table[i] = link_node(graph, offset + (uint32_t) (i * 4),
+                                 target_schema, 0);
+        }
+        table[count] = NULL;
+        break;
+    }
+    case SCHEMA_ANIMATION: {
+        HSD_AnimJoint* animation = node->value;
+        animation->flags = NativeArchiveBE32(bytes + 16);
+        animation->child = link_node(graph, offset, SCHEMA_ANIMATION, 0);
+        animation->next = link_node(graph, offset + 4, SCHEMA_ANIMATION, 0);
+        animation->aobjdesc = link_node(graph, offset + 8, SCHEMA_AOBJ, 0);
+        animation->robj_anim =
+            link_node(graph, offset + 12, SCHEMA_ROBJANIM, 0);
+        break;
+    }
+    case SCHEMA_AOBJ: {
+        HSD_AObjDesc* aobj = node->value;
+        HSD_Joint* joint;
+        aobj->flags = NativeArchiveBE32(bytes);
+        aobj->end_frame = read_float(bytes + 4);
+        aobj->fobjdesc = link_node(graph, offset + 8, SCHEMA_FOBJ, 0);
+        joint = link_node(graph, offset + 12, SCHEMA_JOINT, 0);
+        if (joint != NULL && sizeof(aobj->obj_id) < sizeof(uintptr_t)) {
+            graph_fail(graph, NATIVE_ARCHIVE_UNSUPPORTED, offset + 12,
+                       "native animation object IDs must hold a host pointer");
+            return false;
+        }
+        aobj->obj_id = (uintptr_t) joint;
+        break;
+    }
+    case SCHEMA_FIGATREE: {
+        FigaTree* tree = node->value;
+        uint32_t nodes_offset, tracks_offset;
+        bool present;
+        size_t nodes_length, node_count = 0, track_count = 0;
+        tree->type = (int32_t) NativeArchiveBE32(bytes);
+        tree->flags = NativeArchiveBE32(bytes + 4);
+        tree->frames = read_float(bytes + 8);
+        if (!read_reference(graph, offset + 12, &nodes_offset, &present)) {
+            return false;
+        }
+        if (!present ||
+            !next_target_length(graph->archive, nodes_offset, &nodes_length))
+        {
+            graph_fail(graph, NATIVE_ARCHIVE_INVALID, offset + 12,
+                       "figatree requires a node count array");
+            return false;
+        }
+        while (node_count < nodes_length) {
+            int count =
+                (int8_t) graph->archive->data[nodes_offset + node_count++];
+            if (count == -1) {
+                break;
+            }
+            if (count < 0) {
+                graph_fail(graph, NATIVE_ARCHIVE_INVALID,
+                           nodes_offset + (uint32_t) node_count - 1,
+                           "figatree node track count is negative");
+                return false;
+            }
+            track_count += (size_t) count;
+        }
+        if (node_count == 0 ||
+            graph->archive->data[nodes_offset + node_count - 1] != 0xff)
+        {
+            graph_fail(graph, NATIVE_ARCHIVE_BOUNDS, nodes_offset,
+                       "figatree node count array has no terminator");
+            return false;
+        }
+        tree->nodes = add_node(graph, nodes_offset, SCHEMA_BYTES, node_count);
+        if (!read_reference(graph, offset + 16, &tracks_offset, &present)) {
+            return false;
+        }
+        if (track_count != 0) {
+            if (!present) {
+                graph_fail(graph, NATIVE_ARCHIVE_INVALID, offset + 16,
+                           "figatree node counts require a track array");
+                return false;
+            }
+            tree->tracks = add_node(graph, tracks_offset, SCHEMA_FIGATRACKS,
+                                    track_count * 12);
+        }
+        break;
+    }
+    case SCHEMA_FIGATRACKS: {
+        FigaTrack* tracks = node->value;
+        for (size_t i = 0; i < node->length / 12; ++i) {
+            const uint8_t* track = bytes + i * 12;
+            uint32_t target, field = offset + (uint32_t) i * 12 + 8;
+            bool present;
+            tracks[i].length = (u16) ((track[0] << 8) | track[1]);
+            tracks[i].startframe = (u16) ((track[2] << 8) | track[3]);
+            tracks[i].obj_type = track[4];
+            tracks[i].frac_value = track[5];
+            tracks[i].frac_slope = track[6];
+            if (!read_reference(graph, field, &target, &present)) {
+                return false;
+            }
+            if (present) {
+                tracks[i].ad_head =
+                    add_node(graph, target, SCHEMA_BYTES, tracks[i].length);
+                if (tracks[i].ad_head == NULL ||
+                    !validate_stream(graph, target, tracks[i].length,
+                                     tracks[i].frac_value,
+                                     tracks[i].frac_slope))
+                {
+                    return false;
+                }
+            } else if (tracks[i].length != 0) {
+                graph_fail(graph, NATIVE_ARCHIVE_INVALID, field,
+                           "figatree track stream is null but nonempty");
+                return false;
+            }
+        }
+        break;
+    }
+    case SCHEMA_FOBJ: {
+        HSD_FObjDesc* fobj = node->value;
+        uint32_t target;
+        bool present;
+        fobj->length = NativeArchiveBE32(bytes + 4);
+        fobj->startframe = read_float(bytes + 8);
+        fobj->type = bytes[12];
+        fobj->frac_value = bytes[13];
+        fobj->frac_slope = bytes[14];
+        fobj->dummy0 = bytes[15];
+        fobj->next = link_node(graph, offset, SCHEMA_FOBJ, 0);
+        if (graph->failure.status != NATIVE_ARCHIVE_OK ||
+            !read_reference(graph, offset + 16, &target, &present))
+        {
+            return false;
+        }
+        if (!present) {
+            if (fobj->length != 0) {
+                graph_fail(
+                    graph, NATIVE_ARCHIVE_INVALID, offset + 16,
+                    "animation stream is null but its length is not zero");
+                return false;
+            }
+        } else {
+            fobj->ad = add_node(graph, target, SCHEMA_BYTES, fobj->length);
+            if (fobj->ad == NULL ||
+                !validate_stream(graph, target, fobj->length, fobj->frac_value,
+                                 fobj->frac_slope))
+            {
+                return false;
+            }
+        }
+        break;
+    }
+    case SCHEMA_WOBJ: {
+        HSD_WObjDesc* wobj = node->value;
+        wobj->class_name = link_node(graph, offset, SCHEMA_STRING, 0);
+        wobj->pos = read_vec(bytes + 4);
+        wobj->robjdesc = link_node(graph, offset + 16, SCHEMA_ROBJ, 0);
+        break;
+    }
+    case SCHEMA_COBJ: {
+        HSD_CObjDesc* desc = node->value;
+        HSD_CameraDescCommon* common = &desc->common;
+        uint16_t projection_type =
+            (uint16_t) (((uint16_t) bytes[6] << 8) | bytes[7]);
+
+        if (projection_type != PROJ_PERSPECTIVE &&
+            projection_type != PROJ_FRUSTUM && projection_type != PROJ_ORTHO)
+        {
+            graph_fail(graph, NATIVE_ARCHIVE_INVALID, offset + 6,
+                       "camera descriptor has an invalid projection type");
+            return false;
+        }
+        common->class_name = link_node(graph, offset, SCHEMA_STRING, 0);
+        common->flags = (uint16_t) (((uint16_t) bytes[4] << 8) | bytes[5]);
+        common->projection_type = projection_type;
+        common->viewport.xmin = (s16) (((uint16_t) bytes[8] << 8) | bytes[9]);
+        common->viewport.xmax =
+            (s16) (((uint16_t) bytes[10] << 8) | bytes[11]);
+        common->viewport.ymin =
+            (s16) (((uint16_t) bytes[12] << 8) | bytes[13]);
+        common->viewport.ymax =
+            (s16) (((uint16_t) bytes[14] << 8) | bytes[15]);
+        common->scissor.left =
+            (uint16_t) (((uint16_t) bytes[16] << 8) | bytes[17]);
+        common->scissor.right =
+            (uint16_t) (((uint16_t) bytes[18] << 8) | bytes[19]);
+        common->scissor.top =
+            (uint16_t) (((uint16_t) bytes[20] << 8) | bytes[21]);
+        common->scissor.bottom =
+            (uint16_t) (((uint16_t) bytes[22] << 8) | bytes[23]);
+        common->eyepos = link_node(graph, offset + 24, SCHEMA_WOBJ, 0);
+        common->interest = link_node(graph, offset + 28, SCHEMA_WOBJ, 0);
+        common->roll = read_float(bytes + 32);
+        common->up_vector = link_node(graph, offset + 36, SCHEMA_VECTOR, 0);
+        common->nnear = read_float(bytes + 40);
+        common->ffar = read_float(bytes + 44);
+        if (projection_type == PROJ_PERSPECTIVE) {
+            desc->perspective.fov = read_float(bytes + 48);
+            desc->perspective.aspect = read_float(bytes + 52);
+        } else {
+            desc->frustum.top = read_float(bytes + 48);
+            desc->frustum.bottom = read_float(bytes + 52);
+            desc->frustum.left = read_float(bytes + 56);
+            desc->frustum.right = read_float(bytes + 60);
+        }
+        break;
+    }
+    case SCHEMA_CANIM: {
+        HSD_CameraAnim* animation = node->value;
+        animation->aobjdesc = link_node(graph, offset, SCHEMA_AOBJ, 0);
+        animation->eye_anim = link_node(graph, offset + 4, SCHEMA_WOBJANIM, 0);
+        animation->interest_anim =
+            link_node(graph, offset + 8, SCHEMA_WOBJANIM, 0);
+        break;
+    }
+    case SCHEMA_WOBJANIM: {
+        HSD_WObjAnim* animation = node->value;
+        animation->aobjdesc = link_node(graph, offset, SCHEMA_AOBJ, 0);
+        animation->robjanim = link_node(graph, offset + 4, SCHEMA_ROBJANIM, 0);
+        break;
+    }
+    case SCHEMA_ROBJ: {
+        HSD_RObjDesc* constraint = node->value;
+        constraint->next = link_node(graph, offset, SCHEMA_ROBJ, 0);
+        constraint->flags = NativeArchiveBE32(bytes + 4);
+        switch (constraint->flags & ROBJ_TYPE_MASK) {
+        case REFTYPE_JOBJ:
+            constraint->u.joint =
+                link_node(graph, offset + 8, SCHEMA_JOINT, 0);
+            if (constraint->u.joint == NULL) {
+                graph_fail(graph, NATIVE_ARCHIVE_INVALID, offset + 8,
+                           "joint constraint requires a joint");
+                return false;
+            }
+            break;
+        case REFTYPE_LIMIT:
+            constraint->u.limit = read_float(bytes + 8);
+            break;
+        case REFTYPE_IKHINT:
+            constraint->u.ik_hint =
+                link_node(graph, offset + 8, SCHEMA_IKHINT, 0);
+            if (constraint->u.ik_hint == NULL) {
+                graph_fail(graph, NATIVE_ARCHIVE_INVALID, offset + 8,
+                           "IK constraint requires a hint descriptor");
+                return false;
+            }
+            break;
+        case REFTYPE_EXP:
+            graph_fail(graph, NATIVE_ARCHIVE_UNSUPPORTED, offset + 8,
+                       "PowerPC constraint functions require native bindings");
+            return false;
+        case REFTYPE_BYTECODE:
+            constraint->u.bcexp =
+                link_node(graph, offset + 8, SCHEMA_BCEXP, 0);
+            if (graph->failure.status != NATIVE_ARCHIVE_OK) {
+                return false;
+            }
+            if (constraint->u.bcexp == NULL) {
+                graph_fail(
+                    graph, NATIVE_ARCHIVE_INVALID, offset + 8,
+                    "bytecode constraint requires an expression descriptor");
+                return false;
+            }
+            break;
+        default:
+            graph_fail(graph, NATIVE_ARCHIVE_INVALID, offset + 4,
+                       "constraint has an invalid reference type");
+            return false;
+        }
+        break;
+    }
+    case SCHEMA_BCEXP: {
+        HSD_ByteCodeExpDesc* expression = node->value;
+        /* HSD_ByteCodeEval reads opcodes and operands byte by byte. Only the
+         * argument list contains pointers and needs host descriptors. */
+        if (!link_tail(graph, offset, (void**) &expression->bytecode)) {
+            return false;
+        }
+        expression->rvalue = link_node(graph, offset + 4, SCHEMA_RVALUE, 0);
+        break;
+    }
+    case SCHEMA_RVALUE: {
+        HSD_RvalueList* arguments = node->value;
+        for (size_t i = 0; i + 1 < node->length / 8; ++i) {
+            arguments[i].flags = NativeArchiveBE32(bytes + i * 8);
+            arguments[i].joint = link_node(
+                graph, offset + (uint32_t) i * 8 + 4, SCHEMA_JOINT, 0);
+        }
+        break;
+    }
+    case SCHEMA_IKHINT: {
+        HSD_IKHintDesc* hint = node->value;
+        hint->bone_length = read_float(bytes);
+        hint->rotate_x = read_float(bytes + 4);
+        break;
+    }
+    case SCHEMA_ROBJANIM: {
+        HSD_RObjAnimJoint* animation = node->value;
+        animation->next = link_node(graph, offset, SCHEMA_ROBJANIM, 0);
+        animation->aobjdesc = link_node(graph, offset + 4, SCHEMA_AOBJ, 0);
+        break;
+    }
+    case SCHEMA_LIGHT: {
+        HSD_LightDesc* light = node->value;
+        uint16_t flags = (uint16_t) (((uint16_t) bytes[8] << 8) | bytes[9]);
+        uint16_t attnflags =
+            (uint16_t) (((uint16_t) bytes[10] << 8) | bytes[11]);
+        light->class_name = link_node(graph, offset, SCHEMA_STRING, 0);
+        light->next = link_node(graph, offset + 4, SCHEMA_LIGHT, 0);
+        light->flags = flags;
+        light->attnflags = attnflags;
+        memcpy(&light->color, bytes + 12, sizeof(light->color));
+        light->position = link_node(graph, offset + 16, SCHEMA_WOBJ, 0);
+        light->interest = link_node(graph, offset + 20, SCHEMA_WOBJ, 0);
+        switch (flags & LOBJ_TYPE_MASK) {
+        case LOBJ_POINT:
+            light->u.p =
+                link_node(graph, offset + 24,
+                          attnflags & LOBJ_LIGHT_ATTN ? SCHEMA_LIGHTATTN
+                                                      : SCHEMA_LIGHTPOINT,
+                          0);
+            break;
+        case LOBJ_SPOT:
+            light->u.p = link_node(
+                graph, offset + 24,
+                attnflags != 0 ? SCHEMA_LIGHTATTN : SCHEMA_LIGHTSPOT, 0);
+            break;
+        case LOBJ_AMBIENT:
+        case LOBJ_INFINITE:
+            /* These light types do not read the union during LObjLoad. Keep
+             * validating the relocation while leaving the host union empty. */
+            {
+                uint32_t target;
+                bool present;
+                if (!read_reference(graph, offset + 24, &target, &present)) {
+                    return false;
+                }
+            }
+            break;
+        }
+        break;
+    }
+    case SCHEMA_LIGHTANIM: {
+        HSD_LightAnim* animation = node->value;
+        animation->next = link_node(graph, offset, SCHEMA_LIGHTANIM, 0);
+        animation->aobjdesc = link_node(graph, offset + 4, SCHEMA_AOBJ, 0);
+        animation->position_anim =
+            link_node(graph, offset + 8, SCHEMA_WOBJANIM, 0);
+        animation->interest_anim =
+            link_node(graph, offset + 12, SCHEMA_WOBJANIM, 0);
+        break;
+    }
+    case SCHEMA_LIGHTPOINT: {
+        HSD_LightPointDesc* point = node->value;
+        point->ref_br = read_float(bytes);
+        point->ref_dist = read_float(bytes + 4);
+        point->dist_func = NativeArchiveBE32(bytes + 8);
+        break;
+    }
+    case SCHEMA_LIGHTSPOT: {
+        HSD_LightSpotDesc* spot = node->value;
+        spot->cutoff = read_float(bytes);
+        spot->spot_func = NativeArchiveBE32(bytes + 4);
+        spot->ref_br = read_float(bytes + 8);
+        spot->ref_dist = read_float(bytes + 12);
+        spot->dist_func = NativeArchiveBE32(bytes + 16);
+        break;
+    }
+    case SCHEMA_LIGHTATTN: {
+        HSD_LightAttn* attenuation = node->value;
+        attenuation->a0 = read_float(bytes);
+        attenuation->a1 = read_float(bytes + 4);
+        attenuation->a2 = read_float(bytes + 8);
+        attenuation->k0 = read_float(bytes + 12);
+        attenuation->k1 = read_float(bytes + 16);
+        attenuation->k2 = read_float(bytes + 20);
+        break;
+    }
+    case SCHEMA_FOG: {
+        HSD_FogDesc* fog = node->value;
+        fog->type = NativeArchiveBE32(bytes);
+        fog->fogadjdesc = link_node(graph, offset + 4, SCHEMA_FOGADJ, 0);
+        fog->start = read_float(bytes + 8);
+        fog->end = read_float(bytes + 12);
+        memcpy(&fog->color, bytes + 16, sizeof(fog->color));
+        break;
+    }
+    case SCHEMA_FOGADJ: {
+        HSD_FogAdjDesc* adjustment = node->value;
+        adjustment->center = (u16) ((bytes[0] << 8) | bytes[1]);
+        adjustment->width = (u16) ((bytes[2] << 8) | bytes[3]);
+        for (size_t row = 0; row < 4; ++row) {
+            for (size_t column = 0; column < 4; ++column) {
+                adjustment->mtx[row][column] =
+                    read_float(bytes + 4 + (row * 4 + column) * 4);
+            }
+        }
+        break;
+    }
+    case SCHEMA_SOBJ: {
+        HSD_SObjDesc* descriptor = node->value;
+        descriptor->image = link_node(graph, offset, SCHEMA_IMAGE, 0);
+        descriptor->tlut = link_node(graph, offset + 4, SCHEMA_TLUT, 0);
+        break;
+    }
+    case SCHEMA_VECTOR: {
+        Vec3* vector = node->value;
+        *vector = read_vec(bytes);
+        break;
+    }
+    case SCHEMA_MATRIX: {
+        float* matrix = node->value;
+        size_t i;
+        for (i = 0; i < 12; ++i) {
+            matrix[i] = read_float(bytes + i * 4);
+        }
+        break;
+    }
+    case SCHEMA_STRING:
+    case SCHEMA_BYTES:
+        memcpy(node->value, bytes, node->length);
+        break;
+    }
+    return graph->failure.status == NATIVE_ARCHIVE_OK;
+}
+
+NativeArchiveStatus NativeArchiveGraphOpen(const NativeArchive* archive,
+                                           NativeArchiveGraph** output,
+                                           NativeArchiveError* error)
+{
+    NativeArchiveGraph* graph;
+    if (output == NULL) {
+        return NativeArchiveFail(error, NATIVE_ARCHIVE_INVALID, 0,
+                                 "graph output is null");
+    }
+    *output = NULL;
+    if (archive == NULL) {
+        return NativeArchiveFail(error, NATIVE_ARCHIVE_INVALID, 0,
+                                 "archive is null");
+    }
+    graph = calloc(1, sizeof(*graph));
+    if (graph == NULL) {
+        return NativeArchiveFail(error, NATIVE_ARCHIVE_NO_MEMORY, 0,
+                                 "cannot allocate descriptor graph");
+    }
+    graph->archive = archive;
+    *output = graph;
+    return NativeArchiveFail(error, NATIVE_ARCHIVE_OK, 0, "ok");
+}
+
+void NativeArchiveGraphClose(NativeArchiveGraph* graph)
+{
+    if (graph != NULL) {
+        Node* node = graph->first;
+        while (node != NULL) {
+            Node* next = node->next;
+            free(node->value);
+            free(node);
+            node = next;
+        }
+        free(graph->buckets);
+        free(graph);
+    }
+}
+
+static NativeArchiveStatus convert_root(NativeArchiveGraph* graph,
+                                        uint32_t offset, Schema schema,
+                                        void** output,
+                                        NativeArchiveError* error)
+{
+    void* root;
+    *output = NULL;
+    if (graph == NULL) {
+        return NativeArchiveFail(error, NATIVE_ARCHIVE_INVALID, 0,
+                                 "descriptor graph is null");
+    }
+    root = add_node(graph, offset, schema, 0);
+    if (root != NULL) {
+        /* A graph may decode several roots. Queue this root when an earlier
+         * conversion drained the pending list. */
+        if (graph->pending == NULL) {
+            graph->pending = find_node(graph, offset, schema);
+        }
+        while (graph->pending != NULL) {
+            Node* node = graph->pending;
+            if (!convert_node(graph, node)) {
+                break;
+            }
+            graph->pending = node->next;
+        }
+    }
+    if (graph->failure.status != NATIVE_ARCHIVE_OK) {
+        if (error != NULL) {
+            *error = graph->failure;
+        }
+        return graph->failure.status;
+    }
+    *output = root;
+    return NativeArchiveFail(error, NATIVE_ARCHIVE_OK, 0, "ok");
+}
+
+#define ROOT_READER(name, type, schema)                                       \
+    NativeArchiveStatus name(NativeArchiveGraph* graph, uint32_t offset,      \
+                             type** output, NativeArchiveError* error)        \
+    {                                                                         \
+        void* root = NULL;                                                    \
+        NativeArchiveStatus status;                                           \
+        if (output == NULL) {                                                 \
+            return NativeArchiveFail(error, NATIVE_ARCHIVE_INVALID, 0,        \
+                                     "descriptor output is null");            \
+        }                                                                     \
+        status = convert_root(graph, offset, schema, &root, error);           \
+        *output = root;                                                       \
+        return status;                                                        \
+    }
+
+ROOT_READER(NativeArchiveJoint, HSD_Joint, SCHEMA_JOINT)
+ROOT_READER(NativeArchiveFigaTree, FigaTree, SCHEMA_FIGATREE)
+ROOT_READER(NativeArchiveSpline, HSD_Spline, SCHEMA_SPLINE)
+ROOT_READER(NativeArchiveMObj, HSD_MObjDesc, SCHEMA_MOBJ)
+ROOT_READER(NativeArchiveMatAnimJoint, HSD_MatAnimJoint, SCHEMA_MATANIMJOINT)
+ROOT_READER(NativeArchiveShapeAnimJoint, HSD_ShapeAnimJoint,
+            SCHEMA_SHAPEANIMJOINT)
+ROOT_READER(NativeArchiveAnimation, HSD_AnimJoint, SCHEMA_ANIMATION)
+ROOT_READER(NativeArchiveAObj, HSD_AObjDesc, SCHEMA_AOBJ)
+ROOT_READER(NativeArchiveWObj, HSD_WObjDesc, SCHEMA_WOBJ)
+ROOT_READER(NativeArchiveCObj, HSD_CObjDesc, SCHEMA_COBJ)
+ROOT_READER(NativeArchiveCameraAnimation, HSD_CameraAnim, SCHEMA_CANIM)
+ROOT_READER(NativeArchiveLight, HSD_LightDesc, SCHEMA_LIGHT)
+ROOT_READER(NativeArchiveLightAnimation, HSD_LightAnim, SCHEMA_LIGHTANIM)
+ROOT_READER(NativeArchiveFog, HSD_FogDesc, SCHEMA_FOG)
+ROOT_READER(NativeArchiveSObj, HSD_SObjDesc, SCHEMA_SOBJ)
+
+static NativeArchiveStatus find_named_root(NativeArchiveGraph* graph,
+                                           const char* name, uint32_t* offset,
+                                           NativeArchiveError* error)
+{
+    if (graph == NULL) {
+        return NativeArchiveFail(error, NATIVE_ARCHIVE_INVALID, 0,
+                                 "descriptor graph is null");
+    }
+    return NativeArchiveFind(graph->archive, name, offset, error);
+}
+
+#define NAMED_ROOT_READER(name, type, reader)                                 \
+    NativeArchiveStatus name(NativeArchiveGraph* graph, const char* symbol,   \
+                             type** output, NativeArchiveError* error)        \
+    {                                                                         \
+        uint32_t offset = 0;                                                  \
+        NativeArchiveStatus status;                                           \
+        if (output == NULL) {                                                 \
+            return NativeArchiveFail(error, NATIVE_ARCHIVE_INVALID, 0,        \
+                                     "descriptor output is null");            \
+        }                                                                     \
+        *output = NULL;                                                       \
+        status = find_named_root(graph, symbol, &offset, error);              \
+        if (status != NATIVE_ARCHIVE_OK) {                                    \
+            return status;                                                    \
+        }                                                                     \
+        return reader(graph, offset, output, error);                          \
+    }
+
+NAMED_ROOT_READER(NativeArchiveJointByName, HSD_Joint, NativeArchiveJoint)
+NAMED_ROOT_READER(NativeArchiveMatAnimJointByName, HSD_MatAnimJoint,
+                  NativeArchiveMatAnimJoint)
+NAMED_ROOT_READER(NativeArchiveShapeAnimJointByName, HSD_ShapeAnimJoint,
+                  NativeArchiveShapeAnimJoint)
+NAMED_ROOT_READER(NativeArchiveAnimationByName, HSD_AnimJoint,
+                  NativeArchiveAnimation)
+NAMED_ROOT_READER(NativeArchiveAObjByName, HSD_AObjDesc, NativeArchiveAObj)
+NAMED_ROOT_READER(NativeArchiveWObjByName, HSD_WObjDesc, NativeArchiveWObj)
+NAMED_ROOT_READER(NativeArchiveCObjByName, HSD_CObjDesc, NativeArchiveCObj)
+NAMED_ROOT_READER(NativeArchiveLightByName, HSD_LightDesc, NativeArchiveLight)
+NAMED_ROOT_READER(NativeArchiveLightAnimationByName, HSD_LightAnim,
+                  NativeArchiveLightAnimation)
+NAMED_ROOT_READER(NativeArchiveFogByName, HSD_FogDesc, NativeArchiveFog)
+NAMED_ROOT_READER(NativeArchiveSObjByName, HSD_SObjDesc, NativeArchiveSObj)
+NAMED_ROOT_READER(NativeArchiveFigaTreeByName, FigaTree, NativeArchiveFigaTree)

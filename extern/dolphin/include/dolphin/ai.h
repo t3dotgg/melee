@@ -17,12 +17,12 @@ typedef void (*AIDCallback)();
 #define AI_SAMPLERATE_48KHZ  1
 
 AIDCallback AIRegisterDMACallback(AIDCallback callback);
-void AIInitDMA(u32 start_addr, u32 length);
+void AIInitDMA(uptr start_addr, u32 length);
 BOOL AIGetDMAEnableFlag(void);
 void AIStartDMA(void);
 void AIStopDMA(void);
 u32 AIGetDMABytesLeft(void);
-u32 AIGetDMAStartAddr(void);
+uptr AIGetDMAStartAddr(void);
 u32 AIGetDMALength(void);
 BOOL AICheckInit(void);
 AISCallback AIRegisterStreamCallback(AISCallback callback);

@@ -1,11 +1,44 @@
+#ifdef MELEE_NATIVE
 #include "hsd_3B34.h"
 
+// Native image loading uses host decoders. These GameCube JPEG entry points
+// remain linkable for legacy callers that do not request JPEG conversion.
+void hsd_803B3408(u8* a, s32 b, s32 c, s32 d, s32 e)
+{
+    (void) a;
+    (void) b;
+    (void) c;
+    (void) d;
+    (void) e;
+}
+void hsd_803B3CD8(s32 a)
+{
+    (void) a;
+}
+void hsd_803B46D4(void) {}
+void hsd_803B4A2C(void) {}
+void hsd_803B4D64(u32 a, u32 b)
+{
+    (void) a;
+    (void) b;
+}
+s32 hsd_803B51C8(s32 a, s32 b, s32 c, char* d, s32 e)
+{
+    (void) a;
+    (void) b;
+    (void) c;
+    (void) d;
+    (void) e;
+    return -1;
+}
+#else
 #include <placeholder.h>
 #include <setjmp.h>
 #include <string.h>
 
 #include "hsd_3A94.h"
 #include "hsd_3B33.h"
+#include "hsd_3B34.h"
 #include <libc/stdlib.h> // IWYU pragma: keep
 
 #define HSD_804D2648_BUF ((u8*) &hsd_804D2648)
@@ -1356,3 +1389,4 @@ void hsd_803B5C2C(s32 arg0)
         lbl_804D6398 = 3;
     }
 }
+#endif // MELEE_NATIVE

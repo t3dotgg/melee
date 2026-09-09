@@ -47,7 +47,6 @@ void mnDiagram3_PopulateRankings(HSD_GObj* gobj)
     mnDiagram2_SortEntry fighter_rank;
     mnDiagram2_SortEntry rank_value;
     Diagram3* data;
-    mnDiagram3_DataTable* table;
     HSD_JObj* row0;
     f32 neg_spacing;
     f32 row_spacing;
@@ -64,7 +63,6 @@ void mnDiagram3_PopulateRankings(HSD_GObj* gobj)
     u16* unit_glyph_ids;
 
     data = gobj->user_data;
-    table = (mnDiagram3_DataTable*) &mnDiagram3_803EEC10;
 
     {
         u8 offset;
@@ -95,7 +93,7 @@ void mnDiagram3_PopulateRankings(HSD_GObj* gobj)
         {
             u32 max_distance;
 
-            unit_glyph_ids = table->stats.unit_glyph_ids;
+            unit_glyph_ids = mnDiagram3_803EEC4C.unit_glyph_ids;
             (void) row_spacing;
             row_spacing = row_spacing - divider;
             max_distance = 0x5F5E0FF;
@@ -109,7 +107,8 @@ void mnDiagram3_PopulateRankings(HSD_GObj* gobj)
                         if (!mnDiagram2_IsIconOnlyStat(stat_type)) {
                             if (i == 0) {
                                 lb_8000B1CC(data->jobjs[6],
-                                            &table->positions.xC, &position);
+                                            &mnDiagram3_803EEC28.xC,
+                                            &position);
                                 title_text = HSD_SisLib_803A6754(0, 1);
                                 data->title_text = title_text;
                                 title_text->font_size.x = 0.035f;
@@ -145,7 +144,7 @@ void mnDiagram3_PopulateRankings(HSD_GObj* gobj)
                 }
 
                 if (i == 0) {
-                    lb_8000B1CC(data->jobjs[6], &table->positions.x18,
+                    lb_8000B1CC(data->jobjs[6], &mnDiagram3_803EEC28.x18,
                                 &position);
                     value_text = HSD_SisLib_803A6754(0, 1);
                     data->value_text = value_text;
@@ -235,7 +234,7 @@ void mnDiagram3_PopulateRankings(HSD_GObj* gobj)
                         continue;
                     }
 
-                    lb_8000B1CC(data->jobjs[6], &table->positions.x18,
+                    lb_8000B1CC(data->jobjs[6], &mnDiagram3_803EEC28.x18,
                                 &position);
                     {
                         HSD_Text* icon_text;
@@ -295,8 +294,8 @@ static inline u8 mnDiagram3_GetRowStat(Diagram3* data, u8 offset, u8 row)
     return (u8) value;
 }
 
-static inline void mnDiagram3_RebuildRowLabels(Diagram3* data, char* base,
-                                               Vec3* pos, int count)
+static inline void mnDiagram3_RebuildRowLabels(Diagram3* data, Vec3* pos,
+                                               int count)
 {
     f32 spacing;
     int i;
@@ -306,7 +305,7 @@ static inline void mnDiagram3_RebuildRowLabels(Diagram3* data, char* base,
     base_idx = data->scroll_offset;
     spacing = HSD_JObjGetTranslationY(data->jobjs[9]) -
               HSD_JObjGetTranslationY(data->jobjs[8]);
-    lb_8000B1CC(data->jobjs[8], (Vec3*) (base + 0x18), pos);
+    lb_8000B1CC(data->jobjs[8], &mnDiagram3_803EEC28.x0, pos);
     i = 0;
     do {
         text = HSD_SisLib_803A5ACC(0, 1, pos->x - 6.5f,
@@ -314,8 +313,8 @@ static inline void mnDiagram3_RebuildRowLabels(Diagram3* data, char* base,
                                    240.0f);
         data->row_labels[i] = text;
         HSD_SisLib_803A6368(
-            text,
-            ((u16*) (base + 0x3C))[mnDiagram3_GetRowStat(data, base_idx, i)]);
+            text, mnDiagram3_803EEC4C
+                      .label_ids[mnDiagram3_GetRowStat(data, base_idx, i)]);
         i++;
     } while (i < count);
 }
@@ -339,7 +338,6 @@ static inline void mnDiagram3_PositionPopup(HSD_JObj* popup, u8 n,
 
 void mnDiagram3_HandleInput(HSD_GObj* gobj)
 {
-    char* base = (char*) &mnDiagram3_803EEC10;
     Diagram3* data = mnDiagram3_804D6C20->user_data;
     u32 input = Menu_GetAllInputs();
     /* The reconstructed inlines leave a 248-byte frame without these
@@ -353,7 +351,7 @@ void mnDiagram3_HandleInput(HSD_GObj* gobj)
         gmMainLib_GetGameRules()->xD =
             ((Diagram3*) mnDiagram3_804D6C20->user_data)->is_name_mode;
         mnDiagram2_ClearDetailView(mnDiagram3_804D6C20);
-        HSD_GObjPLink_80390228(data->popup_gobj);
+        HSD_GObjFree(data->popup_gobj);
         data = mnDiagram3_804D6C20->user_data;
         mnDiagram3_ClearRowLabels(data);
         mn_80229894(0x1C, 0, 3);
@@ -364,10 +362,10 @@ void mnDiagram3_HandleInput(HSD_GObj* gobj)
         gmMainLib_GetGameRules()->xD =
             ((Diagram3*) mnDiagram3_804D6C20->user_data)->is_name_mode;
         mnDiagram2_ClearDetailView(mnDiagram3_804D6C20);
-        HSD_GObjPLink_80390228(data->popup_gobj);
+        HSD_GObjFree(data->popup_gobj);
         data = mnDiagram3_804D6C20->user_data;
         mnDiagram3_ClearRowLabels(data);
-        HSD_GObjPLink_80390228(gobj);
+        HSD_GObjFree(gobj);
         if (input & MenuInput_LTrigger) {
             mnDiagram2_Init();
             return;
@@ -393,7 +391,7 @@ void mnDiagram3_HandleInput(HSD_GObj* gobj)
         data = mnDiagram3_804D6C20->user_data;
         mnDiagram3_ClearRowLabels(data);
         data = mnDiagram3_804D6C20->user_data;
-        mnDiagram3_RebuildRowLabels(data, base, &mode_label_pos, 10);
+        mnDiagram3_RebuildRowLabels(data, &mode_label_pos, 10);
         mnDiagram3_RefreshRankings(mnDiagram3_804D6C20);
         return;
     }
@@ -418,7 +416,7 @@ void mnDiagram3_HandleInput(HSD_GObj* gobj)
             data = mnDiagram3_804D6C20->user_data;
             mnDiagram3_ClearRowLabels(data);
             data = mnDiagram3_804D6C20->user_data;
-            mnDiagram3_RebuildRowLabels(data, base, &up_label_pos, 10);
+            mnDiagram3_RebuildRowLabels(data, &up_label_pos, 10);
             mnDiagram3_RefreshRankings(mnDiagram3_804D6C20);
         }
     } else if (input & 2) {
@@ -444,7 +442,7 @@ void mnDiagram3_HandleInput(HSD_GObj* gobj)
             data = mnDiagram3_804D6C20->user_data;
             mnDiagram3_ClearRowLabels(data);
             data = mnDiagram3_804D6C20->user_data;
-            mnDiagram3_RebuildRowLabels(data, base, &down_label_pos, 10);
+            mnDiagram3_RebuildRowLabels(data, &down_label_pos, 10);
             mnDiagram3_RefreshRankings(mnDiagram3_804D6C20);
         }
     }
@@ -513,27 +511,25 @@ void mnDiagram3_OnAnimComplete(HSD_GObj* gobj)
     table = &mnDiagram3_803EEC10;
     pad = 0;
     if (mn_8022ED6C(jobj, table) >= table->end_frame) {
-        HSD_GObjPLink_80390228(gobj);
+        HSD_GObjFree(gobj);
     }
 }
 
 void mnDiagram3_Think(HSD_GObj* gobj)
 {
     Diagram3* data;
-    u8* src;
     u8 mode;
     PAD_STACK(8);
 
-    src = (u8*) &mn_804A04F0;
     data = gobj->user_data;
-    mode = src[0];
-    if (mode != 0x1E || src[0x10] != 2) {
+    mode = mn_804A04F0.cur_menu;
+    if (mode != 0x1E || mn_804A04F0.x10 != 2) {
         if (mode == 0x1E) {
-            HSD_GObjPLink_80390228(gobj);
+            HSD_GObjFree(gobj);
         } else {
             HSD_GObjProc* proc;
 
-            HSD_GObjProc_8038FE24(HSD_GObj_804D7838);
+            HSD_GObjProc_RemoveProc(HSD_GObj_CurrentInvokedProc);
             proc = HSD_GObj_SetupProc(gobj, mnDiagram3_OnAnimComplete, 0);
             proc->flags_3 = HSD_GObj_804D783C;
             HSD_JObjSetFlagsAll(data->jobjs[2], JOBJ_HIDDEN);
@@ -548,15 +544,13 @@ void mnDiagram3_FreeUserData(void* arg0)
     HSD_Free(arg0);
 }
 
-void mnDiagram3_InitUserData(Diagram3* data, int arg1)
+void mnDiagram3_InitUserData(Diagram3* data)
 {
-    u8* src;
     int i;
     PAD_STACK(8);
 
-    src = (u8*) &mn_804A04F0;
-    data->saved_menu = src[0];
-    data->cursor_row = (u8) * (u16*) (src + 2);
+    data->saved_menu = mn_804A04F0.cur_menu;
+    data->cursor_row = (u8) mn_804A04F0.hovered_selection;
     data->anim_state = 1;
     data->scroll_offset = 0;
     data->is_name_mode = gmMainLib_GetGameRules()->xD;
@@ -580,7 +574,7 @@ static inline HSD_JObj* mnDiagram3_LoadJoint(mnDiagram_ArchiveData* archive)
     return HSD_JObjLoadJoint(archive->x0);
 }
 
-void mnDiagram3_Create(int arg0)
+void mnDiagram3_Create(void)
 {
     mnDiagram_ArchiveData* archive = &mnDiagram_804A0844;
     register HSD_GObj* gobj;
@@ -599,7 +593,7 @@ void mnDiagram3_Create(int arg0)
 
     user_data = (Diagram3*) HSD_MemAlloc(sizeof(Diagram3));
     HSD_ASSERTREPORT(0x3FC, user_data, "Can't get user_data.\n");
-    mnDiagram3_InitUserData(user_data, arg0);
+    mnDiagram3_InitUserData(user_data);
     GObj_InitUserData(gobj, 0, (void (*)(void*)) mnDiagram3_FreeUserData,
                       user_data);
 
@@ -706,7 +700,7 @@ static inline HSD_JObj* mnDiagram3_CreatePopup(Diagram3* data,
     return popup_jobj;
 }
 
-void mnDiagram3_Init(void* arg0)
+void mnDiagram3_Init(void)
 {
     void* new_var;
     Diagram3* data;
@@ -723,7 +717,7 @@ void mnDiagram3_Init(void* arg0)
         flow->hovered_selection = 0;
     }
 
-    mnDiagram3_Create((int) arg0);
+    mnDiagram3_Create();
 
     gobj = mnDiagram3_804D6C20;
     archive = &mnDiagram_804A0854;

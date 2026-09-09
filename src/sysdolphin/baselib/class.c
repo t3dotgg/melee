@@ -110,7 +110,7 @@ HSD_MemoryEntry* GetMemoryEntry(s32 idx)
             memcpy(new_list, memory_list,
                    sizeof(*memory_list) * nb_memory_list);
             memset(&new_list[nb_memory_list], 0,
-                   sizeof(*memory_list) * (new_capacity - nb_memory_list));
+                   sizeof(*new_list) * (new_capacity - nb_memory_list));
 
             old_list = memory_list;
             old_table_bytes =

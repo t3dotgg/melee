@@ -4,6 +4,10 @@
 
 #include <placeholder.h>
 
+#ifdef MELEE_NATIVE
+#include <stdlib.h>
+#endif
+
 #include "forward.h"
 #include "gm_unsplit.h"
 #include "gmhomerun.h"
@@ -614,38 +618,38 @@ s32 gmMainLib_8015D818(u32 arg0)
 void gmMainLib_8015D888(u32 arg0)
 {
     u32* thing = &gmMainLib_GetSaveData()->x1B40[0];
-    thing[arg0 / 32] |= (1 << (arg0 % 32));
+    thing[arg0 / 32] |= (1U << (arg0 % 32));
 }
 
 void gmMainLib_8015D8B0(u32 arg0)
 {
     u32* thing = &gmMainLib_GetSaveData()->x1B40[0];
-    thing[arg0 / 32] &= ~(1 << (arg0 % 32));
+    thing[arg0 / 32] &= ~(1U << (arg0 % 32));
 }
 
 s32 gmMainLib_8015D8D8(u32 arg0)
 {
     u32* thing = &gmMainLib_GetSaveData()->x1B40[0];
-    return thing[arg0 / 32] & (1 << (arg0 % 32));
+    return thing[arg0 / 32] & (1U << (arg0 % 32));
 }
 
 void gmMainLib_8015D8FC(u32 arg0)
 {
     u32* thing = &gmMainLib_GetSaveData()->x1B4C[0];
-    thing[arg0 / 32] |= (1 << (arg0 % 32));
+    thing[arg0 / 32] |= (1U << (arg0 % 32));
 }
 
 void gmMainLib_8015D924(u32 arg0)
 {
     u32* thing = &gmMainLib_GetSaveData()->x1B4C[0];
-    thing[arg0 / 32] &= ~(1 << (arg0 % 32));
+    thing[arg0 / 32] &= ~(1U << (arg0 % 32));
 }
 
 int gmMainLib_8015D94C(u32 arg0)
 {
     u32* thing = &gmMainLib_GetSaveData()->x1B4C[0];
     u32 flag = thing[arg0 / 32];
-    return flag & (1 << (arg0 % 32));
+    return flag & (1U << (arg0 % 32));
 }
 
 u32* gmMainLib_8015D970(ssize_t idx)
@@ -676,44 +680,44 @@ bool gmMainLib_8015D984(u32 arg0)
 void gmMainLib_8015D9F4(u32 arg0)
 {
     s32* base = &gmMainLib_804D3EE0->unk_44;
-    base[arg0 / 32] |= (1 << (arg0 % 32));
+    base[arg0 / 32] |= (1U << (arg0 % 32));
 }
 
 s32 gmMainLib_8015DA1C(u32 arg0)
 {
     s32* base = &gmMainLib_804D3EE0->unk_44;
-    return (1 << (arg0 % 32)) & base[arg0 / 32];
+    return (1U << (arg0 % 32)) & base[arg0 / 32];
 }
 
 void gmMainLib_8015DA40(u32 arg0)
 {
     u32* base = &gmMainLib_GetSaveData()->x1B58[0];
-    base[arg0 / 32] |= (1 << (arg0 % 32));
+    base[arg0 / 32] |= (1U << (arg0 % 32));
 }
 
 void gmMainLib_8015DA68(u32 arg0)
 {
     u32* base = &gmMainLib_GetSaveData()->x1B58[0];
-    base[arg0 / 32] &= ~(1 << (arg0 % 32));
+    base[arg0 / 32] &= ~(1U << (arg0 % 32));
 }
 
 int gmMainLib_8015DA90(u32 arg0)
 {
     u32* base = &gmMainLib_GetSaveData()->x1B58[0];
     u32* qwe = &base[arg0 / 32];
-    return *qwe & (1 << (arg0 % 32));
+    return *qwe & (1U << (arg0 % 32));
 }
 
 void gmMainLib_8015DAB4(u32 arg0)
 {
     u32* base = &gmMainLib_GetSaveData()->x1C88[0];
-    base[arg0 / 32] |= (1 << (arg0 % 32));
+    base[arg0 / 32] |= (1U << (arg0 % 32));
 }
 
 bool gmMainLib_8015DADC(u32 arg0)
 {
     u32* base = &gmMainLib_GetSaveData()->x1C88[0];
-    return (1 << (arg0 % 32)) & base[arg0 / 32];
+    return (1U << (arg0 % 32)) & base[arg0 / 32];
 }
 
 u8 gmMainLib_8015DB00(void)
@@ -765,7 +769,7 @@ static inline void gmMainLib_AdjustNameTags(VsModeData* vmd, u8 tag)
     }
 }
 
-inline void gmMainLib_AdjustNameTag(u8* tag_ptr, u8 tag)
+static inline void gmMainLib_AdjustNameTag(u8* tag_ptr, u8 tag)
 {
     if (*tag_ptr == tag) {
         *tag_ptr = GM_NAMETAG_NONE;
@@ -776,7 +780,7 @@ inline void gmMainLib_AdjustNameTag(u8* tag_ptr, u8 tag)
 
 /// As #gmMainLib_AdjustNameTag, but clears the slot instead of marking it
 /// unassigned.
-inline void gmMainLib_ClearNameTag(u8* tag_ptr, u8 tag)
+static inline void gmMainLib_ClearNameTag(u8* tag_ptr, u8 tag)
 {
     if (*tag_ptr == tag) {
         *tag_ptr = 0;
@@ -886,6 +890,17 @@ int gmMainLib_8015ED30(void)
 
 int GetRumbleSettingOfPort(ssize_t port)
 {
+#ifdef MELEE_NATIVE
+    /* The original code reads port 5 to fetch the adjacent deflicker byte
+     * after the four controller settings. Keep that byte-address behavior
+     * explicit on the host instead of indexing past the native array. */
+    if (port == 5) {
+        return gmMainLib_GetSaveData()->x1CB0.deflicker;
+    }
+    if (port < 0 || port >= PAD_MAX_CONTROLLERS) {
+        return 0;
+    }
+#endif
     return gmMainLib_GetSaveData()->x1CB0.rumble_enabled[port];
 }
 
@@ -1362,6 +1377,16 @@ void gmMainLib_8015FCC0(void)
 {
     struct gmMainLib_8046B0F0_t* tmp = &gmMainLib_8046B0F0;
     tmp->skip_intro = OSGetResetCode() == 0x80000000 ? true : false;
+#ifdef MELEE_NATIVE
+    {
+        const char* skip_intro = getenv("MELEE_SKIP_INTRO");
+        if (skip_intro != NULL && skip_intro[0] != '\0' &&
+            skip_intro[0] != '0')
+        {
+            tmp->skip_intro = true;
+        }
+    }
+#endif
     tmp->resetting = false;
     tmp->progressive = false;
     tmp->xC = 0;

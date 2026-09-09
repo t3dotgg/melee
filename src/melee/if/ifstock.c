@@ -36,10 +36,12 @@ static struct ifStock_804A1378 ifStock_804A1378;
 static struct ifStock_804A1774 ifStock_804A1774;
 static HSD_GObj* ifStock_804A1A8C[16];
 static struct ifStock_804A1ACC ifStock_804A1ACC;
+#ifndef MELEE_NATIVE
 STATIC_ASSERT(sizeof(ifStock_804A1378) == 0x3FC);
 STATIC_ASSERT(sizeof(ifStock_804A1774) == 0x318);
 STATIC_ASSERT(sizeof(ifStock_804A1A8C) == 0x40);
 STATIC_ASSERT(sizeof(ifStock_804A1ACC) == 0x314);
+#endif
 
 static char ifStock_SceneModels[] = "Stc_scemdls";
 
@@ -49,17 +51,24 @@ int ifStock_802F7EFC(int arg0, int arg1)
     struct ifStock_804A1378* stock;
     struct IfStockData* arg1_data;
     struct IfStockData* arg0_data;
+#ifndef MELEE_NATIVE
     struct IfStockDataOffset* arg0_base;
     struct IfStockDataOffset* arg1_base;
+#endif
     int slot;
     int i, j;
     stock = &ifStock_804A1378;
+#ifdef MELEE_NATIVE
+    arg0_data = (struct IfStockData*) &stock->x204[arg0];
+    arg1_data = (struct IfStockData*) &stock->x204[arg1];
+#else
     arg0_base =
         (struct IfStockDataOffset*) ((struct IfStockData*) stock + arg0);
     arg1_base =
         (struct IfStockDataOffset*) ((struct IfStockData*) stock + arg1);
     arg0_data = (struct IfStockData*) ++arg0_base;
     arg1_data = (struct IfStockData*) ++arg1_base;
+#endif
     if (Player_GetStocks(arg1) == 0) {
         return 1;
     }
@@ -120,6 +129,10 @@ int ifStock_802F7EFC(int arg0, int arg1)
     return 0;
 }
 
+#ifdef MELEE_NATIVE
+#define ifStock_802F8298_data_in(e, p) (&stock->x204[p])
+#define ifStock_802F8298_player_data(p) (&stock->x204[p])
+#else
 /// @todo remove these cursed macros for something proper.
 /// Per-player animation data, addressed as a 0x54-byte element from the struct
 /// base with the x204 array offset applied afterwards.
@@ -127,12 +140,13 @@ int ifStock_802F7EFC(int arg0, int arg1)
     ((struct IfStockDataOffset*) ((struct ifStock_804A1378_x204*) stock + (p)))
 #define ifStock_802F8298_data_in(e, p)                                        \
     ((struct ifStock_804A1378_x204*) (((e) = ifStock_802F8298_elem(p)) + 1))
-#define ifStock_802F8298_data_at(p) ifStock_802F8298_data_in(elem, p)
-#define ifStock_802F8298_data ifStock_802F8298_data_at(user_data->player)
 /// The same element, with the array offset committed before the field
 /// accesses.
 #define ifStock_802F8298_player_data(p)                                       \
     ((elem = ifStock_802F8298_elem(p)), (struct ifStock_804A1378_x204*) ++elem)
+#endif
+#define ifStock_802F8298_data_at(p) ifStock_802F8298_data_in(elem, p)
+#define ifStock_802F8298_data ifStock_802F8298_data_at(user_data->player)
 
 static inline f32 ifStock_802F8298_tobj_frame(u8 player)
 {
@@ -173,8 +187,10 @@ void ifStock_802F8298(HSD_GObj* gobj)
     HSD_JObj* jobj2;
     HSD_JObj* steal_jobj;
     struct ifStock_804A1378_x204* data;
+#ifndef MELEE_NATIVE
     struct IfStockDataOffset* elem;
     struct IfStockDataOffset* other;
+#endif
     Vec3 vecA, vecB, vecC, vecD;
 
     if (stock->player[user_data->player].stocks <= 5) {
@@ -560,11 +576,14 @@ HSD_GObj* ifStock_802F96D0(int a, int b, float x, float y)
 }
 
 static inline struct lbl_8046B6A0_FighterMatchInfoFlags*
-ifStock_802F98E8_get_match_info(lbl_8046B6A0_t* data, int player)
+ifStock_802F98E8_get_match_info(VsSceneController* data, int player)
 {
-    return &data->FighterMatchInfo[player].flags;
+    return &data->fighters[player].flags;
 }
 
+#ifdef MELEE_NATIVE
+#define ifStock_802F98E8_get_data(stock, player) ((u8*) &(stock)->x204[player])
+#else
 /// Per-player data, formed from the byte offset so the array offset is
 /// applied after the index.
 #define ifStock_802F98E8_get_data(stock, player)                              \
@@ -572,6 +591,7 @@ ifStock_802F98E8_get_match_info(lbl_8046B6A0_t* data, int player)
         (struct ifStock_804A1378_x204*) ((u8*) (stock) +                      \
                                          offsetof(struct ifStock_804A1378,    \
                                                   x204)))[player])
+#endif
 
 static const GXColor ifStock_802F98E8_color1 = { 0x08, 0x08, 0x08, 0x80 };
 static const GXColor ifStock_802F98E8_color2 = { 0x3C, 0x3C, 0x46, 0x80 };
@@ -583,7 +603,7 @@ void ifStock_802F98E8(u8 player, u8 b)
     HSD_JObj* jobj;
     int* stocks;
     int i;
-    lbl_8046B6A0_t* ae44;
+    VsSceneController* ae44;
     HSD_JObj* icon_jobj;
     GXColor c2;
     GXColor c1;
@@ -594,7 +614,7 @@ void ifStock_802F98E8(u8 player, u8 b)
         stock->x204[player].mode = b;
         stock->x204[player].flag = 1;
         if (stock->player[player].x0 != NULL) {
-            HSD_GObjPLink_80390228(stock->player[player].x0);
+            HSD_GObjFree(stock->player[player].x0);
         }
         gobj = GObj_Create(14, 15, 0);
         gobj->user_data = ifStock_802F98E8_get_data(stock, player);
@@ -722,7 +742,7 @@ void ifStock_802F98E8(u8 player, u8 b)
                     break;
                 }
                 HSD_JObjAnimAll(jobj);
-                ae44 = gm_16AE_GetUnkData_1();
+                ae44 = gmVs_GetController_1();
                 {
                     struct lbl_8046B6A0_FighterMatchInfoFlags* match_info =
                         ifStock_802F98E8_get_match_info(ae44, player);
@@ -740,7 +760,7 @@ void ifStock_802F98E8(u8 player, u8 b)
                 }
                 fn_802F9410(gobj); // inlined
             } else {
-                HSD_GObjPLink_80390228(gobj);
+                HSD_GObjFree(gobj);
             }
         }
     }
@@ -839,7 +859,11 @@ void ifStock_802FA5BC(int arg)
     HSD_JObjReqAnimAll(jobj, 10.0f);
     HSD_JObjAnimAll(jobj);
     ifStock_804A1378.gobj = gobj;
+#ifdef MELEE_NATIVE
+    lb_80011E24(jobj, ifStock_804A1378.jobj_slots, 0, 1, 2, 3, 4, 5, -1);
+#else
     lb_80011E24(jobj, &ifStock_804A1378.jobj, 0, 1, 2, 3, 4, 5, -1);
+#endif
 }
 
 #ifdef MUST_MATCH
@@ -864,12 +888,20 @@ void fn_802FA6C4(HSD_GObj* arg)
                 ifStock_804A1774.x83[k] = *w++;
             }
             i = 0;
+#ifdef MELEE_NATIVE
+            p = (char*) ifStock_804A1774.x1;
+#else
             p = &ifStock_804A1774.x0 + i;
+#endif
             for (; i < 130; i++, p++) {
                 if (ifStock_804A1774.x10C[1 + i]) {
-                    HSD_GObjPLink_80390228(ifStock_804A1774.x10C[1 + i]);
+                    HSD_GObjFree(ifStock_804A1774.x10C[1 + i]);
                 }
+#ifdef MELEE_NATIVE
+                if (*p == (char) -2) {
+#else
                 if (p[1] == (char) -2) {
+#endif
                     return;
                 }
                 ifStock_804A1774.x10C[1 + i] = ifStock_802F9F48(i);
@@ -879,7 +911,7 @@ void fn_802FA6C4(HSD_GObj* arg)
         if (ifStock_804A1774.x0 == 1) {
             for (j = 129; j >= 0; j--) {
                 if (ifStock_804A1774.x10C[1 + j]) {
-                    HSD_GObjPLink_80390228(ifStock_804A1774.x10C[1 + j]);
+                    HSD_GObjFree(ifStock_804A1774.x10C[1 + j]);
                     ifStock_804A1774.x10C[1 + j] = NULL;
                 }
             }
@@ -902,9 +934,17 @@ void fn_802FA8C0(HSD_GObj* arg)
     float y = 11.0f;
     signed char* a97c = gm_8016A97C();
     signed char* a98c = gm_8016A98C()->arr1;
+#ifdef MELEE_NATIVE
+    cur = stock->x10C;
+#else
     cur = stock->x10C - (0x10C / sizeof(*cur));
+#endif
     for (i = 0; i < 0x82; i++, cur++, a97c++, a98c++) {
+#ifdef MELEE_NATIVE
+        HSD_GObj* gobj = *cur;
+#else
         HSD_GObj* gobj = cur[0x10C / sizeof(*cur)];
+#endif
         if (gobj == NULL) {
             return;
         }
@@ -954,7 +994,7 @@ void fn_802FAC34(HSD_GObj* arg)
             }
             for (n[0] = 0; n[0] < 130; n[0]++) {
                 if (ifStock_804A1ACC.x10C[n[0]]) {
-                    HSD_GObjPLink_80390228(ifStock_804A1ACC.x10C[n[0]]);
+                    HSD_GObjFree(ifStock_804A1ACC.x10C[n[0]]);
                 }
                 if (ifStock_804A1ACC.x83[n[0]] == -2) {
                     return;
@@ -976,7 +1016,7 @@ void fn_802FAC34(HSD_GObj* arg)
         if (ifStock_804A1ACC.x0 == 1) {
             for (i = 129; i >= 0; i--) {
                 if (ifStock_804A1ACC.x10C[i]) {
-                    HSD_GObjPLink_80390228(ifStock_804A1ACC.x10C[i]);
+                    HSD_GObjFree(ifStock_804A1ACC.x10C[i]);
                     ifStock_804A1ACC.x10C[i] = NULL;
                 }
             }
@@ -1021,7 +1061,11 @@ static inline void ifStock_CreateStockGObjs(HSD_GObj** slots)
         HSD_JObjReqAnimAll(jobj, 10.0f);
         HSD_JObjAnimAll(jobj);
         stock->gobj = gobj;
+#ifdef MELEE_NATIVE
+        lb_80011E24(jobj, stock->jobj_slots, 0, 1, 2, 3, 4, 5, -1);
+#else
         lb_80011E24(jobj, &stock->jobj, 0, 1, 2, 3, 4, 5, -1);
+#endif
     }
 }
 
@@ -1062,12 +1106,12 @@ void ifStock_802FB390(void)
 {
     int i;
     if (ifStock_804A1774.x10C[0] != NULL) {
-        HSD_GObjPLink_80390228(ifStock_804A1774.x10C[0]);
+        HSD_GObjFree(ifStock_804A1774.x10C[0]);
         ifStock_804A1774.x10C[0] = NULL;
     }
     for (i = 129; i >= 0; i--) {
         if (ifStock_804A1774.x10C[i + 1] != NULL) {
-            HSD_GObjPLink_80390228(ifStock_804A1774.x10C[i + 1]);
+            HSD_GObjFree(ifStock_804A1774.x10C[i + 1]);
             ifStock_804A1774.x10C[i + 1] = NULL;
         }
     }
@@ -1078,7 +1122,7 @@ void ifStock_802FB41C(void)
     int i;
     for (i = 0; i < 16; i++) {
         if (ifStock_804A1A8C[i] != NULL) {
-            HSD_GObjPLink_80390228(ifStock_804A1A8C[i]);
+            HSD_GObjFree(ifStock_804A1A8C[i]);
             ifStock_804A1A8C[i] = NULL;
         }
     }
@@ -1089,7 +1133,7 @@ void ifStock_802FB484(void)
     int i;
     for (i = 0; i < 16; i++) {
         if (ifStock_804A1ACC.x10C[i] != NULL) {
-            HSD_GObjPLink_80390228(ifStock_804A1ACC.x10C[i]);
+            HSD_GObjFree(ifStock_804A1ACC.x10C[i]);
             ifStock_804A1ACC.x10C[i] = NULL;
         }
     }
@@ -1115,7 +1159,7 @@ void ifStock_802FB650(int player)
 {
     struct ifStock_804A1378* x = &ifStock_804A1378;
     if (x->player[player].x0 != NULL) {
-        HSD_GObjPLink_80390228(x->player[player].x0);
+        HSD_GObjFree(x->player[player].x0);
     }
     memzero(&x->player[player], sizeof(x->player[player]));
 }

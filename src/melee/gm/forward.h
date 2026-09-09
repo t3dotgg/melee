@@ -153,7 +153,7 @@ typedef struct gm_8016A92C_arg0_t gm_8016A92C_arg0_t;
 typedef struct gm_8017DB6C_arg0_t gm_8017DB6C_arg0_t;
 typedef struct gmm_x0_528_t gmm_x0_528_t;
 typedef struct lbl_8046B6A0_24C_t lbl_8046B6A0_24C_t;
-typedef struct lbl_8046B6A0_t lbl_8046B6A0_t;
+typedef struct VsSceneController VsSceneController;
 typedef struct ChallengerData ChallengerData;
 typedef struct MatchEnd MatchEnd;
 typedef struct MatchExitInfo MatchExitInfo;
@@ -176,6 +176,7 @@ typedef struct UnkMultimanData UnkMultimanData;
 typedef struct VsApproachData VsApproachData;
 
 typedef bool (*GmRouteCallback)(int);
+typedef void (*GmEventPlayerInitCallback)(s32 slot, u8 remaining_count);
 
 /// Player slot indices.
 /// @remarks @c Gm_Player_NumMax is named by an assert in #pl_8004049C.

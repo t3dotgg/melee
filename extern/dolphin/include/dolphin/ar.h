@@ -10,11 +10,11 @@ typedef void (*ARQCallback)(struct ARQRequest *);
 struct ARQRequest
 {
     /* 0x00 */ struct ARQRequest *next;
-    /* 0x04 */ u32 owner;
+    /* 0x04 */ uptr owner;
     /* 0x08 */ u32 type;
     /* 0x0C */ u32 priority;
-    /* 0x10 */ u32 source;
-    /* 0x14 */ u32 dest;
+    /* 0x10 */ uptr source;
+    /* 0x14 */ uptr dest;
     /* 0x18 */ u32 length;
     /* 0x1C */ ARQCallback callback;
 };
@@ -40,7 +40,7 @@ typedef struct ARQRequest ARQRequest;
 // ar.c
 ARQCallback ARRegisterDMACallback(ARQCallback callback);
 u32 ARGetDMAStatus(void);
-void ARStartDMA(u32 type, u32 mainmem_addr, u32 aram_addr, u32 length);
+void ARStartDMA(u32 type, uptr mainmem_addr, u32 aram_addr, u32 length);
 u32 ARAlloc(u32 length);
 u32 ARFree(u32 * length);
 int ARCheckInit(void);
@@ -53,9 +53,9 @@ u32 ARGetSize(void);
 // arq.c
 void ARQInit(void);
 void ARQReset(void);
-void ARQPostRequest(struct ARQRequest * request, u32 owner, u32 type, u32 priority, u32 source, u32 dest, u32 length, ARQCallback callback);
+void ARQPostRequest(struct ARQRequest * request, uptr owner, u32 type, u32 priority, uptr source, uptr dest, u32 length, ARQCallback callback);
 void ARQRemoveRequest(struct ARQRequest * request);
-void ARQRemoveOwnerRequest(u32 owner);
+void ARQRemoveOwnerRequest(uptr owner);
 void ARQFlushQueue(void);
 void ARQSetChunkSize(u32 size);
 u32 ARQGetChunkSize(void);

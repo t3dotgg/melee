@@ -142,16 +142,28 @@ void ftCo_ItemScopeRapid_IASA(Fighter_GObj* gobj)
 {
     Fighter* fp = GET_FIGHTER(gobj);
     if (fp->input.pressed_buttons & HSD_PAD_A) {
+#ifdef MELEE_NATIVE
+        fp->mv.co.common.x0 = p_ftCommonData->x5BC;
+#else
         *(s32*) ((u8*) fp + 0x2340) = *(s32*) ((u8*) p_ftCommonData + 0x5BC);
+#endif
     }
 }
 
 void ftCo_ItemScopeAirRapid_IASA(Fighter_GObj* gobj)
 {
+#ifdef MELEE_NATIVE
+    Fighter* fp = GET_FIGHTER(gobj);
+#else
     Fighter* fp = *(Fighter**) ((u8*) gobj + 0x2C);
+#endif
 
     if (fp->input.pressed_buttons & HSD_PAD_A) {
+#ifdef MELEE_NATIVE
+        fp->mv.co.common.x0 = p_ftCommonData->x5BC;
+#else
         *(s32*) ((u8*) fp + 0x2340) = *(s32*) ((u8*) p_ftCommonData + 0x5BC);
+#endif
     }
 }
 

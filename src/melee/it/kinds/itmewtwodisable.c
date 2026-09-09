@@ -102,7 +102,7 @@ bool itMewtwodisable_UnkMotion0_Anim(Item_GObj* item_gobj)
 
 void itMewtwodisable_UnkMotion0_Phys(Item_GObj* item_gobj) {}
 
-int itMewtwodisable_UnkMotion0_Coll(Item_GObj* item_gobj)
+bool itMewtwodisable_UnkMotion0_Coll(Item_GObj* item_gobj)
 {
     u32 coll_flags = 0;
 
@@ -112,7 +112,7 @@ int itMewtwodisable_UnkMotion0_Coll(Item_GObj* item_gobj)
     coll_flags |= it_80276308(item_gobj);
     // combine with collided with ceiling report
     coll_flags |= it_802763E0(item_gobj);
-    return coll_flags;
+    return coll_flags != 0;
 }
 
 bool itMewtwoDisable_Logic67_DmgDealt(Item_GObj* item_gobj)

@@ -416,11 +416,10 @@ static HSD_ZList* zlist_sort(HSD_ZList* list, s32 nb, s32 offset)
 void _HSD_ZListSort(void)
 {
     if (zsort_sorting) {
-        zlist_texedge_top =
-            zlist_sort(zlist_texedge_top, zlist_texedge_nb,
-                       0x3C); /// @todo Create and use an offsetof macro to get
-                              /// ZList sort.texedge and sort.xlu
-        zlist_xlu_top = zlist_sort(zlist_xlu_top, zlist_xlu_nb, 0x40);
+        zlist_texedge_top = zlist_sort(zlist_texedge_top, zlist_texedge_nb,
+                                       offsetof(HSD_ZList, sort.texedge));
+        zlist_xlu_top = zlist_sort(zlist_xlu_top, zlist_xlu_nb,
+                                   offsetof(HSD_ZList, sort.xlu));
     }
 }
 
@@ -485,13 +484,25 @@ void HSD_JObjDisp(HSD_JObj* jobj, MtxPtr vmtx, HSD_TrspMask trsp_mask,
         } else if (union_type_ptcl(jobj) && sptcl_callback != NULL) {
             HSD_SList* sp;
             for (sp = jobj->u.ptcl; sp != NULL; sp = sp->next) {
-                if ((((u32) sp->data) & 0x80000000) != 0) {
-                    u32 bank = JOBJ_PTCL_BANK_MASK & ((u32) sp->data);
-                    u32 offset = (((u32) sp->data) >> JOBJ_PTCL_OFFSET_SHIFT) &
+#ifdef MELEE_NATIVE
+                if (HSD_JObjNativeParticleIsActive(sp->data)) {
+                    uintptr_t encoded = (uintptr_t) sp->data;
+                    u32 bank = JOBJ_PTCL_BANK_MASK & encoded;
+                    u32 offset = (encoded >> JOBJ_PTCL_OFFSET_SHIFT) &
                                  JOBJ_PTCL_OFFSET_MASK;
                     (*sptcl_callback)(0, bank, offset, jobj);
                 }
-                sp->data = (void*) ((u32) sp->data & JOBJ_PTCL_ACTIVE);
+                sp->data = HSD_JObjNativeParticleClear(sp->data);
+#else
+                if ((((uintptr_t) sp->data) & 0x80000000) != 0) {
+                    u32 bank = JOBJ_PTCL_BANK_MASK & ((uintptr_t) sp->data);
+                    u32 offset =
+                        (((uintptr_t) sp->data) >> JOBJ_PTCL_OFFSET_SHIFT) &
+                        JOBJ_PTCL_OFFSET_MASK;
+                    (*sptcl_callback)(0, bank, offset, jobj);
+                }
+                sp->data = (void*) ((uintptr_t) sp->data & JOBJ_PTCL_ACTIVE);
+#endif
             }
         }
     }

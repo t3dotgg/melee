@@ -1,5 +1,10 @@
 #include "plbonus.h"
 
+#ifdef MELEE_NATIVE
+#include <stddef.h>
+#include <string.h>
+#endif
+
 #include "inlines.h"
 #include "pl_040D.h"
 #include "plattack.h"
@@ -41,7 +46,15 @@ static inline void setPointValue(int player, int kind, unsigned int val)
 #endif
 unsigned int pl_800386D8(plActionStats* arg0, ssize_t arg1)
 {
+#ifdef MELEE_NATIVE
+    unsigned int value;
+    size_t offset = offsetof(plActionStats, by_attack_hi) + arg1 * sizeof(u32);
+    HSD_ASSERT(0x63, offset <= sizeof(*arg0) - sizeof(value));
+    memcpy(&value, (u8*) arg0 + offset, sizeof(value));
+    return value;
+#else
     return arg0->by_attack_hi[arg1];
+#endif
 }
 #ifdef MUST_MATCH
 #pragma pop

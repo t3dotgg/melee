@@ -73,17 +73,17 @@ typedef struct PADStatus {
 } PADStatus;
 
 // PAD.c
-int PADReset(unsigned long mask);
+int PADReset(u32 mask);
 BOOL PADRecalibrate(u32 mask);
 BOOL PADInit();
 u32 PADRead(struct PADStatus* status);
-void PADSetSamplingRate(unsigned long msec);
-void __PADTestSamplingRate(unsigned long tvmode);
+void PADSetSamplingRate(u32 msec);
+void __PADTestSamplingRate(u32 tvmode);
 void PADControlAllMotors(const u32* commandArray);
 void PADControlMotor(s32 chan, u32 command);
 void PADSetSpec(u32 spec);
-unsigned long PADGetSpec();
-int PADGetType(long chan, unsigned long* type);
+u32 PADGetSpec();
+int PADGetType(s32 chan, u32* type);
 BOOL PADSync(void);
 void PADSetAnalogMode(u32 mode);
 BOOL __PADDisableRecalibration(int arg0);

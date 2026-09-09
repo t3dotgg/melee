@@ -7,6 +7,7 @@
 
 #include <dolphin/card.h>
 #include <melee/lb/types.h>
+#include <sysdolphin/baselib/hsd_3A94.h>
 
 struct lb_80432A68_t {
     /* 0x000 */ UNK_T work_area;
@@ -15,8 +16,8 @@ struct lb_80432A68_t {
     /* 0x00C */ UNK_T unk_C;
     /* 0x010 */ const char* unk_10;
     /* 0x014 */ const char* unk_14;
-    /* 0x018 */ s32 unk_18;
-    /* 0x01C */ s32 unk_1C;
+    /* 0x018 */ HsdCardArg unk_18;
+    /* 0x01C */ HsdCardArg unk_1C;
     /* 0x020 */ lbCardNew_SnapshotEntry* snapshot_entries;
     /* 0x024 */ int* free_blocks;
     /* 0x028 */ int* free_files;
@@ -31,12 +32,16 @@ struct lb_80432A68_t {
     /* 0x08C */ s32 unused_bytes;
     /* 0x090 */ s32 unused_files;
     /* 0x094 */ CARDFileInfo file_info;
+#ifdef MELEE_NATIVE
+    CardState card_state;
+#else
     /* 0x0A8 */ s32 unk_A8;
     /* 0x098 */ u8 pad_AC[0xD0 - 0xAC]; /* maybe part of unk_80[0x123]? */
     /* 0x0A8 */ int xD0[9];
     /* 0x0A8 */ volatile int xF4[9];
     /* 0x098 */ u8
         pad_500[0x50C - 0xF4 - 9 * 4]; /* maybe part of unk_80[0x123]? */
+#endif
     /* 0x50C */ void (*x50C)(int);
     /* 0x510 */ struct CardTask {
         int x0;

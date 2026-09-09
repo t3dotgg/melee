@@ -15,7 +15,7 @@ int ft_804D6570;
 
 ColorOverlay* ftCo_800C0658(Fighter* fp)
 {
-    return (int) fp->x408.x28_colanim.ptr != 0 ? &fp->x408 : &fp->x488;
+    return fp->x408.x28_colanim.i != 0 ? &fp->x408 : &fp->x488;
 }
 
 ColorOverlay* ftCo_800C0674(Fighter_GObj* gobj)
@@ -31,7 +31,7 @@ enum_t ftCo_800C0694(Fighter* fp)
 
 int ftCo_800C06B4(Fighter* fp)
 {
-    return (int) &fp->x508.x28_colanim.ptr->x7B;
+    return fp->x508.x28_colanim.i;
 }
 
 void ftCo_800C06C0(void)

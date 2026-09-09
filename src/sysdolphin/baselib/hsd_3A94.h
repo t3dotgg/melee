@@ -6,7 +6,25 @@
 #include <placeholder.h>
 
 #include <dolphin/card.h>
+#ifndef MELEE_NATIVE
 #include <Runtime/Gecko_setjmp.h>
+#endif
+
+/* Command arguments contain both integers and pointers. */
+#ifdef MELEE_NATIVE
+typedef intptr_t HsdCardArg;
+typedef struct HsdCardCommand {
+    HsdCardArg type;
+    HsdCardArg f1;
+    HsdCardArg f2;
+    HsdCardArg f3;
+    HsdCardArg f4;
+    HsdCardArg f5;
+} HsdCardCommand;
+extern HsdCardCommand hsd_native_card_queue[32];
+#else
+typedef s32 HsdCardArg;
+#endif
 
 typedef struct CardFileData {
     u8* ptr;
@@ -38,7 +56,7 @@ typedef struct CardState {
 
 /* 3AA790 */ s32 fn_803AA790(void);
 /* 3AAA48 */ void hsd_803AAA48(void);
-/* 3AC168 */ s32 fn_803AC168(s32* cmd_buf);
+/* 3AC168 */ s32 fn_803AC168(HsdCardArg* cmd_buf);
 /* 3AC258 */ s32 fn_803AC258(CardState* card_state, s32 block_idx);
 /* 3AC2A4 */ s32 fn_803AC2A4(CardState* card_state);
 /* 3AC2D4 */ UNK_RET fn_803AC2D4(UNK_PARAMS);
@@ -63,27 +81,36 @@ typedef struct CardState {
                              s32 seq_num, void* payload, s32 payload_size,
                              s32 version);
 /* 3AD16C */ s32 fn_803AD16C(CardState* state);
-/* 3ADE4C */ s32 fn_803ADE4C(s32 card_state, s32 channel, s32 callback);
+/* 3ADE4C */ s32 fn_803ADE4C(HsdCardArg card_state, s32 channel,
+                             HsdCardArg callback);
 /* 3ADF90 */ s32 fn_803ADF90(struct CardState*, s32, u8*, s32,
                              void (*)(s32, s32));
-/* 3AE7F8 */ s32 fn_803AE7F8(struct CardState*, s32, s32, s32, s32);
-/* 3AF3F0 */ s32 fn_803AF3F0(CardState* state, s32, s32, s32, s32);
-/* 3B0120 */ s32 fn_803B0120(CardState* state, s32, s32, s32, s32);
-/* 3B0E9C */ s32 fn_803B0E9C(struct CardState*, s32, s32, s32, s32);
+/* 3AE7F8 */ s32 fn_803AE7F8(struct CardState*, s32, HsdCardArg, s32,
+                             HsdCardArg);
+/* 3AF3F0 */ s32 fn_803AF3F0(CardState* state, s32, HsdCardArg, s32,
+                             HsdCardArg);
+/* 3B0120 */ s32 fn_803B0120(CardState* state, s32, HsdCardArg, s32,
+                             HsdCardArg);
+/* 3B0E9C */ s32 fn_803B0E9C(struct CardState*, HsdCardArg, HsdCardArg, s32,
+                             s32);
 /* 3B1338 */ s32 fn_803B1338(CardState* state, s32);
-/* 3B1F78 */ s32 fn_803B1F78(CardState* state, s32 channel, s32 file_id,
-                             s32 seq_num, s32 callback);
-/* 3B21E8 */ s32 fn_803B21E8(s32 card_state, s32 file_id, s32 seq_num,
-                             s32 callback);
+/* 3B1F78 */ s32 fn_803B1F78(CardState* state, HsdCardArg channel,
+                             HsdCardArg file_id, HsdCardArg seq_num,
+                             HsdCardArg callback);
+/* 3B21E8 */ s32 fn_803B21E8(HsdCardArg card_state, HsdCardArg file_id,
+                             HsdCardArg seq_num, HsdCardArg callback);
 /* 3B2374 */ void hsd_803B2374(void);
 /* 3B24E4 */ void hsd_803B24E4(s32* ctx, int channel, int file_no,
                                void* work_buf);
 /* 3B2550 */ int hsd_803B2550(s32*, const char*, void (*)(int, int));
 /* 3B2674 */ s32 hsd_803B2674(CardState* state);
-/* 3B26CC */ s32 fn_803B26CC(CardState* state, s32 file_id, s32 seq_num,
-                             s32 version, void (*callback)(s32, s32));
+/* 3B26CC */ s32 fn_803B26CC(CardState* state, HsdCardArg file_id,
+                             HsdCardArg seq_num, HsdCardArg version,
+                             void (*callback)(s32, s32));
 /* 4D1138 */ extern u8 hsd_804D1138[0x10];
+#ifndef MELEE_NATIVE
 /* 4D2648 */ extern __jmp_buf hsd_804D2648;
+#endif
 /* 4D2E70 */ extern u8 hsd_804D2E70[2084];
 /* 4D7990 */ extern s32 hsd_804D7990;
 /* 4D7994 */ extern s32 hsd_804D7994;

@@ -86,7 +86,13 @@ HSD_Text* HSD_SisLib_803A6754(int font_idx, int context_id)
 
     text = HSD_SisLib_803A5ACC(font_idx, context_id, 0.0F, 0.0F, 0.0F, 640.0F,
                                480.0F);
+#ifdef MELEE_NATIVE
+    /* sisLib_803A7664_t has two host pointers and two 32-bit fields. The
+     * original 0x10-byte allocation only fits its 32-bit layout. */
+    alloc = HSD_SisLib_Alloc(sizeof(sisLib_803A7664_t));
+#else
     alloc = HSD_SisLib_Alloc(0x10);
+#endif
     text->alloc_data = alloc;
     buffer = HSD_SisLib_Alloc(0x80);
     alloc->data = buffer;
@@ -241,7 +247,11 @@ int HSD_SisLib_803A6B98(HSD_Text* text, float x, float y, const char* fmt, ...)
     encoded[0] = 0;
     if (fmt) {
         va_start(args, fmt);
+#ifdef MELEE_NATIVE
+        vsnprintf((char*) buffer, sizeof buffer, fmt, args);
+#else
         vsnprintf((char*) buffer, -1, fmt, args);
+#endif
         va_end(args);
         encoded_len = HSD_SisLib_803A67EC(encoded, buffer);
     }
@@ -375,7 +385,11 @@ s32 HSD_SisLib_803A70A0(HSD_Text* text, s32 entry_idx, char* fmt, ...)
         playhead = entry + 0xE;
         if (fmt != NULL) {
             va_start(args, fmt);
+#ifdef MELEE_NATIVE
+            vsnprintf((char*) buffer, sizeof buffer, fmt, args);
+#else
             vsnprintf((char*) buffer, -1, fmt, args);
+#endif
             va_end(args);
             new_size = HSD_SisLib_803A67EC(encoded, buffer);
         } else {

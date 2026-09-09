@@ -126,7 +126,11 @@ struct Fighter_804D6520_t* Fighter_804D6520 = NULL;
 struct Fighter_804D6524_t* Fighter_804D6524 = NULL;
 struct Fighter_ShakeTable_t* Fighter_SmashChargeShakeTable = NULL;
 struct Fighter_ShakeTable_t* Fighter_GrabMashShake = NULL;
+#ifdef MELEE_NATIVE
+struct Fighter_DamageFallSamples* Fighter_804D6530 = NULL;
+#else
 Vec2** Fighter_804D6530 = NULL;
+#endif
 UNK_T Fighter_804D6534 = NULL;
 struct Fighter_804D653C_t* Fighter_804D6538 = NULL;
 struct Fighter_804D653C_t* Fighter_804D653C = NULL;
@@ -1110,8 +1114,7 @@ void Fighter_ChangeMotionState(Fighter_GObj* gobj, FtMotionId msid,
         ftCommon_8007DB24(gobj);
     }
 
-    if (((flags & Ft_MF_KeepAccessory) == 0) &&
-        ((u32) fp->x20A0_accessory != 0U))
+    if (((flags & Ft_MF_KeepAccessory) == 0) && (fp->x20A0_accessory != NULL))
     {
         HSD_JObjRemoveAll(fp->x20A0_accessory);
         fp->x20A0_accessory = 0U;
@@ -1234,7 +1237,11 @@ void Fighter_ChangeMotionState(Fighter_GObj* gobj, FtMotionId msid,
             Vec3 translation;
             Quaternion quat;
 
+#ifdef MELEE_NATIVE
+            bone_index = fp->x596_x7;
+#else
             bone_index = fp->x596_bits.x7;
+#endif
 
             if ((flags & Ft_MF_FreezeState) != 0) {
                 fp->x2223_b0 = 1;
@@ -1802,7 +1809,9 @@ void Fighter_Spaghetti_8006AD10(Fighter_GObj* gobj)
             if (ftCo_800A2040(fp)) {
                 SET_STICKS(fp->input.lstick[0].x, fp->input.lstick[0].y,
                            ftCo_GetCpuLStickX(fp), ftCo_GetCpuLStickY(fp));
-                if (DbLevel < DbLKind_DebugRom && !gm_8016B41C()) {
+                if (DbLevel < DbLKind_DebugRom &&
+                    !gm_IsCurrently1PMode_inline())
+                {
                     SET_STICKS(fp->input.cstick[0].x, fp->input.cstick[0].y,
                                ftCo_GetCpuCStickX(fp), ftCo_GetCpuCStickY(fp));
                 } else {
@@ -1819,7 +1828,9 @@ void Fighter_Spaghetti_8006AD10(Fighter_GObj* gobj)
                 SET_STICKS(fp->input.lstick[0].x, fp->input.lstick[0].y,
                            HSD_PadGameStatus[fp->x618_player_id].nml_stickX,
                            HSD_PadGameStatus[fp->x618_player_id].nml_stickY);
-                if (DbLevel < DbLKind_DebugRom && gm_8016B41C() == 0) {
+                if (DbLevel < DbLKind_DebugRom &&
+                    gm_IsCurrently1PMode_inline() == 0)
+                {
                     SET_STICKS(
                         fp->input.cstick[0].x, fp->input.cstick[0].y,
                         HSD_PadGameStatus[fp->x618_player_id].nml_subStickX,

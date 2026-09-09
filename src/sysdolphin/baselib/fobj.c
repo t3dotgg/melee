@@ -122,10 +122,10 @@ static f32 parseFloat(u8** cursor, u8 format)
     s32 scale_divisor;
 
     if (format == HSD_A_FRAC_FLOAT) {
-        decoded.bits = (s32) ((*cursor)++)[0];
-        decoded.bits |= ((*cursor)++)[0] << 8;
-        decoded.bits |= ((*cursor)++)[0] << 16;
-        decoded.bits |= ((*cursor)++)[0] << 24;
+        decoded.bits = (u32) ((*cursor)++)[0];
+        decoded.bits |= (u32) ((*cursor)++)[0] << 8;
+        decoded.bits |= (u32) ((*cursor)++)[0] << 16;
+        decoded.bits |= (u32) ((*cursor)++)[0] << 24;
         return decoded.value;
     }
 
@@ -140,7 +140,7 @@ static f32 parseFloat(u8** cursor, u8 format)
         *cursor += 1;
         break;
     case HSD_A_FRAC_S16:
-        raw_value = ((s8) (*cursor)[1] << 8) | (*cursor)[0];
+        raw_value = (s16) (((u16) (*cursor)[1] << 8) | (*cursor)[0]);
         *cursor += 2;
         break;
     case HSD_A_FRAC_U16:

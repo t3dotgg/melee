@@ -493,14 +493,18 @@ block_70:
         goto block_73;
     }
     fp->dmg.x1908 = 0x4F;
-    fp->dmg.x190C = (UNK_T) fp->ft_data->x4C_sfx->x20;
+    fp->dmg.x190C = fp->ft_data->x4C_sfx->x20;
     goto block_75;
 block_73:
     if (!(scaled_kb_154 >= p_ftCommonData->x208)) {
         goto block_75;
     }
     fp->dmg.x1908 = 0x50;
+#ifdef MELEE_NATIVE
+    fp->dmg.x190C = fp->ft_data->x4C_sfx->x1C;
+#else
     fp->dmg.x190C = (UNK_T) fp->ft_data->x4C_sfx->x1C;
+#endif
 block_75:
     if (kb_level != 3) {
         goto block_83;

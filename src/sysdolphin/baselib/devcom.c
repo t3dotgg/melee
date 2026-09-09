@@ -4,6 +4,17 @@
 #include "devcom.static.h"
 #include "synth.h"
 
+#ifdef MELEE_NATIVE
+/*
+ * The host DVD and ARQ backends complete requests inline. GameCube DVD
+ * callbacks run later, so the original code can call HSD_DevComDVDWakeUp
+ * from a callback without growing the stack. Defer nested wakeups on the
+ * host and drain them from one outer loop instead.
+ */
+static bool native_dvd_wakeup_active;
+static bool native_dvd_wakeup_pending;
+#endif
+
 bool HSD_DevComIsBusy(int idx)
 {
     return (bool) devComStatus[idx];
@@ -81,7 +92,7 @@ static void HSD_DevComARAMCallback(ARQRequest* request)
     }
 
     if (aramDC->callback != NULL) {
-        aramDC->callback(aramDC->dcReq, (int) aramDC->args, buf,
+        aramDC->callback(aramDC->dcReq, (intptr_t) aramDC->args, buf,
                          aramDC->cancelflag);
     }
 
@@ -119,7 +130,7 @@ void HSD_DevComARAMWakeUp(void)
     if (devComStatus[3] != NULL) {
         if (aramDC->cancelflag) {
             if (aramDC->callback != NULL) {
-                aramDC->callback(aramDC->dcReq, (s32) aramDC->args, NULL,
+                aramDC->callback(aramDC->dcReq, (intptr_t) aramDC->args, NULL,
                                  true);
             }
             HSD_DevComUnlink(aramDC);
@@ -131,6 +142,7 @@ void HSD_DevComARAMWakeUp(void)
         if (req_idx >= 0) {
             if (aramDC->type == 3) {
                 u32 xfer_size;
+                uintptr_t dest;
                 if (aramDC->size > DEVCOM_BUF_SIZE) {
                     arq_callback = HSD_DevComStdCallback;
                     xfer_size = DEVCOM_BUF_SIZE;
@@ -147,32 +159,41 @@ void HSD_DevComARAMWakeUp(void)
                 }
                 DCStoreRange(HSD_DevCom_804C6330_bufs[req_idx],
                              DEVCOM_BUF_SIZE);
-                ARQPostRequest(devComARQR[req_idx], 0, 0, 1,
-                               (uintptr_t) HSD_DevCom_804C6330_bufs[req_idx],
-                               aramDC->dest, xfer_size, arq_callback);
+                /*
+                 * The native ARQ backend can invoke the callback before
+                 * ARQPostRequest returns. Publish the in-flight state and
+                 * advance the request before posting so a callback that
+                 * wakes ARAM again sees the next chunk.
+                 */
+                dest = aramDC->dest;
                 aramDC->dest += xfer_size;
                 aramDC->size -= xfer_size;
                 aramstate = 1;
+                ARQPostRequest(devComARQR[req_idx], 0, 0, 1,
+                               (uintptr_t) HSD_DevCom_804C6330_bufs[req_idx],
+                               dest, xfer_size, arq_callback);
             } else if (aramDC->type == 0xB) {
                 DCStoreRange((void*) aramDC->src, aramDC->size);
+                aramstate = 1;
                 ARQPostRequest(devComARQR[req_idx], 0, 0, 1, aramDC->src,
                                aramDC->dest, aramDC->size,
                                HSD_DevComARAMCallback);
-                aramstate = 1;
             } else if (aramDC->type == 0x19) {
                 DCInvalidateRange((void*) aramDC->dest, aramDC->size);
+                aramstate = 1;
                 ARQPostRequest(devComARQR[req_idx], 0, 1, 1, aramDC->src,
                                aramDC->dest, aramDC->size,
                                HSD_DevComARAMCallback);
-                aramstate = 1;
             } else if (aramDC->type == 0x1A) {
                 DCInvalidateRange(HSD_DevCom_804C6330_bufs[req_idx],
                                   DEVCOM_BUF_SIZE);
+                aramstate = 1;
                 ARQPostRequest(devComARQR[req_idx], 0, 1, 1, aramDC->src,
                                (uintptr_t) HSD_DevCom_804C6330_bufs[req_idx],
                                aramDC->size, HSD_DevComARAMCallback);
-                aramstate = 1;
             } else if (aramDC->type == 0x1B) {
+                uintptr_t src;
+                uintptr_t dest;
                 DCInvalidateRange(HSD_DevCom_804C6330_bufs[req_idx],
                                   DEVCOM_BUF_SIZE);
                 if (aramDC->size > DEVCOM_BUF_SIZE) {
@@ -182,16 +203,18 @@ void HSD_DevComARAMWakeUp(void)
                     arq_callback2 = HSD_DevComARAMCallback;
                     xfer_size2 = aramDC->size;
                 }
-                ARQPostRequest(&devComARQR[req_idx][1], 0, 1, 1, aramDC->src,
+                aramstate = 1;
+                src = aramDC->src;
+                dest = aramDC->dest;
+                ARQPostRequest(&devComARQR[req_idx][1], 0, 1, 1, src,
                                (uintptr_t) HSD_DevCom_804C6330_bufs[req_idx],
                                xfer_size2, NULL);
-                ARQPostRequest(&devComARQR[req_idx][0], 0, 0, 1,
-                               (uintptr_t) HSD_DevCom_804C6330_bufs[req_idx],
-                               aramDC->dest, xfer_size2, arq_callback2);
                 aramDC->src += xfer_size2;
                 aramDC->dest += xfer_size2;
                 aramDC->size -= xfer_size2;
-                aramstate = 1;
+                ARQPostRequest(&devComARQR[req_idx][0], 0, 0, 1,
+                               (uintptr_t) HSD_DevCom_804C6330_bufs[req_idx],
+                               dest, xfer_size2, arq_callback2);
             }
         }
     }
@@ -225,37 +248,64 @@ static void HSD_DevComDVDARAMEndCallback(ARQRequest* request)
         i = 1;
     }
 
+#ifdef MELEE_NATIVE
+    /* Keep the request on the DVD queue until HSD_DevComDVDCallback unlinks
+     * it. Adding it to the free list here would overwrite its queue link while
+     * the synchronous native ARQ callback is still unwinding. */
     if (HSD_DevCom_804D77FC[i]->callback != NULL && HSD_DevCom_804D7804 == 0) {
         HSD_DevCom_804D77FC[i]->callback(
-            HSD_DevCom_804D77FC[i]->dcReq, (int) HSD_DevCom_804D77FC[i]->args,
-            NULL, HSD_DevCom_804D77FC[i]->cancelflag);
+            HSD_DevCom_804D77FC[i]->dcReq,
+            (intptr_t) HSD_DevCom_804D77FC[i]->args, NULL,
+            HSD_DevCom_804D77FC[i]->cancelflag);
+    }
+    HSD_DevCom_804D77FC[i] = NULL;
+#else
+    if (HSD_DevCom_804D77FC[i]->callback != NULL && HSD_DevCom_804D7804 == 0) {
+        HSD_DevCom_804D77FC[i]->callback(
+            HSD_DevCom_804D77FC[i]->dcReq,
+            (intptr_t) HSD_DevCom_804D77FC[i]->args, NULL,
+            HSD_DevCom_804D77FC[i]->cancelflag);
     }
     HSD_DevComARAMCallback_inline(HSD_DevCom_804D77FC[i]);
     HSD_DevCom_804D77FC[i] = NULL;
+#endif
 }
 
 static void HSD_DevComDVDMemCallback(s32 result, DVDFileInfo* unused)
 {
     HSD_DevCom* dc;
+    HSD_DevCom* active_dc = dvdDC;
     bool enabled;
 
     if (result == -1) {
         HSD_DevCom_804D7804 = 1;
     }
-    if (dvdDC->size > 0x80000) {
-        dvdDC->src += 0x80000;
-        dvdDC->dest += 0x80000;
-        dvdDC->size -= 0x80000;
+    if (active_dc->size > 0x80000) {
+        active_dc->src += 0x80000;
+        active_dc->dest += 0x80000;
+        active_dc->size -= 0x80000;
         HSD_DevCom_804D77F5 = 0;
         HSD_DevComDVDWakeUp();
         return;
     }
-    if (dvdDC->callback != NULL && HSD_DevCom_804D7804 == 0) {
-        dvdDC->callback(dvdDC->dcReq, (int) dvdDC->args, NULL,
-                        dvdDC->cancelflag);
+#ifdef MELEE_NATIVE
+    /* Remove the completed request before calling a client. Native callbacks
+     * run inline and can submit a replacement request on the same channel. */
+    HSD_DevComUnlink(active_dc);
+    dc = active_dc;
+    if (active_dc->callback != NULL && HSD_DevCom_804D7804 == 0) {
+        active_dc->callback(active_dc->dcReq, (intptr_t) active_dc->args, NULL,
+                            active_dc->cancelflag);
     }
-    HSD_DevComUnlink(dvdDC);
-    dc = dvdDC;
+#else
+    if (active_dc->callback != NULL && HSD_DevCom_804D7804 == 0) {
+        active_dc->callback(active_dc->dcReq, (intptr_t) active_dc->args, NULL,
+                            active_dc->cancelflag);
+    }
+    dvdDC = active_dc;
+    HSD_DevComUnlink(active_dc);
+    dc = active_dc;
+#endif
     enabled = OSDisableInterrupts();
     dc->next = HSD_DevCom_804D77F0;
     HSD_DevCom_804D77F0 = dc;
@@ -267,6 +317,7 @@ static void HSD_DevComDVDMemCallback(s32 result, DVDFileInfo* unused)
 static void HSD_DevComDVDCallback(s32 result, DVDFileInfo* unused)
 {
     HSD_DevCom* dc;
+    HSD_DevCom* active_dc = dvdDC;
     s32 enabled;
     u16 type;
 
@@ -277,15 +328,16 @@ static void HSD_DevComDVDCallback(s32 result, DVDFileInfo* unused)
     }
     type = dvdDC->type;
     if (type == 0x22) {
-        HSD_ASSERT(0x18C, dvdDC->size <= DEVCOM_BUF_SIZE);
-        HSD_ASSERT(0x18D, dvdDC->callback);
+        HSD_ASSERT(0x18C, active_dc->size <= DEVCOM_BUF_SIZE);
+        HSD_ASSERT(0x18D, active_dc->callback);
         if (HSD_DevCom_804D7804 == 0) {
-            dvdDC->callback(dvdDC->dcReq, (s32) dvdDC->args,
-                            HSD_DevCom_804C6330_bufs[HSD_DevCom_804D77F6],
-                            dvdDC->cancelflag);
+            active_dc->callback(active_dc->dcReq, (intptr_t) active_dc->args,
+                                HSD_DevCom_804C6330_bufs[HSD_DevCom_804D77F6],
+                                active_dc->cancelflag);
         }
-        HSD_DevComUnlink(dvdDC);
-        dc = dvdDC;
+        dvdDC = active_dc;
+        HSD_DevComUnlink(active_dc);
+        dc = active_dc;
         enabled = OSDisableInterrupts();
         dc->next = HSD_DevCom_804D77F0;
         HSD_DevCom_804D77F0 = dc;
@@ -296,30 +348,41 @@ static void HSD_DevComDVDCallback(s32 result, DVDFileInfo* unused)
         HSD_DevComARAMWakeUp();
     } else if (type == 0x23) {
         HSD_DevCom_804D77F7 = HSD_DevCom_804D77F6;
-        if (dvdDC->size > DEVCOM_BUF_SIZE) {
+        if (active_dc->size > DEVCOM_BUF_SIZE) {
             ARQPostRequest(
                 devComARQR[HSD_DevCom_804D77F7], 0, 0, 1,
                 (uintptr_t) HSD_DevCom_804C6330_bufs[HSD_DevCom_804D77F7],
-                dvdDC->dest, DEVCOM_BUF_SIZE, HSD_DevComDVDStdCallback);
-            dvdDC->src += DEVCOM_BUF_SIZE;
-            dvdDC->dest += DEVCOM_BUF_SIZE;
-            dvdDC->size -= DEVCOM_BUF_SIZE;
+                active_dc->dest, DEVCOM_BUF_SIZE, HSD_DevComDVDStdCallback);
+            active_dc->src += DEVCOM_BUF_SIZE;
+            active_dc->dest += DEVCOM_BUF_SIZE;
+            active_dc->size -= DEVCOM_BUF_SIZE;
             HSD_DevCom_804D77F5 = 0;
             HSD_DevComDVDWakeUp();
         } else {
-            HSD_DevCom_804D77FC[HSD_DevCom_804D77F7] = dvdDC;
+            HSD_DevCom_804D77FC[HSD_DevCom_804D77F7] = active_dc;
             ARQPostRequest(
                 devComARQR[HSD_DevCom_804D77F7], 0, 0, 1,
                 (uintptr_t) HSD_DevCom_804C6330_bufs[HSD_DevCom_804D77F7],
-                dvdDC->dest, dvdDC->size, HSD_DevComDVDARAMEndCallback);
-            HSD_DevComUnlink(dvdDC);
+                active_dc->dest, active_dc->size,
+                HSD_DevComDVDARAMEndCallback);
+            HSD_DevComUnlink(active_dc);
+#ifdef MELEE_NATIVE
+            enabled = OSDisableInterrupts();
+            active_dc->next = HSD_DevCom_804D77F0;
+            HSD_DevCom_804D77F0 = active_dc;
+            OSRestoreInterrupts(enabled);
+#endif
             HSD_DevCom_804D77F5 = 0;
             HSD_DevComDVDWakeUp();
         }
     }
 }
 
+#ifdef MELEE_NATIVE
+static void HSD_DevComDVDWakeUpImpl(void)
+#else
 void HSD_DevComDVDWakeUp(void)
+#endif
 {
     bool enabled = OSDisableInterrupts();
     int i;
@@ -333,7 +396,7 @@ void HSD_DevComDVDWakeUp(void)
         if ((dvdDC = devComStatus[i])) {
             if (dvdDC->cancelflag) {
                 if (dvdDC->callback != NULL) {
-                    dvdDC->callback(dvdDC->dcReq, (s32) dvdDC->args, NULL,
+                    dvdDC->callback(dvdDC->dcReq, (intptr_t) dvdDC->args, NULL,
                                     true);
                 }
                 HSD_DevComUnlink(dvdDC);
@@ -343,20 +406,31 @@ void HSD_DevComDVDWakeUp(void)
             }
             DVDFastOpen(dvdDC->file, &fileinfo);
             if (dvdDC->type == 0x21) {
-                DVDReadAsyncPrio(&fileinfo, (void*) dvdDC->dest,
-                                 MIN(dvdDC->size, 0x80000), (s32) dvdDC->src,
-                                 HSD_DevComDVDMemCallback, 2);
+                /* Native DVD reads complete inline. Mark the channel busy
+                 * before calling into the backend so its callback cannot
+                 * re-enter this wakeup path as a second request. */
                 HSD_DevCom_804D77F5 = 1;
+                if (!DVDReadAsyncPrio(&fileinfo, (void*) dvdDC->dest,
+                                      MIN(dvdDC->size, 0x80000),
+                                      (s32) dvdDC->src,
+                                      HSD_DevComDVDMemCallback, 2))
+                {
+                    HSD_DevCom_804D77F5 = 0;
+                }
                 OSRestoreInterrupts(enabled);
                 return;
             }
             buf_idx = getRelayBufIdx();
             if (buf_idx >= 0) {
                 HSD_DevCom_804D77F6 = buf_idx;
-                DVDReadAsyncPrio(&fileinfo, HSD_DevCom_804C6330_bufs[buf_idx],
-                                 MIN(dvdDC->size, DEVCOM_BUF_SIZE), dvdDC->src,
-                                 HSD_DevComDVDCallback, 2);
                 HSD_DevCom_804D77F5 = 1;
+                if (!DVDReadAsyncPrio(&fileinfo,
+                                      HSD_DevCom_804C6330_bufs[buf_idx],
+                                      MIN(dvdDC->size, DEVCOM_BUF_SIZE),
+                                      dvdDC->src, HSD_DevComDVDCallback, 2))
+                {
+                    HSD_DevCom_804D77F5 = 0;
+                }
                 OSRestoreInterrupts(enabled);
                 return;
             }
@@ -364,6 +438,23 @@ void HSD_DevComDVDWakeUp(void)
     }
     OSRestoreInterrupts(enabled);
 }
+
+#ifdef MELEE_NATIVE
+void HSD_DevComDVDWakeUp(void)
+{
+    if (native_dvd_wakeup_active) {
+        native_dvd_wakeup_pending = true;
+        return;
+    }
+
+    native_dvd_wakeup_active = true;
+    do {
+        native_dvd_wakeup_pending = false;
+        HSD_DevComDVDWakeUpImpl();
+    } while (native_dvd_wakeup_pending);
+    native_dvd_wakeup_active = false;
+}
+#endif
 
 static inline int HSD_DevComGetDestType(int type)
 {
@@ -406,10 +497,18 @@ int HSD_DevComRequest(int file, uintptr_t src, uintptr_t dest, size_t size,
         !(HSD_DevComGetDestType(type) == DEVCOMDEST_SBUF
             && size > DEVCOM_BUF_SIZE));
 
+#ifndef MELEE_NATIVE
     HSD_ASSERT(0x1EF, src % 32 == 0);
     HSD_ASSERT(0x1F0, dest % 32 == 0);
     HSD_ASSERT(0x1F1, size % 32 == 0);
     HSD_ASSERT(0x1F2, size != 0);
+#else
+    /* Host buffers do not need GameCube cache-line alignment. */
+    if (size == 0) {
+        HSD_AudioFree(dc);
+        return -1;
+    }
+#endif
 
     pri = (type & 0x38) == 0x20 ? pri : 3;
 
@@ -470,7 +569,7 @@ int HSD_DevComCancelEx(int dcReq, u32 flags, HSD_DevComCallback cb, void* args)
             dc->cancelflag = true;
         } else {
             if (dc->callback != NULL) {
-                dc->callback(dc->dcReq, (int) dc->args, NULL, true);
+                dc->callback(dc->dcReq, (intptr_t) dc->args, NULL, true);
             }
             HSD_DevComUnlink(dc);
         }

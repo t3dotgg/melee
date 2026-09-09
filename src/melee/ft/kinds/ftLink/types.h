@@ -41,10 +41,20 @@ struct ftLk_DatAttrs {
     /* +88 */ s32 x88;
     /* +8C */ s32 x8C;
     /* +90 */ s32 x90;
+#ifdef MELEE_NATIVE
+    /* ftCo_LinkCatchAttrs reads these as contiguous 32-bit timing values. */
+    /* +94 */ u32 x94;
+#else
     /* +94 */ UNK_T x94;
+#endif
     /* +98 */ s32 x98;
+#ifdef MELEE_NATIVE
+    /* +9C */ u32 x9C;
+    /* +A0 */ u32 xA0;
+#else
     /* +9C */ UNK_T x9C;
     /* +A0 */ UNK_T xA0;
+#endif
     /* +A4 */ int xA4;
     /* +A8 */ s32 xA8;
     /* +AC */ int xAC;

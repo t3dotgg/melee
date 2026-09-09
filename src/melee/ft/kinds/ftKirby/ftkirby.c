@@ -2848,7 +2848,11 @@ HSD_JObj* ftKb_Init_UnkMotionStates6(Fighter_GObj* gobj)
 
 void ftKb_SpecialN_800EF040(Fighter_GObj* gobj, int arg1, KirbyHatStruct* hat)
 {
+#ifdef MELEE_NATIVE
+    u32 mask = hat->hat_part_mask;
+#else
     u32 mask = (u32) hat->hat_dynamics[1];
+#endif
     if (mask != 0) {
         Fighter* fp = GET_FIGHTER(gobj);
         struct Fighter_804D6540_t* ft_data = Fighter_804D6540[fp->kind];
@@ -2881,7 +2885,7 @@ ftKb_SpecialN_insert_joint_refs(s32* total_dobjs, HSD_Joint* root, Fighter* fp,
             bone++;
             (*part_idx)++;
         }
-        HSD_IDInsertToTable(NULL, (u32) *joint, parts[*part_idx].joint);
+        HSD_IDInsertToTable(NULL, (uintptr_t) *joint, parts[*part_idx].joint);
         (*part_idx)++;
         ftAnim_GetNextJointInTree(joint, joint_idx);
     }
@@ -2967,7 +2971,11 @@ void ftKb_SpecialN_800EF0E4(Fighter_GObj* gobj, int arg1, u8* arg2)
                     HSD_ASSERT(0x43E, 0);
                 }
                 dst = fp->u.kb.hat.x14.data;
+#ifdef MELEE_NATIVE
+                dst[total_dobjs] = dobj;
+#else
                 *(HSD_DObj**) ((u8*) dst + dst_off) = dobj;
+#endif
                 mobj = dobj->mobj;
                 if (mobj != NULL) {
                     hsdChangeClass(mobj, &ftMObj);
@@ -3075,7 +3083,11 @@ void ftKb_SpecialN_800EF438(Fighter_GObj* gobj, KirbyHatStruct* hat)
                         HSD_ASSERT(0x4B9, 0);
                     }
                     dst = fp->u.kb.hat.x1C.data;
+#ifdef MELEE_NATIVE
+                    dst[total_dobjs] = dobj;
+#else
                     *(HSD_DObj**) ((u8*) dst + dst_off) = dobj;
+#endif
                     mobj = dobj->mobj;
                     if (mobj != NULL) {
                         hsdChangeClass(mobj, &ftMObj);
@@ -3130,9 +3142,14 @@ void ftKb_SpecialN_800EF69C(Fighter_GObj* gobj, int arg1, KirbyHatStruct* hat)
             jobj = bone->joint;
             dobj = (HSD_DObj*) jobj;
             if (jobj != NULL && (bone->flags_b6 || bone->flags2_b7)) {
+#ifdef MELEE_NATIVE
+                if (bone->flags2_b6) {
+                    if (bone->flags2_b5) {
+#else
                 u8* b9p = &((u8*) bone)[9];
                 if ((*b9p >> 1) & 1) {
                     if ((*b9p >> 2) & 1) {
+#endif
                         dobj = fp->x203C.data[bone->xD];
                     } else {
                         dobj = fp->dobj_list.data[bone->xD];
@@ -3150,7 +3167,11 @@ void ftKb_SpecialN_800EF69C(Fighter_GObj* gobj, int arg1, KirbyHatStruct* hat)
         HSD_ObjFree(&fighter_x2040_alloc_data, fp->u.kb.hat.x1C.data);
         fp->u.kb.hat.x14.data = NULL;
     }
+#ifdef MELEE_NATIVE
+    mask = hat->hat_part_mask;
+#else
     mask = (u32) hat->hat_dynamics[1];
+#endif
     if (mask != 0) {
         ftKb_RemoveHatParts(gobj, mask);
     }

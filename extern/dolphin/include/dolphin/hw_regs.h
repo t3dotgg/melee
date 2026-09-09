@@ -1,6 +1,8 @@
 #ifndef _DOLPHIN_HW_REGS_H_
 #define _DOLPHIN_HW_REGS_H_
 
+// Native targets implement the SDK APIs and have no mapped console registers.
+#ifndef MELEE_NATIVE
 #if defined(__MWERKS__) && !defined(M2CTX)
 volatile u16 __VIRegs[59]     : 0xCC002000;
 volatile u32 __PIRegs[12]     : 0xCC003000;
@@ -20,6 +22,8 @@ volatile u32 __AIRegs[8]      : 0xCC006C00;
 #define __EXIRegs        ((volatile u32 *)0xCC006800)
 #define __AIRegs         ((volatile u32 *)0xCC006C00)
 #endif
+
+#endif // !MELEE_NATIVE
 
 // Offsets for __VIRegs
 

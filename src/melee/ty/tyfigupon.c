@@ -49,9 +49,9 @@
 /* 314BE4 */ static void _tyFigupon_80314BE4(HSD_GObj* gobj, int unused);
 /* 314C5C */ static void _tyFigupon_80314C5C(HSD_GObj*);
 /* 3152BC */ static void _tyFigupon_803152BC(HSD_GObj*);
-/* 3153EC */ static void _tyFigupon_803153EC(s32, s32, s32, s32, s32);
-/* 315574 */ static void _tyFigupon_80315574(void);
-/* 3155C8 */ static void _tyFigupon_803155C8(void);
+/* 3153EC */ static void _tyFigupon_803153EC(s32, s32, s32, s32, s32*);
+/* 315574 */ static void _tyFigupon_80315574(HSD_GObj*);
+/* 3155C8 */ static void _tyFigupon_803155C8(HSD_GObj*);
 /* 315C44 */ static void _tyFigupon_80315C44(HSD_GObj*);
 /* 316170 */ static void _tyFigupon_80316170(HSD_GObj*);
 /* 316420 */ static void _tyFigupon_80316420(s32);
@@ -63,7 +63,7 @@
 /* 3181BC */ static s32 _tyFigupon_803181BC(void);
 /* 4D6EF0 */ static TyFiguponData* _tyFigupon_804D6EF0;
 /* 4D6EF4 */ static struct un_804D6EF4_t* _tyFigupon_804D6EF4;
-/* 4D6EF8 */ static HSD_Archive* _tyFigupon_804D6EF8;
+/* 4D6EF8 */ static ToyListEntry* _tyFigupon_804D6EF8;
 /* 4D6EFC */ static s32 _tyFigupon_804D6EFC;
 /* 4D6F00 */ static s32 _tyFigupon_804D6F00;
 /* 4D6F04 */ static HSD_CObjDesc* _tyFigupon_804D6F04;
@@ -205,9 +205,18 @@ void _tyFigupon_80314BE4(HSD_GObj* gobj, int unused)
     }
 }
 
+typedef struct {
+    u8 pad_0[4];
+    s32 x4;
+    s32 x8;
+    u8 pad_C[0x40 - 0xC];
+    Vec3 translate;
+    Vec3 offset;
+} TyFiguponCoin;
+
 void _tyFigupon_80314C5C(HSD_GObj* gobj)
 {
-    Toy* tp1 = GET_TOY(gobj);
+    TyFiguponCoin* tp1 = HSD_GObjGetUserData(gobj);
     HSD_JObj* tmp_jobj = GET_JOBJ(gobj);
     HSD_JObj* jobj = tmp_jobj;
     struct un_804D6EF4_t* temp_r29 = _tyFigupon_804D6EF4;
@@ -233,10 +242,10 @@ void _tyFigupon_80314C5C(HSD_GObj* gobj)
         } else {
             lbAudioAx_800237A8(146, 127, 64);
             tp1->x8 = 0;
-            HSD_GObjPLink_80390228(gobj);
+            HSD_GObjFree(gobj);
         }
     } else {
-        Toy* tp = HSD_MemAlloc(0x58);
+        TyFiguponCoin* tp = HSD_MemAlloc(sizeof(*tp));
         if (tp != NULL) {
             GObj_InitUserData(gobj, 0, Toy_RemoveUserData, tp);
         }
@@ -289,7 +298,7 @@ void _tyFigupon_803152BC(HSD_GObj* arg0)
         } else {
             temp_r30->x8 = 0;
             GObj_RemoveUserData(arg0);
-            HSD_GObjProc_8038FE24(HSD_GObj_804D7838);
+            HSD_GObjProc_RemoveProc(HSD_GObj_CurrentInvokedProc);
         }
     } else {
         temp_r3_2 = HSD_MemAlloc(sizeof(TyFiguponUD));
@@ -312,7 +321,7 @@ typedef union {
 
 static const TyFiguponDigitInit _tyFigupon_803B8958 = { { 0, 0, 0, 0 } };
 
-void _tyFigupon_803153EC(s32 arg0, s32 arg1, s32 arg2, s32 arg3, s32 arg4)
+void _tyFigupon_803153EC(s32 arg0, s32 arg1, s32 arg2, s32 arg3, s32* arg4)
 {
     s32 count;
     TyFiguponDigitInit digits_s = _tyFigupon_803B8958;
@@ -352,14 +361,14 @@ void _tyFigupon_803153EC(s32 arg0, s32 arg1, s32 arg2, s32 arg3, s32 arg4)
     }
 }
 
-void _tyFigupon_80315574(void)
+void _tyFigupon_80315574(HSD_GObj* gobj)
 {
     TyFiguponData* data = _tyFigupon_804D6EF0;
 
     if (data->x24 == 0) {
         data->x18->hidden = 1;
-        data->x10 = 0;
-        HSD_GObjProc_8038FE24(HSD_GObj_804D7838);
+        data->x10 = NULL;
+        HSD_GObjProc_RemoveProc(HSD_GObj_CurrentInvokedProc);
     } else {
         data->x24 = data->x24 - 1;
     }
@@ -425,13 +434,13 @@ static inline void setupBetAnim(struct un_804D6EF4_t* ef4)
     HSD_JObjAnimAll(ef4_2->jobjs[8]);
 }
 
-void _tyFigupon_803155C8(void)
+void _tyFigupon_803155C8(HSD_GObj* gobj)
 {
     s32 new_var;
     ToyAnimState* aa8 = &Toy_804A2AA8;
     struct un_804D6EF4_t* ef4 = _tyFigupon_804D6EF4;
     TyFiguponData* data = _tyFigupon_804D6EF0;
-    HSD_JObj* jobj = GET_JOBJ((HSD_GObj*) ef4->x08);
+    HSD_JObj* jobj = GET_JOBJ(ef4->x08);
     s32 sc;
     f32 fval;
     f32 pct;
@@ -549,12 +558,12 @@ void _tyFigupon_803155C8(void)
     case 8:
         ef4->x58 -= 1;
         if (ef4->x58 == 0) {
-            if (((HSD_Archive**) _tyFigupon_804D6EF8)[5] != NULL) {
-                lbArchive_80016EFC(((HSD_Archive**) _tyFigupon_804D6EF8)[5]);
-                ((HSD_Archive**) _tyFigupon_804D6EF8)[5] = NULL;
+            if (_tyFigupon_804D6EF8->archive != NULL) {
+                lbArchive_80016EFC(_tyFigupon_804D6EF8->archive);
+                _tyFigupon_804D6EF8->archive = NULL;
             }
             if (aa8->gobj != NULL) {
-                HSD_GObjPLink_80390228(aa8->gobj);
+                HSD_GObjFree(aa8->gobj);
                 aa8->gobj = NULL;
                 aa8->jobj[1] = NULL;
                 aa8->jobj[0] = NULL;
@@ -576,7 +585,7 @@ void _tyFigupon_803155C8(void)
         setupPercentDisplay(ef4);
         ef4->x58 = 0;
         ef4->x56 = 0;
-        HSD_GObjProc_8038FE24(HSD_GObj_804D7838);
+        HSD_GObjProc_RemoveProc(HSD_GObj_CurrentInvokedProc);
         ef4->x5C = 0;
         break;
     }
@@ -653,7 +662,7 @@ static inline void tyFigupon_FinishCoinDrop(HSD_GObj* gobj, TyFiguponUD* ud,
     ef4->x58 = ef4->x56;
     ef4->x58 += 0xE;
     ef4->x5C = 2;
-    HSD_GObjProc_8038FE24(HSD_GObj_804D7838);
+    HSD_GObjProc_RemoveProc(HSD_GObj_CurrentInvokedProc);
 }
 
 void _tyFigupon_80315C44(HSD_GObj* arg0)
@@ -727,7 +736,7 @@ void _tyFigupon_80315C44(HSD_GObj* arg0)
             ud->x14 = i;
             ud->x10 = i;
             tyFigupon_StoreDigits(&ud->x10, total);
-            _tyFigupon_803153EC(gm_801623D8() / 10u, 3, 3, 1, (s32) &ud->x10);
+            _tyFigupon_803153EC(gm_801623D8() / 10u, 3, 3, 1, &ud->x10);
             HSD_AObjSetRate(ef4->jobjs[3]->child->u.dobj->mobj->tobj->aobj,
                             2.0f);
             HSD_AObjSetRate(ef4->jobjs[4]->child->u.dobj->mobj->tobj->aobj,
@@ -755,7 +764,7 @@ void _tyFigupon_80316170(HSD_GObj* arg0)
             HSD_JObjSetTranslateY(HSD_GObjGetHSDObj(arg0), -7.2f);
             gm_801678F8((s32) gm_801677F0(), 0xC, 0);
             GObj_RemoveUserData(arg0);
-            HSD_GObjProc_8038FE24(HSD_GObj_804D7838);
+            HSD_GObjProc_RemoveProc(HSD_GObj_CurrentInvokedProc);
             return;
         }
         ud->x44 -= 0.6f;
@@ -842,9 +851,8 @@ void _tyFigupon_80316420(s32 arg0)
     HSD_SisLib_803A6368(data->x14, Toy_80308328(arg0));
     Toy_803083D8(ef4->jobjs[0xC], id);
     if (((TyModeState*) Toy_804A284C)->x0 == 2) {
-        if ((u32) data->x10 == 0) {
-            data->x10 = (s32) HSD_GObj_SetupProc(
-                data->x0, (void (*)(HSD_GObj*)) _tyFigupon_80315574, 0);
+        if (data->x10 == NULL) {
+            data->x10 = HSD_GObj_SetupProc(data->x0, _tyFigupon_80315574, 0);
         }
         data->x24 = 0x12C;
         _tyFigupon_804D6EF0->x18->hidden = 0;
@@ -937,7 +945,7 @@ void _tyFigupon_803168DC(HSD_GObj* arg0)
 void _tyFigupon_80316BF8(HSD_GObj* arg0)
 {
     lbAudioAx_80023F28(0x35);
-    HSD_GObjProc_8038FE24(HSD_GObj_804D7838);
+    HSD_GObjProc_RemoveProc(HSD_GObj_CurrentInvokedProc);
 }
 
 void _tyFigupon_80316C24(HSD_GObj* arg0)
@@ -1088,15 +1096,12 @@ void _tyFigupon_80316C24(HSD_GObj* arg0)
             if ((s8) temp != 0) {
                 ef4->x5D = temp;
                 ef4->x56 = 0x1E;
-                HSD_GObj_SetupProc((HSD_GObj*) ef4->x00, _tyFigupon_80315C44,
-                                   0);
-                HSD_GObj_80390CD4((HSD_GObj*) ef4->x00);
-                HSD_GObj_SetupProc((HSD_GObj*) ef4->x0C, _tyFigupon_803152BC,
-                                   0);
-                HSD_GObj_80390CD4((HSD_GObj*) ef4->x0C);
+                HSD_GObj_SetupProc(ef4->x00, _tyFigupon_80315C44, 0);
+                HSD_GObj_80390CD4(ef4->x00);
+                HSD_GObj_SetupProc(ef4->x0C, _tyFigupon_803152BC, 0);
+                HSD_GObj_80390CD4(ef4->x0C);
                 ef4->x5C = 1;
-                HSD_GObj_SetupProc(
-                    arg0, (void (*)(HSD_GObj*)) _tyFigupon_803155C8, 0);
+                HSD_GObj_SetupProc(arg0, _tyFigupon_803155C8, 0);
                 HSD_GObj_80390CD4(arg0);
                 return;
             }
@@ -1255,21 +1260,20 @@ void _tyFigupon_8031753C(void)
         OSReport("*** BG data aren't being loaded!\n");
         OSPanic(__FILE__, 1372, "");
     }
-    if (ef4->x00 != 0) {
-        HSD_GObjPLink_80390228((HSD_GObj*) ef4->x00);
-        ef4->x00 = 0;
+    if (ef4->x00 != NULL) {
+        HSD_GObjFree(ef4->x00);
+        ef4->x00 = NULL;
     }
     panel.joint = HSD_ArchiveGetPublicAddress(ef4->archive,
                                               "ToyFigurePonPanel_Top_joint");
     if (panel.joint != NULL) {
         TyFiguponDigitInit digits_s;
         s32 total;
-        ef4->x00 = (u32) GObj_Create(9, 9, 0);
+        ef4->x00 = GObj_Create(9, 9, 0);
         jobj = HSD_JObjLoadJoint(panel.joint);
-        HSD_GObjObject_80390A70((HSD_GObj*) ef4->x00, temp = HSD_GObj_JObjKind,
-                                jobj);
+        HSD_GObjObject_80390A70(ef4->x00, temp = HSD_GObj_JObjKind, jobj);
         panel.render_cb = HSD_GObj_JObjCallback;
-        GObj_SetupGXLink((HSD_GObj*) ef4->x00, panel.render_cb, 0x3C, 1);
+        GObj_SetupGXLink(ef4->x00, panel.render_cb, 0x3C, 1);
         lb_8001204C(jobj, ef4->jobjs, _tyFigupon_803FEB88, 0xD);
         _tyFigupon_80314AA8(ef4->jobjs[0xC], NULL,
                             "ToyFigurePonPanel_zsmash_matanim_joint", NULL);
@@ -1335,11 +1339,10 @@ void _tyFigupon_8031753C(void)
 
         joint = HSD_ArchiveGetPublicAddress(ef4->archive,
                                             "ToyFigurePonLever_Top_joint");
-        ef4->x08 = (u32) GObj_Create(9, 9, 0);
+        ef4->x08 = GObj_Create(9, 9, 0);
         jobj = HSD_JObjLoadJoint(joint);
-        HSD_GObjObject_80390A70((HSD_GObj*) ef4->x08, temp = HSD_GObj_JObjKind,
-                                jobj);
-        GObj_SetupGXLink((HSD_GObj*) ef4->x08, HSD_GObj_JObjCallback, 0x3C, 0);
+        HSD_GObjObject_80390A70(ef4->x08, temp = HSD_GObj_JObjKind, jobj);
+        GObj_SetupGXLink(ef4->x08, HSD_GObj_JObjCallback, 0x3C, 0);
         _tyFigupon_80314AA8(jobj, "ToyFigurePonLever_Top_animjoint",
                             "ToyFigurePonLever_Top_matanim_joint",
                             "ToyFigurePonLever_Top_shapeanim_joint");
@@ -1354,7 +1357,7 @@ void _tyFigupon_8031753C(void)
         }
         HSD_JObjAnimAll(ef4->jobjs[0xE]);
 
-        ef4->x0C = (u32) GObj_Create(9, 9, 0);
+        ef4->x0C = GObj_Create(9, 9, 0);
         par_joint = HSD_ArchiveGetPublicAddress(ef4->archive,
                                                 "ToyFigurePonPar_Top_joint");
         for (count = 0; count < 3; count++) {
@@ -1485,7 +1488,7 @@ void _tyFigupon_80317A60(void)
         data->x18->pos_y = 9.599999f;
     }
     HSD_SisLib_803A6368(data->x18, 0x13C);
-    data->x10 = 0;
+    data->x10 = NULL;
     data->x24 = 0;
     data->x28 = 8;
     _tyFigupon_804D6EF0->x18->hidden = 1;
@@ -1548,14 +1551,14 @@ void tyFigupon_Scene_OnEnter(void* arg0)
     u8 kind;
     PAD_STACK(16);
 
-    _tyFigupon_804D6EF0 = HSD_MemAlloc(0x34);
+    _tyFigupon_804D6EF0 = HSD_MemAlloc(sizeof(*_tyFigupon_804D6EF0));
     _tyFigupon_804D6EF4 = HSD_MemAlloc(sizeof(*_tyFigupon_804D6EF4));
-    _tyFigupon_804D6EF8 = HSD_MemAlloc(0x18);
-    Toy_sbss_804D6ED4 = HSD_MemAlloc(0xE4);
-    memzero(_tyFigupon_804D6EF0, 0x34);
+    _tyFigupon_804D6EF8 = HSD_MemAlloc(sizeof(*_tyFigupon_804D6EF8));
+    Toy_sbss_804D6ED4 = HSD_MemAlloc(sizeof(TyLightArray_));
+    memzero(_tyFigupon_804D6EF0, sizeof(*_tyFigupon_804D6EF0));
     memzero(_tyFigupon_804D6EF4, sizeof(*_tyFigupon_804D6EF4));
-    memzero(_tyFigupon_804D6EF8, 0x18);
-    memzero(Toy_sbss_804D6ED4, 0xE4);
+    memzero(_tyFigupon_804D6EF8, sizeof(*_tyFigupon_804D6EF8));
+    memzero(Toy_sbss_804D6ED4, sizeof(TyLightArray_));
     data = _tyFigupon_804D6EF0;
     Toy_sbss_804D6EC8 = NULL;
     ef4 = _tyFigupon_804D6EF4;
@@ -1576,17 +1579,16 @@ void tyFigupon_Scene_OnEnter(void* arg0)
             ef4_2->archive, "ScMenFigure_scene_lights");
         if (temp != NULL) {
             HSD_LObj* lobj;
-            ed4->x0 = (u32) GObj_Create(2, 3, 0);
+            ed4->x0 = GObj_Create(2, 3, 0);
             lobj = Toy_LoadLObjList(temp, 0);
-            HSD_GObjObject_80390A70((HSD_GObj*) ed4->x0,
-                                    kind = HSD_GObj_LightKind, lobj);
+            HSD_GObjObject_80390A70(ed4->x0, kind = HSD_GObj_LightKind, lobj);
             {
-                HSD_GObj* gobj = (HSD_GObj*) ed4->x0;
+                HSD_GObj* gobj = ed4->x0;
                 GObj_SetupGXLink(gobj, HSD_GObj_LObjCallback, 0x34, 0);
             }
         }
     }
-    memzero(Toy_sbss_804D6ED4, 0xE4);
+    memzero(Toy_sbss_804D6ED4, sizeof(TyLightArray_));
     Toy_80306D70(0);
     _tyFigupon_8031753C();
     joint = HSD_ArchiveGetPublicAddress(ef4->archive,
@@ -1637,33 +1639,33 @@ s32 _tyFigupon_803181BC(void)
     if (Toy_sbss_804D6EC8 != NULL) {
         Toy_sbss_804D6EC8 = NULL;
     }
-    if (ed4->xC != 0U) {
-        ed4->xC = 0U;
+    if (ed4->xC != NULL) {
+        ed4->xC = NULL;
     }
-    if (ef4->x00 != 0U) {
-        ef4->x00 = 0U;
+    if (ef4->x00 != NULL) {
+        ef4->x00 = NULL;
     }
-    if (ef4->x08 != 0U) {
-        ef4->x08 = 0U;
+    if (ef4->x08 != NULL) {
+        ef4->x08 = NULL;
     }
-    if (ef4->x0C != 0U) {
-        ef4->x0C = 0U;
+    if (ef4->x0C != NULL) {
+        ef4->x0C = NULL;
     }
-    if (ed4->x0 != 0U) {
-        ed4->x0 = 0U;
+    if (ed4->x0 != NULL) {
+        ed4->x0 = NULL;
     }
-    if (ed4->x4 != 0U) {
-        ed4->x4 = 0U;
+    if (ed4->x4 != NULL) {
+        ed4->x4 = NULL;
     }
     if (temp_r31->x0 != NULL) {
-        HSD_GObjProc_8038FED4(temp_r31->x0);
+        HSD_GObjProc_RemoveAllProcs(temp_r31->x0);
         temp_r31->x0 = NULL;
     }
-    if ((u32) temp_r31->x4 != 0U) {
-        temp_r31->x4 = 0;
+    if (temp_r31->x4 != NULL) {
+        temp_r31->x4 = NULL;
     }
     if (temp_r31->x8 != NULL) {
-        HSD_GObjPLink_80390228(temp_r31->x8);
+        HSD_GObjFree(temp_r31->x8);
         temp_r31->x8 = NULL;
     }
     return lbAudioAx_800236DC();

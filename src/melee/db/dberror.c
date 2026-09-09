@@ -1,7 +1,11 @@
 #include <stdarg.h>
 
 #include "db.h"
+#ifdef MELEE_NATIVE
+#include <fenv.h>
+#else
 #include <dolphin/base/PPCArch.h>
+#endif
 #include <dolphin/db.h>
 #include <dolphin/os.h>
 #include <melee/lb/lb_0195.h>
@@ -15,6 +19,9 @@
 
 void db_ClearFPUExceptions(void)
 {
+#ifdef MELEE_NATIVE
+    feclearexcept(FE_ALL_EXCEPT);
+#else
     OSContext* ctx;
 
     PPCMtmsr(PPCMfmsr() | 0x900);
@@ -22,6 +29,7 @@ void db_ClearFPUExceptions(void)
     OSSaveFPUContext(ctx);
     ctx->fpscr &= 0xFFFFF;
     OSLoadFPUContext(ctx);
+#endif
 }
 
 static void fn_HSDPanicHandler(OSContext* ctx)

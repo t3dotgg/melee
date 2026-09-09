@@ -310,7 +310,11 @@ static inline f32 kbps_scale(void)
     return 1.0F / 1024.0F;
 }
 
+#ifdef MELEE_NATIVE
+int hsd_80393A5C(char* filename, const void* data, int size)
+#else
 int hsd_80393A5C(char* filename, int data, int size)
+#endif
 {
     int ready;
     u32 start;
@@ -321,7 +325,7 @@ int hsd_80393A5C(char* filename, int data, int size)
     int fd_arg;
     f32 written_f;
     f32 elapsed;
-    u32* data_p;
+    void* data_p;
     struct ParticleUsbMessages* messages = &psUsbMessages;
 
     if (hsd_804D78A0 == 0) {
@@ -349,7 +353,7 @@ int hsd_80393A5C(char* filename, int data, int size)
     }
 
     fd_arg = fd;
-    data_p = (u32*) data;
+    data_p = (void*) data;
     written_f = (f32) FIOFwrite(fd_arg, data_p, size);
 
     if ((f32) (s32) size != written_f) {

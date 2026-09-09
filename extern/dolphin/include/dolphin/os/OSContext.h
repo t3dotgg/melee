@@ -150,9 +150,14 @@ typedef struct OSContext
     /*0x1A2*/ u16 state;
     /*0x1A4*/ u32 gqr[8];
     /*0x1C4*/ f64 psf[32];
+#ifdef MELEE_NATIVE
+    /* Host addresses are separate from the optional PowerPC register dump. */
+    uptr native_pc;
+    uptr native_stack;
+#endif
 } OSContext;
 
-u32 OSGetStackPointer(void);
+uptr OSGetStackPointer(void);
 void OSDumpContext(OSContext *context);
 void OSLoadContext(OSContext *context);
 u32 OSSaveContext(OSContext *context);
@@ -161,9 +166,9 @@ OSContext *OSGetCurrentContext(void);
 void OSSetCurrentContext(OSContext *context);
 void OSLoadFPUContext(OSContext *fpuContext);
 void OSSaveFPUContext(OSContext *fpuContext);
-u32 OSSwitchStack(u32 newsp);
-int OSSwitchFiber(u32 pc, u32 newsp);
-void OSInitContext(OSContext *context, u32 pc, u32 newsp);
+uptr OSSwitchStack(uptr newsp);
+int OSSwitchFiber(uptr pc, uptr newsp);
+void OSInitContext(OSContext *context, uptr pc, uptr newsp);
 void OSFillFPUContext(OSContext *context);
 
 #ifdef __cplusplus

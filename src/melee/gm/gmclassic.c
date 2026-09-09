@@ -601,16 +601,26 @@ static gmClassicMatchupData gm_804D4328 = { { 0x053, { 0x21, 0x21, 0x21 }, 0 },
 
 static gm_803DDEC8Struct* gmClassic_801B2D54(gm_803DDEC8Struct* arg0)
 {
+    gm_803DDEC8Struct* ptr;
+#ifdef MELEE_NATIVE
+    /* These globals share storage in the original image, but native globals
+     * can have separate addresses and sanitizer redzones. */
+    gmClassic_804908A0Data* state =
+        (gmClassic_804908A0Data*) gm_804908A0;
+    gmClassic_803DDEC8Data* matchups = &gmClassic_803DDEC8;
+#else
     gmClassicRuntimeData* o =
         (gmClassicRuntimeData*) &gmClassicIntroDataBuffer;
-    gm_803DDEC8Struct* ptr;
     gmClassicSceneData* scene_data =
         (gmClassicSceneData*) gm_Mode_Classic_States;
+    gmClassic_804908A0Data* state = &o->state;
+    gmClassic_803DDEC8Data* matchups = &scene_data->matchups;
+#endif
 
     for (ptr = arg0; ptr->x0 != 0xD; ptr++) {
         if (ptr->x1 & 8) {
             gmClassicMatchup* result = gmClassic_801B2BA4(
-                scene_data->matchups.x2B0, o->state.order.x60, arg0);
+                matchups->x2B0, state->order.x60, arg0);
             if (result != NULL) {
                 ptr->xC = result;
             } else {
@@ -624,7 +634,7 @@ static gm_803DDEC8Struct* gmClassic_801B2D54(gm_803DDEC8Struct* arg0)
         u8 flags = ptr->x1;
         if ((flags & 2) && !(flags & 0x20)) {
             gmClassicMatchup* result = gmClassic_801B2BA4(
-                scene_data->matchups.x26C, o->state.order.x54, arg0);
+                matchups->x26C, state->order.x54, arg0);
             if (result != NULL) {
                 ptr->xC = result;
             } else {
@@ -638,7 +648,7 @@ static gm_803DDEC8Struct* gmClassic_801B2D54(gm_803DDEC8Struct* arg0)
         u8 flags = ptr->x1;
         if ((flags & 0x10) && !(flags & 0x20)) {
             gmClassicMatchup* result = gmClassic_801B2BA4(
-                scene_data->matchups.x1B8, o->state.order.x34, arg0);
+                matchups->x1B8, state->order.x34, arg0);
             if (result != NULL) {
                 ptr->xC = result;
             } else {
@@ -652,7 +662,7 @@ static gm_803DDEC8Struct* gmClassic_801B2D54(gm_803DDEC8Struct* arg0)
         u8 flags = ptr->x1;
         if (flags == 0 || flags == 4) {
             gmClassicMatchup* result = gmClassic_801B2BA4(
-                scene_data->matchups.x0CC, o->state.order.x0C, arg0);
+                matchups->x0CC, state->order.x0C, arg0);
             if (result != NULL) {
                 ptr->xC = result;
             } else {
@@ -681,7 +691,7 @@ static gm_803DDEC8Struct* gmClassic_801B2D54(gm_803DDEC8Struct* arg0)
 
     for (ptr = arg0; ptr->x0 != 0xD; ptr++) {
         if (ptr->x1 & 0x20) {
-            ptr->xC = scene_data->matchups.x0C0;
+            ptr->xC = matchups->x0C0;
             return ptr;
         }
     }
@@ -691,36 +701,44 @@ static gm_803DDEC8Struct* gmClassic_801B2D54(gm_803DDEC8Struct* arg0)
 void gm_Mode_Classic_OnLoad(void)
 {
     UnkAllstarData* data;
+#ifdef MELEE_NATIVE
+    gmClassic_803DDEC8Data* matchups = &gmClassic_803DDEC8;
+    gmClassic_804908A0Data* state =
+        (gmClassic_804908A0Data*) gm_804908A0;
+#else
     gmClassicSceneData* scene_data =
         (gmClassicSceneData*) gm_Mode_Classic_States;
     gmClassicRuntimeData* o =
         (gmClassicRuntimeData*) &gmClassicIntroDataBuffer;
+    gmClassic_803DDEC8Data* matchups = &scene_data->matchups;
+    gmClassic_804908A0Data* state = &o->state;
+#endif
     gm_803DDEC8Struct* entry;
     PAD_STACK(40);
 
-    for (entry = scene_data->matchups.x00; entry->x0 != 0x0D; entry++) {
+    for (entry = matchups->x00; entry->x0 != 0x0D; entry++) {
         entry->xC = NULL;
     }
 
-    gmClassic_InitMatchupOrder(scene_data->matchups.x2B0,
+    gmClassic_InitMatchupOrder(matchups->x2B0,
                                (gmClassicOrderIndex*) &gm_804908A0[0x60],
-                               (gmClassicOrderIndex*) o, 0x80);
-    gmClassic_InitMatchupOrder(scene_data->matchups.x26C,
+                               (gmClassicOrderIndex*) state, 0x60);
+    gmClassic_InitMatchupOrder(matchups->x26C,
                                (gmClassicOrderIndex*) &gm_804908A0[0x54],
-                               (gmClassicOrderIndex*) o, 0x74);
-    gmClassic_InitMatchupOrder(scene_data->matchups.x1B8,
+                               (gmClassicOrderIndex*) state, 0x54);
+    gmClassic_InitMatchupOrder(matchups->x1B8,
                                (gmClassicOrderIndex*) &gm_804908A0[0x34],
-                               (gmClassicOrderIndex*) o, 0x54);
-    gmClassic_InitMatchupOrder(scene_data->matchups.x0CC,
+                               (gmClassicOrderIndex*) state, 0x34);
+    gmClassic_InitMatchupOrder(matchups->x0CC,
                                (gmClassicOrderIndex*) &gm_804908A0[0x0C],
-                               (gmClassicOrderIndex*) o, 0x2C);
+                               (gmClassicOrderIndex*) state, 0x0C);
 
     data = gm_GetAllStarData();
     gmMainLib_8015CDC8();
     gm_8017C984(data);
 
     {
-        u8* p = o->state.order.x00;
+        u8* p = state->order.x00;
         int i;
         for (i = 12; i > 0; i--) {
             *p++ = 0;
@@ -888,7 +906,7 @@ void gmClassic_801B3500(GameModeState* arg0)
         s8 achar = ad->x0.xC.x24[i].ckind;
         if (achar != 0x21) {
             gc->entries[count].char_id = achar;
-            gc->entries[count].color = ad->x0.xC.x24[i].x1;
+            gc->entries[count].color = ad->x0.xC.x24[i].color;
             count++;
         }
     }

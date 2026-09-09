@@ -3,7 +3,7 @@
 #include "if_2F72.h"
 #include "ifall.h"
 #include "types.h"
-#include <melee/gm/gm_16AE.h>
+#include <melee/gm/gmvs.h>
 #include <melee/gm/types.h>
 #include <melee/lb/lb_00B0.h>
 #include <melee/lb/lbarchive.h>
@@ -54,7 +54,7 @@ void ifStatus_802F6EA4(int arg0, int arg1, int arg2, int arg3, Event arg4,
         e->x24 = arg2;
         e->x11 = arg3;
         if (e->x0 != NULL) {
-            HSD_GObjPLink_80390228(e->x0);
+            HSD_GObjFree(e->x0);
         }
         gobj = GObj_Create(0xE, 0xE, 0);
         jobj = HSD_JObjLoadJoint(e->x14->joint);
@@ -78,14 +78,14 @@ void ifStatus_802F6EA4(int arg0, int arg1, int arg2, int arg3, Event arg4,
 
 void ifStatus_802F7034(UNK_T arg0)
 {
-    lbl_8046B6A0_t* big_thing;
+    VsSceneController* big_thing;
     int a;
     int b;
     int c;
     u8 unkB;
     u8 mr;
 
-    big_thing = gm_16AE_GetUnkData_0();
+    big_thing = gmVs_GetController_0();
     if (big_thing->unk_10 != 0) {
         a = big_thing->unk_10 - 1;
     } else {
@@ -112,7 +112,7 @@ void ifStatus_802F7034(UNK_T arg0)
         ifStatus_802F6EA4(0, a, b, c, arg0, NULL);
         return;
     }
-    if (big_thing->x24C8.x5_1) {
+    if (big_thing->start.x5_1) {
         if (mr == OUTCOME_UNK_1P_BONUS_STAGE_END) {
             ifStatus_802F6EA4(7, a, b, c, arg0, NULL);
             return;
@@ -150,7 +150,7 @@ void ifStatus_802F7220(void)
     s32 i;
     for (i = 0; i < 8; i++) {
         if (ifStatus_803F9628[i].x0 != NULL) {
-            HSD_GObjPLink_80390228(ifStatus_803F9628[i].x0);
+            HSD_GObjFree(ifStatus_803F9628[i].x0);
             ifStatus_803F9628[i].x0 = NULL;
         }
     }

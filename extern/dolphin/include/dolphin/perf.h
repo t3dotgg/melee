@@ -19,16 +19,16 @@ typedef enum
 struct Frame {
     // total size: 0x10
     struct PerfSample * samples; // offset 0x0, size 0x4
-    long lastSample; // offset 0x4, size 0x4
-    unsigned long end; // offset 0x8, size 0x4
-    unsigned long cachemisscycles; // offset 0xC, size 0x4
+    s32 lastSample; // offset 0x4, size 0x4
+    u32 end; // offset 0x8, size 0x4
+    u32 cachemisscycles; // offset 0xC, size 0x4
 };
 
 struct PerfEvent {
     // total size: 0x10
     char * name; // offset 0x0, size 0x4
     PerfType type; // offset 0x4, size 0x4
-    long currSample; // offset 0x8, size 0x4
+    s32 currSample; // offset 0x8, size 0x4
     struct _GXColor color; // offset 0xC, size 0x4
 };
 
@@ -90,7 +90,7 @@ void PERFToggleDrawXFBars();
 void PERFToggleDrawRASBar();
 
 extern struct Frame * PERFFrames; // size: 0x4, address: 0x0
-extern unsigned long PERFCurrFrame; // size: 0x4, address: 0x0
+extern u32 PERFCurrFrame; // size: 0x4, address: 0x0
 extern struct PerfEvent * PERFEvents; // size: 0x4, address: 0x0
 
 #ifdef __cplusplus

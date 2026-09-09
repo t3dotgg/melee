@@ -7,6 +7,8 @@
 
 #include <placeholder.h>
 
+#include <sysdolphin/baselib/hsd_3A94.h>
+
 struct CardEntry {
     int file_size;
     int file_flags;
@@ -40,27 +42,26 @@ struct CardEntry {
 /* 01B760 */ int lb_8001B760(int result);
 /* 01B7E0 */ u32 lb_8001B7E0(int chan, char* filename, void* file_entries,
                              void* save_data, int* status_out);
-/* 01B8C8 */ bool lb_8001B8C8(int chan);
+/* 01B8C8 */ int lb_8001B8C8(int chan);
 /* 01B99C */ int lb_8001B99C(int chan, const char* filename, UNK_T status_out);
-/* 01BA44 */ bool lb_8001BA44(int chan, const char* filename,
-                              UNK_T status_out);
+/* 01BA44 */ int lb_8001BA44(int chan, const char* filename, UNK_T status_out);
 /* 01BB48 */ int lb_8001BB48(int chan, char* filename, void* file_entries,
                              void* save_data, const char* write_buf,
-                             int write_offset, int write_len,
+                             HsdCardArg write_offset, HsdCardArg write_len,
                              UNK_T status_out);
 /* 01BC18 */ int lb_8001BC18(int chan, char* filename, void** file_entries,
                              void* save_data, const char* write_buf,
-                             int write_offset, int write_len,
+                             HsdCardArg write_offset, HsdCardArg write_len,
                              UNK_T status_out);
 /* 01BD34 */ enum_t lb_8001BD34(int chan, const char* filename,
                                 UNK_T file_entries, UNK_T status_out);
 /* 01BE30 */ int lb_8001BE30(int chan, const char* filename,
                              UNK_T file_entries, const char* read_buf,
-                             int read_offset, int read_len, UNK_T status_out,
-                             UNK_T callback);
+                             HsdCardArg read_offset, HsdCardArg read_len,
+                             UNK_T status_out, UNK_T callback);
 /* 01BF04 */ int lb_8001BF04(int chan, char* filename, void* file_entries,
-                             const char* write_buf, int write_offset,
-                             int write_len, UNK_T status_out);
+                             const char* write_buf, HsdCardArg write_offset,
+                             HsdCardArg write_len, UNK_T status_out);
 /* 01BFD8 */ int lb_8001BFD8(int chan,
                              lbCardNew_SnapshotEntry* snapshot_entries,
                              int* free_blocks, int* free_files);

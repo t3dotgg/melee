@@ -18,8 +18,8 @@ typedef struct grMc_CarEntry {
         u8 b1 : 1;
     } x22_flags;
     /* 0x23 */ u8 x23;
-    /* 0x24 */ s32 x24;
-    /* 0x28 */ s32 x28;
+    /* 0x24 */ Item_GObj* x24;
+    /* 0x28 */ HSD_Generator* x28;
 } grMc_CarEntry;
 
 ASSERT_SIZE(grMc_CarEntry, 0x2C);

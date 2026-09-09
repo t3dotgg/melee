@@ -1531,7 +1531,7 @@ void grStadium_801D3460(Ground_GObj* gobj)
     }
 
     gp2->win_dynamic_p->default_fitting = 0;
-    rules = gm_GetRules();
+    rules = gm_GetStartMeleeRules();
     temp_r4 = gp2->win_dynamic_p;
     temp_r4->x34.x = 0.625f;
     temp_r4->x34.y = 0.625f;
@@ -1867,7 +1867,7 @@ void grStadium_801D4194(Ground_GObj* arg0)
 }
 
 /// HSD_DevComCallback
-static void fn_801D4220(int dcreq, int args, void* buf, bool cancelflag)
+static void fn_801D4220(int dcreq, intptr_t args, void* buf, bool cancelflag)
 {
     Ground_GObj* map_gobj;
     Ground* gp;

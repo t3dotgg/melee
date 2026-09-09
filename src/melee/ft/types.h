@@ -50,6 +50,8 @@ struct FighterPartsTable {
 };
 
 /// @todo Determine size and add remaining members.
+/* Native callers also read numeric tables by byte offset in this structure.
+ * Keep placeholder scalar fields at their serialized 32-bit width. */
 struct ftCommonData {
     /*   +0 */ float horizontal_stick_deadzone;
     /*   +4 */ float vertical_stick_deadzone;
@@ -170,7 +172,11 @@ struct ftCommonData {
     /* +1D0 */ float x1D0;
     /* +1D4 */ float x1D4;
     /* +1D8 */ float x1D8;
+#ifdef MELEE_NATIVE
+    /* +1DC */ u32 x1DC;
+#else
     /* +1DC */ UNK_T x1DC;
+#endif
     /* +1E0 */ float x1E0;
     /* +1E4 */ float x1E4;
     /* +1E8 */ float x1E8_radians;
@@ -194,7 +200,11 @@ struct ftCommonData {
     /* +230 */ float x230;
     /* +234 */ float x234_radians;
     /* +238 */ float x238_radians;
+#ifdef MELEE_NATIVE
+    /* +23C */ s32 x23C;
+#else
     /* +23C */ UNK_T x23C;
+#endif
     /* +240 */ float x240;
     /* +244 */ float x244;
     /* +248 */ float x248;
@@ -208,7 +218,11 @@ struct ftCommonData {
     /* +268 */ float x268;
     /* +26C */ float x26C;
     /* +270 */ float x270;
+#ifdef MELEE_NATIVE
+    /* +274 */ u32 x274;
+#else
     /* +274 */ UNK_T x274;
+#endif
     /* +278 */ float x278;
     /* +27C */ float x27C;
     /* +280 */ float x280_unkShieldHealth;
@@ -295,8 +309,16 @@ struct ftCommonData {
     /* +3E8 */ float x3E8_shieldKnockbackFrameDecay;
     /* +3EC */ float x3EC_shieldGroundFrictionMultiplier;
     /* +3F0 */ float x3F0;
+#ifdef MELEE_NATIVE
+    /* +3F4 */ s32 x3F4;
+#else
     /* +3F4 */ UNK_T x3F4;
+#endif
+#ifdef MELEE_NATIVE
+    /* +3F8 */ s32 x3F8;
+#else
     /* +3F8 */ UNK_T x3F8;
+#endif
     /* +3FC */ int x3FC;
     /* +400 */ float x400;
     /* +404 */ float x404;
@@ -359,24 +381,68 @@ struct ftCommonData {
     /* +4F4 */ float x4F4;
     /* +4F8 */ u32 x4F8;
     /* +4FC */ u32 x4FC;
+#ifdef MELEE_NATIVE
+    /* +500 */ u32 x500;
+#else
     /* +500 */ UNK_T x500;
+#endif
     /* +504 */ int x504;
+#ifdef MELEE_NATIVE
+    /* +508 */ u32 x508;
+#else
     /* +508 */ UNK_T x508;
+#endif
+#ifdef MELEE_NATIVE
+    /* +50C */ u32 x50C;
+#else
     /* +50C */ UNK_T x50C;
+#endif
     /* +510 */ float x510;
     /* +514 */ float x514;
+#ifdef MELEE_NATIVE
+    /* +518 */ u32 x518;
+#else
     /* +518 */ UNK_T x518;
+#endif
     /* +51C */ float x51C_radians;
     /* +520 */ int x520;
+#ifdef MELEE_NATIVE
+    /* +524 */ u32 x524;
+#else
     /* +524 */ UNK_T x524;
+#endif
+#ifdef MELEE_NATIVE
+    /* +528 */ u32 x528;
+#else
     /* +528 */ UNK_T x528;
+#endif
+#ifdef MELEE_NATIVE
+    /* +52C */ u32 x52C;
+#else
     /* +52C */ UNK_T x52C;
+#endif
+#ifdef MELEE_NATIVE
+    /* +530 */ u32 x530;
+#else
     /* +530 */ UNK_T x530;
+#endif
+#ifdef MELEE_NATIVE
+    /* +534 */ u32 x534;
+#else
     /* +534 */ UNK_T x534;
+#endif
+#ifdef MELEE_NATIVE
+    /* +538 */ u32 x538;
+#else
     /* +538 */ UNK_T x538;
+#endif
     /* +53C */ float x53C;
     /* +540 */ float x540;
+#ifdef MELEE_NATIVE
+    /* +544 */ u32 x544;
+#else
     /* +544 */ UNK_T x544;
+#endif
     /* +548 */ float x548;
     /* +54C */ float x54C;
     /* +550 */ float x550;
@@ -406,19 +472,39 @@ struct ftCommonData {
     /* +5B0 */ float x5B0;
     /* +5B4 */ int x5B4;
     /* +5B8 */ float x5B8;
+#ifdef MELEE_NATIVE
+    /* +5BC */ s32 x5BC;
+#else
     /* +5BC */ UNK_T x5BC;
+#endif
     /* +5C0 */ float x5C0;
+#ifdef MELEE_NATIVE
+    /* +5C4 */ u32 x5C4;
+#else
     /* +5C4 */ UNK_T x5C4;
+#endif
     /* +5C8 */ int x5C8;
     /* +5CC */ float x5CC;
+#ifdef MELEE_NATIVE
+    /* +5D0 */ s32 x5D0;
+#else
     /* +5D0 */ UNK_T x5D0;
+#endif
+#ifdef MELEE_NATIVE
+    /* +5D4 */ s32 x5D4;
+#else
     /* +5D4 */ UNK_T x5D4;
+#endif
     /* +5D8 */ int x5D8;
     /* +5DC */ u32 bury_timer_unk1;
     /* +5E0 */ u32 bury_timer_unk2;
     /* +5E4 */ u32 bury_timer_unk3;
     /* +5E8 */ float x5E8;
+#ifdef MELEE_NATIVE
+    /* +5EC */ u32 x5EC;
+#else
     /* +5EC */ UNK_T x5EC;
+#endif
     /* +5F0 */ u32 x5F0;
     /* +5F4 */ int x5F4;
     /* +5F8 */ float x5F8;
@@ -567,8 +653,13 @@ struct FtSFX {
     int x10;
     int x14;
     int x18;
+#ifdef MELEE_NATIVE
+    FtSFXArr* x1C;
+    FtSFXArr* x20;
+#else
     int x1C;
     FtSFXArr* x20;
+#endif
     int x24;
     int x28;
     int x2C;
@@ -605,7 +696,11 @@ struct FtPartsDesc {
 };
 
 struct ftData_x20 {
+#ifdef MELEE_NATIVE
+    /* +0 */ HSD_Joint* x0;
+#else
     /* +0 */ HSD_Joint** x0;
+#endif
     /* +4 */ f32 x8;
 };
 
@@ -655,7 +750,11 @@ struct ftData {
                                 ///< ftPr_Init_8013C360
     /* +4C */ FtSFX* x4C_sfx;
     /* +50 */ Vec2* x50;
+#ifdef MELEE_NATIVE
+    /* +54 */ int* x54;
+#else
     /* +54 */ int x54;
+#endif
     /* +58 */ struct ftData_x58_t* x58;
     /* +5C */ HSD_Joint* x5C;
 };
@@ -888,7 +987,11 @@ struct Fighter_WaitAnimData {
     s32 x8;
     union CmdUnion* xC;
     s32 x10_animCurrFlags;
+#ifdef MELEE_NATIVE
+    uintptr_t x14;
+#else
     u32 x14;
+#endif
 };
 
 struct Fighter_CostumeStrings {
@@ -1011,7 +1114,11 @@ struct CpuFighter {
     /*  +44 */ Fighter* x44;
     /*  +48 */ UNK_T x48;
     /*  +4C */ Item* x4C;
+#ifdef MELEE_NATIVE
+    /*  +50 */ Item* x50;
+#else
     /*  +50 */ u32 x50;
+#endif
     /*  +54 */ Vec2 x54;
     /*  +5C */ float x5C;
     /*  +60 */ int x60;
@@ -1197,6 +1304,32 @@ struct Fighter {
     /*  fp+58C */ u32 x58C;
     /*  fp+590 */ FigaTree* x590;
     /*  fp+594 */ union {
+#ifdef MELEE_NATIVE
+        /* The GameCube compiler numbers these bitfields from the most
+         * significant bit. ARM64 numbers them from the least significant
+         * bit, so reverse the declaration order to preserve the serialized
+         * flag word. The animation source kind is in bits 0..5. */
+        struct {
+            /* fp+594:5 */ u32 x596_pad : 6;
+            /* fp+596:8 */ u32 x596_x7 : 3;
+            /* fp+596:15 */ u32 x596_x0 : 7;
+            /* fp+594:16 */ u32 x594_pad_flags : 8;
+            /* fp+594:24 */ u32 x594_b7 : 1;
+            /* fp+594:25 */ u32 x594_b6 : 1;
+            /* fp+594:26 */ u32 x594_b5 : 1;
+            /* fp+594:27 */ u32 x594_b4 : 1;
+            /* fp+594:28 */ u32 x594_b3 : 1;
+            /* fp+594:29 */ u32 x594_b2 : 1;
+            /* fp+594:30 */ u32 x594_b1_loop : 1;
+            /* fp+594:31 */ u32 x594_b0 : 1;
+        };
+        struct {
+            /* fp+594:0 */ u32 x597_bits : 6;
+            /* fp+594:6 */ u32 x594_pad2_bits : 3;
+            /* fp+594:9 */ u32 x594_bits : 13;
+            /* fp+594:22 */ u32 x594_pad : 10;
+        };
+#else
         struct {
             /* fp+594:0 */ u8 x594_b0 : 1;
             /* fp+594:1 */ u8 x594_b1_loop : 1;
@@ -1217,13 +1350,19 @@ struct Fighter {
             u32 x594_pad2 : 3;
             u32 x597_bits : 6; // FighterKind of this fighter's x590 FigaTree
         };
+#endif
         /* fp+594 */ s32 x594_s32;
     };
     /*  fp+598 */ FigaTree* x598;
     /*  fp+59C */ struct Fighter_x59C_t* x59C;
     /*  fp+5A0 */ struct Fighter_x59C_t* x5A0;
+#ifdef MELEE_NATIVE
+    /*  fp+5A4 */ void* x5A4;
+    /*  fp+5A8 */ void* x5A8;
+#else
     /*  fp+5A4 */ UNK_T x5A4;
     /*  fp+5A8 */ UNK_T x5A8;
+#endif
     /*  fp+5AC */ FtPartsVis x5AC;
     /*  fp+5CC */ CostumeTObjList tobj_list;
     /*  fp+5E8 */ FighterBone* parts;
@@ -1329,8 +1468,7 @@ struct Fighter {
         /* +14 */ float x14;
         /* +18 */ Vec3 x18;
         /* +24 */ int x24;
-    } x1670[1]; ///< @todo figure out proper size
-    /* fp+1674 */ u8 filler_x1674[0x1828 - 0x1670 - 0x28];
+    } x1670[11]; ///< one entry for each dynamic-bone collision volume
     /* fp+1828 */ enum_t x1828;
     /* fp+182C */ struct dmg {
         /* fp+182C */ float x182c_behavior;
@@ -1355,7 +1493,11 @@ struct Fighter {
         /* fp+1880 */ Vec3 x1880;
         /* fp+188C */ int x188c;
         /* fp+1890 */ int x1890;
+#ifdef MELEE_NATIVE
+        /* fp+1894 */ HSD_GObj* x1894;
+#else
         /* fp+1894 */ int x1894;
+#endif
         /* fp+1898 */ float x1898;
         /* fp+189C */ float x189C_unk_num_frames;
         /* fp+18A0 */ float x18a0;
@@ -1388,7 +1530,11 @@ struct Fighter {
         /* fp+1900 */ float x1900;
         /* fp+1904 */ float x1904;
         /* fp+1908 */ enum_t x1908;
+#ifdef MELEE_NATIVE
+        /* fp+190C */ FtSFXArr* x190C;
+#else
         /* fp+190C */ UNK_T x190C;
+#endif
         /* fp+1910 */ int x1910;
         /* fp+1914 */ int x1914;
         /* fp+1918 */ int int_value;
@@ -1827,12 +1973,22 @@ typedef struct ftData_UnkModelStruct {
 
 struct ftData_80085FD4_ret {
     /* +0 */ const char* x0;
+#ifdef MELEE_NATIVE
+    /* +4 */ s32 x4;
+    /* +8 */ s32 x8;
+    /* +C */ union CmdUnion* xC;
+    u32 native_flags_low : 30;
+    /* +10:1 */ u32 x10_b1 : 1;
+    /* +10:0 */ u32 x10_b0 : 1;
+    /* +14 */ uintptr_t x14;
+#else
     /* +4 */ UNK_T x4;
     /* +8 */ size_t x8;
     /* +C */ UNK_T xC;
     /* +10:0 */ u8 x10_b0 : 1;
     /* +10:1 */ u8 x10_b1 : 1;
     /* +14 */ u32 x14;
+#endif
 };
 
 struct ArticleDynamicBones {
@@ -1847,13 +2003,20 @@ struct ftDynamics {
     };
     /*  +8 */ int x4;
     /*  +C */ struct ftData_x38* x8;
+#ifdef MELEE_NATIVE
+    /* +10 */ s32** x10;
+#else
     /* +10 */ FigaTree*** x10;
+#endif
 };
 
 struct KirbyHatStruct {
     /*  +0 */ HSD_Joint* hat_joint;
     /*  +4 */ FtPartsDesc desc;
     /*  +C */ ftDynamics* hat_dynamics[5];
+#ifdef MELEE_NATIVE
+    u32 hat_part_mask;
+#endif
 };
 
 typedef struct Kirby_Unk {
@@ -1894,7 +2057,7 @@ typedef struct DmgLogEntry {
     /// @todo Might be a fake union
     /*  +C */ union {
         HitCapsule* hit0;
-        DynamicsDesc* unk_anim0;
+        lbColl_80008D30_arg1* unk_anim0;
     };
     /// @todo Might be a fake union
     /* +10 */ union {

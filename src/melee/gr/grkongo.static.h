@@ -58,7 +58,7 @@ struct grKongo_YakumonoParam {
     f32 unk78;
     f32 unk7C;
     f32 unk80;
-    s32 unk84;
+    union ColorOverlay_x8_t* unk84;
     f32 unk88;
     f32 unk8C;
     f32 unk90;

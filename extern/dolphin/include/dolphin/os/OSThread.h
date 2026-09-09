@@ -1,6 +1,8 @@
 #ifndef _DOLPHIN_OSTHREAD_H_
 #define _DOLPHIN_OSTHREAD_H_
 
+#include <dolphin/types.h>
+
 #include <dolphin/os/OSContext.h>
 
 typedef s32 OSPriority;
@@ -79,8 +81,8 @@ void OSCancelThread(OSThread* thread);
 OSThread* OSGetCurrentThread(void);
 s32 OSEnableScheduler(void);
 s32 OSDisableScheduler(void);
-long OSCheckActiveThreads(void);
-int OSCreateThread(struct OSThread * thread, void * (* func)(void *), void * param, void * stack, unsigned long stackSize, long priority, unsigned short attr);
+s32 OSCheckActiveThreads(void);
+int OSCreateThread(struct OSThread * thread, void * (* func)(void *), void * param, void * stack, u32 stackSize, s32 priority, unsigned short attr);
 
 #define IsSuspended(suspend) (suspend > 0)
 

@@ -1,6 +1,8 @@
 #ifndef _DOLPHIN_MCC_H_
 #define _DOLPHIN_MCC_H_
 
+#include <dolphin/types.h>
+
 enum MCC_CHANNEL {
     MCC_CHANNEL_SYSTEM = 0,
     MCC_CHANNEL_1 = 1,
@@ -44,7 +46,7 @@ enum MCC_SYSEVENT {
 
 typedef void (* MCC_CBEvent)(enum MCC_CHANNEL channel, u32, u32);
 typedef void (* MCC_CBSysEvent)(enum MCC_SYSEVENT sysEvent);
-typedef int (* MCC_CBEnumDevices)(long);
+typedef int (* MCC_CBEnumDevices)(s32);
 
 typedef struct {
     /* 0x00 */ u32 length;
@@ -131,7 +133,7 @@ int FIOFopen(const char *filename, u32 mode);
 int FIOFclose(int handle);
 u32 FIOFread(int handle, void *data, u32 size);
 u32 FIOFwrite(int handle, void * data, u32 size);
-u32 FIOFseek(int handle, long offset, u32 mode);
+u32 FIOFseek(int handle, s32 offset, u32 mode);
 int FIOFprintf(int handle, const char *format, ...);
 int FIOFflush(int handle);
 int FIOFstat(int handle, struct FIO_Stat *stat);
@@ -162,8 +164,8 @@ int MCCOpen(enum MCC_CHANNEL chID, u8 blockSize, MCC_CBEvent callbackEvent);
 int MCCClose(enum MCC_CHANNEL chID);
 int MCCLock(enum MCC_CHANNEL chID);
 int MCCUnlock(enum MCC_CHANNEL chID);
-int MCCRead(enum MCC_CHANNEL chID, u32 offset, void *data, long size, enum MCC_SYNC_STATE async);
-int MCCWrite(enum MCC_CHANNEL chID, u32 offset, void *data, long size, enum MCC_SYNC_STATE async);
+int MCCRead(enum MCC_CHANNEL chID, u32 offset, void *data, s32 size, enum MCC_SYNC_STATE async);
+int MCCWrite(enum MCC_CHANNEL chID, u32 offset, void *data, s32 size, enum MCC_SYNC_STATE async);
 int MCCCheckAsyncDone();
 
 #endif // _DOLPHIN_MCC_H_

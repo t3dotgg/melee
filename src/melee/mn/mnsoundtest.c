@@ -402,7 +402,7 @@ void fn_8024AED0(mnSoundTest_GObj* arg0)
         lbAudioAx_80023694();
         user_data->unk0 = 1U;
         mnSoundTest_8024AA70(mnSoundTest_804D6C40, user_data->unk0);
-        HSD_GObjProc_8038FE24(HSD_GObj_804D7838);
+        HSD_GObjProc_RemoveProc(HSD_GObj_CurrentInvokedProc);
         temp_r3_2 = HSD_GObj_SetupProc(arg0, fn_8024B2B0, 0U);
         temp_r3_2->flags_3 = HSD_GObj_804D783C;
         return;
@@ -486,10 +486,9 @@ static inline void mnSoundTest_ToggleView(soundtest_user_data* ud)
 
     state = (ud->unk0 == 0) ? 1 : 0;
     ud->unk0 = state;
-    ud = (soundtest_user_data*) (u32) ud->unk0;
     gobj = mnSoundTest_804D6C40;
-    mnSoundTest_8024ABF8(gobj, (u32) ud == 0);
-    mnSoundTest_8024AD58(gobj, (u8) (u32) ud);
+    mnSoundTest_8024ABF8(gobj, state == 0);
+    mnSoundTest_8024AD58(gobj, (u8) state);
 }
 
 static inline void mnSoundTest_PlaySampleAnim(HSD_JObj* jobj, HSD_JObj** pj,
@@ -620,7 +619,7 @@ void fn_8024B2B0(mnSoundTest_GObj* arg0)
         if (inputs & MenuInput_AButton) {
             user_data->unk0 = 2U;
             mnSoundTest_8024AA70(mnSoundTest_804D6C40, user_data->unk0);
-            HSD_GObjProc_8038FE24(HSD_GObj_804D7838);
+            HSD_GObjProc_RemoveProc(HSD_GObj_CurrentInvokedProc);
             proc = HSD_GObj_SetupProc(arg0, fn_8024AED0, 0U);
             proc->flags_3 = HSD_GObj_804D783C;
             return;
@@ -661,7 +660,7 @@ void fn_8024B7E4(mnSoundTest_GObj* arg0)
     mn_8022EFD8(sp1C, &vec_1);
     mn_8022EFD8(sp18, &vec_1);
     if (temp_f31 == vec_1.end_frame) {
-        HSD_GObjPLink_80390228(arg0);
+        HSD_GObjFree(arg0);
     }
 }
 
@@ -683,7 +682,7 @@ void fn_8024B8B4(mnSoundTest_GObj* arg0, f32 farg0)
     user_data = arg0->user_data;
     jobj = arg0->hsd_obj;
     if ((u8) mn_804A04F0.cur_menu != 0x1B) {
-        HSD_GObjProc_8038FE24(HSD_GObj_804D7838);
+        HSD_GObjProc_RemoveProc(HSD_GObj_CurrentInvokedProc);
         proc = HSD_GObj_SetupProc(arg0, fn_8024B7E4, 0U);
         proc->flags_3 = HSD_GObj_804D783C;
         user_data = arg0->user_data;
@@ -750,7 +749,7 @@ void fn_8024BAF0(mnSoundTest_GObj* arg0)
     (lb_80011E24(jobj, &sp1C, 0xB, -1), lb_80011E24(jobj, &sp18, 2, -1),
      lb_80011E24(jobj, &sp14, 1, -1));
     if ((u8) mn_804A04F0.cur_menu != 0x1B) {
-        HSD_GObjProc_8038FE24(HSD_GObj_804D7838);
+        HSD_GObjProc_RemoveProc(HSD_GObj_CurrentInvokedProc);
         proc = HSD_GObj_SetupProc(arg0, fn_8024B7E4, 0U);
         proc->flags_3 = HSD_GObj_804D783C;
         user_data = arg0->user_data;
@@ -775,7 +774,7 @@ void fn_8024BAF0(mnSoundTest_GObj* arg0)
         mn_8022EE84(sp18, &vec_0, MOBJ_MASK);
         mn_8022EFD8(sp14, &vec_0);
         if (temp_f31 == vec_0.end_frame) {
-            HSD_GObjProc_8038FE24(HSD_GObj_804D7838);
+            HSD_GObjProc_RemoveProc(HSD_GObj_CurrentInvokedProc);
             proc2 = HSD_GObj_SetupProc(
                 arg0, (void (*)(mnSoundTest_GObj*))(Event) fn_8024B8B4, 0U);
             proc2->flags_3 = HSD_GObj_804D783C;

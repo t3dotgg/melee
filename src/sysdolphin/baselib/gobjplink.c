@@ -16,8 +16,8 @@ void GObj_PReorder(HSD_GObj* gobj, HSD_GObj* predecessor)
         gobj->next = predecessor->next;
         predecessor->next = gobj;
     } else {
-        gobj->next = ((HSD_GObj**) HSD_GObj_Entities)[link];
-        ((HSD_GObj**) HSD_GObj_Entities)[link] = gobj;
+        gobj->next = HSD_GObjPLinkHead(link);
+        *HSD_GObjPLinkSlot(link) = gobj;
     }
     if (gobj->next != NULL) {
         gobj->next->prev = gobj;
@@ -45,7 +45,7 @@ static inline void insertAfterEqualPriority(HSD_GObj* gobj)
 
 static inline void insertBeforeEqualPriority(HSD_GObj* gobj)
 {
-    HSD_GObj* candidate = ((HSD_GObj**) HSD_GObj_Entities)[gobj->p_link];
+    HSD_GObj* candidate = HSD_GObjPLinkHead(gobj->p_link);
     while (candidate != NULL && candidate->p_priority < gobj->p_priority) {
         candidate = candidate->next;
     }
@@ -104,7 +104,7 @@ static inline void unlinkObject(HSD_GObj* gobj)
     if (gobj->prev != NULL) {
         gobj->prev->next = gobj->next;
     } else {
-        ((HSD_GObj**) HSD_GObj_Entities)[gobj->p_link] = gobj->next;
+        *HSD_GObjPLinkSlot(gobj->p_link) = gobj->next;
     }
     if (gobj->next != NULL) {
         gobj->next->prev = gobj->prev;
@@ -113,17 +113,19 @@ static inline void unlinkObject(HSD_GObj* gobj)
     }
 }
 
-void HSD_GObjPLink_80390228(HSD_GObj* gobj)
+void HSD_GObjFree(HSD_GObj* gobj)
 {
     HSD_ASSERT(0x171, gobj);
     // The scheduler applies changes to its active owner after the callback.
-    if (!HSD_GObj_804CE3E4.b0 && gobj == HSD_GObj_804D781C) {
-        HSD_GObj_804CE3E4.b1 = 1;
+    if (!HSD_GObj_DelayedProcInfo.in_delayed_proc &&
+        gobj == HSD_GObj_CurrentInvokedProcGObj)
+    {
+        HSD_GObj_DelayedProcInfo.delay_remove_gobj = 1;
         return;
     }
     GObj_RemoveUserData(gobj);
     HSD_GObjObject_80390B0C(gobj);
-    HSD_GObjProc_8038FED4(gobj);
+    HSD_GObjProc_RemoveAllProcs(gobj);
     if (gobj->gx_link != HSD_GOBJ_GXLINK_NONE) {
         HSD_GObjGXLink_8039084C(gobj);
     }
@@ -131,8 +133,8 @@ void HSD_GObjPLink_80390228(HSD_GObj* gobj)
     HSD_ObjFree(&gobj_alloc_data, gobj);
 }
 
-void HSD_GObjPLink_8039032C(u32 where, HSD_GObj* gobj, u8 p_link, u8 priority,
-                            HSD_GObj* position)
+void HSD_GObjPLink_ChangeGObjPri_Unk(u32 where, HSD_GObj* gobj, u8 p_link,
+                                     u8 priority, HSD_GObj* position)
 {
     HSD_GObjProc* detached_processes;
     HSD_GObjProc* next_owned_process;
@@ -144,19 +146,21 @@ void HSD_GObjPLink_8039032C(u32 where, HSD_GObj* gobj, u8 p_link, u8 priority,
 
     HSD_ASSERT(0x1A3, p_link <= HSD_GObjLibInitData.p_link_max);
     // The scheduler applies changes to its active owner after the callback.
-    if (!HSD_GObj_804CE3E4.b0 && gobj == HSD_GObj_804D781C) {
-        HSD_GObj_804CE3E4.b3 = 1;
-        HSD_GObj_804CE3E4.type = where;
-        HSD_GObj_804CE3E4.p_link = p_link;
-        HSD_GObj_804CE3E4.p_prio = priority;
-        HSD_GObj_804CE3E4.gobj = position;
+    if (!HSD_GObj_DelayedProcInfo.in_delayed_proc &&
+        gobj == HSD_GObj_CurrentInvokedProcGObj)
+    {
+        HSD_GObj_DelayedProcInfo.delay_change_gobj_pri = 1;
+        HSD_GObj_DelayedProcInfo.type = where;
+        HSD_GObj_DelayedProcInfo.p_link = p_link;
+        HSD_GObj_DelayedProcInfo.p_prio = priority;
+        HSD_GObj_DelayedProcInfo.gobj = position;
         return;
     }
     // Reverse the owner list so reinsertion restores its original order.
     process = gobj->proc;
     detached_processes = NULL;
     while (process != NULL) {
-        HSD_GObjProc_8038FC18(process);
+        HSD_GObjProc_UnqueueProc(process);
         next_owned_process = process->child;
         process->child = detached_processes;
         detached_processes = process;
@@ -186,7 +190,7 @@ void HSD_GObjPLink_8039032C(u32 where, HSD_GObj* gobj, u8 p_link, u8 priority,
     process = detached_processes;
     while (process != NULL) {
         next_owned_process = process->child;
-        HSD_GObjProc_8038FAA8(process);
+        HSD_GObjProc_QueueProc(process);
         if (process->flags_3 == next_tag) {
             process->flags_3 = previous_tag;
         }

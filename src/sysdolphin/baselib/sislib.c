@@ -2,6 +2,9 @@
 
 #include <printf.h> // IWYU pragma: keep
 #include <stdio.h>
+#ifdef MELEE_NATIVE
+#include <stdlib.h>
+#endif
 
 #include "cobj.h"
 #include "gobj.h"
@@ -15,6 +18,13 @@
 #include <dolphin/mtx.h>
 #include <dolphin/os.h>
 #include <dolphin/types.h>
+
+#ifdef MELEE_NATIVE
+static void HSD_SisLib_RenderNative(HSD_GObj* gobj, int code)
+{
+    HSD_SisLib_803A84BC(gobj, (intptr_t) code);
+}
+#endif
 
 static HSD_WObjDesc HSD_SisLib_8040C490 = {
     NULL,
@@ -62,6 +72,24 @@ SIS* HSD_SisLib_804D1124[5];
 
 void* HSD_SisLib_Alloc(s32 size)
 {
+#ifdef MELEE_NATIVE
+    /* SIS metadata reuses its `next` field as a text cursor after allocation.
+     * The original 32-bit pool also uses that field for its used-list chain,
+     * which corrupts the list when host pointers are eight bytes. Keep SIS
+     * text allocations independent from that GameCube pool on the native
+     * target. */
+    void* allocation;
+    if (size <= 0) {
+        OSReport("Invalid SIS allocation size %d\n", size);
+        OSPanic(__FILE__, 60, "");
+    }
+    allocation = calloc(1, (size_t) size);
+    if (allocation == NULL) {
+        OSReport("SIS allocation failed (%d bytes)\n", size);
+        OSPanic(__FILE__, 0x56, "");
+    }
+    return allocation;
+#else
     SisBlock* best;
     SisBlock* alloc_tail;
     s32 remainder;
@@ -143,10 +171,15 @@ void* HSD_SisLib_Alloc(s32 size)
         used_head = best;
     }
     return best->data;
+#endif
 }
 
 void HSD_SisLib_Free(void* ptr)
 {
+#ifdef MELEE_NATIVE
+    free(ptr);
+    return;
+#else
     SisBlock* free_cur;
     SisBlock* free_tail;
     SisBlock* alloc_prev;
@@ -197,6 +230,7 @@ void HSD_SisLib_Free(void* ptr)
         used_head = alloc_cur->next;
     }
     alloc_cur->next = NULL;
+#endif
 }
 
 void HSD_SisLib_803A5A2C(void* ptr)
@@ -265,8 +299,13 @@ HSD_Text* HSD_SisLib_803A5ACC(int font_idx, s32 context_id, f32 pos_x,
             cam_entry = cam_entry->x0;
         }
         gobj = GObj_Create(cam_entry->x8, cam_entry->xC, cam_entry->xD);
-        GObj_SetupGXLink(gobj, HSD_SisLib_803A84BC, cam_entry->xE,
-                         cam_entry->xF);
+        GObj_SetupGXLink(gobj,
+#ifdef MELEE_NATIVE
+                         HSD_SisLib_RenderNative,
+#else
+                         HSD_SisLib_803A84BC,
+#endif
+                         cam_entry->xE, cam_entry->xF);
     }
     while (list_cur != NULL) {
         list_tail = list_cur;
@@ -332,8 +371,12 @@ void HSD_SisLib_803A5CC4(HSD_Text* text)
         HSD_Text* next = curr->next;
         if (curr == text) {
             if (curr->entity != NULL) {
-                HSD_GObjPLink_80390228(curr->entity);
+                HSD_GObj* entity = curr->entity;
+                /* HSD_GObjFree invokes the user-data destructor. SIS uses
+                 * that destructor to unlink and free `curr`, so clear the
+                 * back pointer before the callback can release the text. */
                 curr->entity = NULL;
+                HSD_GObjFree(entity);
             } else {
                 HSD_SisLib_803A5A2C(curr);
             }
@@ -349,8 +392,12 @@ void HSD_SisLib_803A5D30(void)
     while (curr != NULL) {
         HSD_Text* next = curr->next;
         if (curr->entity != NULL) {
-            HSD_GObjPLink_80390228(curr->entity);
+            HSD_GObj* entity = curr->entity;
+            /* HSD_GObjFree invokes the user-data destructor. SIS uses
+             * that destructor to unlink and free `curr`, so clear the
+             * back pointer before the callback can release the text. */
             curr->entity = NULL;
+            HSD_GObjFree(entity);
         } else {
             HSD_SisLib_803A5A2C(curr);
         }
@@ -365,8 +412,12 @@ static inline void HSD_SisLib_803A5DA0_inline0(s32 font_idx)
         HSD_Text* next = curr->next;
         if (curr->font_idx == font_idx) {
             if (curr->entity != NULL) {
-                HSD_GObjPLink_80390228(curr->entity);
+                HSD_GObj* entity = curr->entity;
+                /* HSD_GObjFree invokes the user-data destructor. SIS uses
+                 * that destructor to unlink and free `curr`, so clear the
+                 * back pointer before the callback can release the text. */
                 curr->entity = NULL;
+                HSD_GObjFree(entity);
             } else {
                 HSD_SisLib_803A5A2C(curr);
             }
@@ -387,7 +438,7 @@ void HSD_SisLib_803A5DA0(s32 font_idx)
         sislib_UnkAlloc3* next = curr->x0;
         if (curr->xA == font_idx) {
             if (curr->x4 != 0U) {
-                HSD_GObjPLink_80390228(curr->x4);
+                HSD_GObjFree(curr->x4);
                 curr->x4 = 0;
             }
             if (last != NULL) {
@@ -414,7 +465,7 @@ void HSD_SisLib_803A5E70(void)
     while (curr != NULL) {
         sislib_UnkAlloc3* next = curr->x0;
         if (curr->x4 != 0) {
-            HSD_GObjPLink_80390228(curr->x4);
+            HSD_GObjFree(curr->x4);
             curr->x4 = 0;
         }
         HSD_SisLib_Free(curr);
@@ -538,7 +589,7 @@ int HSD_SisLib_803A611C(int font_idx, HSD_GObj* parent_gobj, u16 class_id,
                 entry->x4->gxlink_prios = (u64) 1 << gx_link;
                 GObj_InitUserData(entry->x4, class_id, fn_803A60EC, entry->x4);
             } else {
-                HSD_GObjPLink_80390228(entry->x4);
+                HSD_GObjFree(entry->x4);
                 entry->x4 = NULL;
             }
         }
@@ -567,12 +618,24 @@ void HSD_SisLib_803A62A0(s32 font_idx, char* archive_name, char* symbol_name)
 
 void HSD_SisLib_803A6368(HSD_Text* text, s32 sis_idx)
 {
-    SIS** sis_table;
+    SIS* sis_table;
     s32 i;
 
-    sis_table = (SIS**) HSD_SisLib_804D1124[text->font_idx];
+    sis_table = HSD_SisLib_804D1124[text->font_idx];
     if (sis_table != NULL) {
-        text->sis_buffer = sis_table[sis_idx];
+#ifdef MELEE_NATIVE
+        size_t count = HSD_ArchiveNativeSisCount(sis_table);
+        if (sis_idx >= 0 && (count == 0 || (size_t) sis_idx < count)) {
+            SIS* entry = &sis_table[sis_idx / 2];
+            void* selected = (sis_idx & 1) != 0 ? (void*) entry->textures
+                                                : (void*) entry->kerning;
+            text->sis_buffer = (SIS*) selected;
+        } else {
+            text->sis_buffer = NULL;
+        }
+#else
+        text->sis_buffer = ((SIS**) sis_table)[sis_idx];
+#endif
     }
     text->x60 = NULL;
     text->current_height = 0.0F;

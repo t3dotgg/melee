@@ -1914,7 +1914,7 @@ bool ftCo_800B8A9C(Fighter* fp)
         return true;
     }
     if (cpu->x50 != 0) {
-        result = ftCo_800B5AB0(fp, (void*) cpu->x50,
+        result = ftCo_800B5AB0(fp, (Item*) cpu->x50,
                                (Fighter_804D64FC->x14)[fp->kind]);
         if (result != 0) {
             cpu->xA4 = result;

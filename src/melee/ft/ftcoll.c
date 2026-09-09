@@ -238,7 +238,8 @@ bool ftColl_80076640(Fighter* fp, float* dmg)
 }
 
 void ftColl_80076764(int arg0, enum_t arg1, Fighter_GObj* arg2,
-                     DynamicsDesc* arg3, Fighter* fp, FighterHurtCapsule* hurt)
+                     lbColl_80008D30_arg1* arg3, Fighter* fp,
+                     FighterHurtCapsule* hurt)
 {
     if (dmg_log0_idx < ARRAY_SIZE(dmg_log0)) {
         DmgLogEntry* entry = &dmg_log0[dmg_log0_idx];
@@ -248,7 +249,7 @@ void ftColl_80076764(int arg0, enum_t arg1, Fighter_GObj* arg2,
         entry->unk_anim0 = arg3;
         entry->hurt1 = hurt;
         entry->pos = fp->cur_pos;
-        entry->size_of_xC = arg3->count;
+        entry->size_of_xC = arg3->damage;
         ++dmg_log0_idx;
     } else {
         HSD_ASSERTREPORT(0xF9, 0, "damage log over %d!!\n",
@@ -1120,7 +1121,11 @@ bool ftColl_80077C60(Item* item, HitCapsule* hit, Fighter* fp,
             case It_Kind_Star:
                 hit->state = HitCapsule_Disabled;
                 item->xC34_damageDealt = 1;
+#ifdef MELEE_NATIVE
+                ftColl_8007B7FC(fp, it_80272818(item));
+#else
                 ftColl_8007B7FC(fp, (int) it_80272818(item));
+#endif
                 ft_PlaySFX(fp, 0xF9, 0x7F, 0x40);
                 ftCommon_8007EBAC(fp, 0x11, 0);
                 break;
@@ -1469,7 +1474,11 @@ void ftColl_80078754(Fighter_GObj* arg0, Fighter_GObj* arg1, bool arg2)
     fp1->dmg.x18C8 = -1;
 }
 
+#ifdef MELEE_NATIVE
+void ftColl_800787B4(Item_GObj* arg0, Fighter_GObj* arg1, void* arg2)
+#else
 void ftColl_800787B4(Item_GObj* arg0, Fighter_GObj* arg1, int arg2)
+#endif
 {
     Item* ip = arg0->user_data;
     Fighter* fp = arg1->user_data;
@@ -2745,8 +2754,7 @@ void ftColl_8007A06C(Fighter_GObj* gobj, void* dmg_ptr, void* log, size_t idx,
             ftCommonData* ftd;
 
             attack = 1.0F;
-            lbColl_80008D30(&stack_hit,
-                            (lbColl_80008D30_arg1*) entry->unk_anim0);
+            lbColl_80008D30(&stack_hit, entry->unk_anim0);
 
             weight = co->weight;
             defense = Player_GetDefenseRatio(fp->player_id);
@@ -2866,8 +2874,7 @@ void ftColl_8007A06C(Fighter_GObj* gobj, void* dmg_ptr, void* log, size_t idx,
     }
 
     case 3: {
-        lbColl_80008D30_arg1* env =
-            (lbColl_80008D30_arg1*) best_entry->unk_anim0;
+        lbColl_80008D30_arg1* env = best_entry->unk_anim0;
 
         dir = fp->facing_dir;
         sfx_severity = 0;
@@ -3471,7 +3478,7 @@ void ftColl_8007BAC0(Fighter_GObj* gobj)
     int i;
     Ground_GObj* ground;
     Fighter* fp;
-    DynamicsDesc* desc;
+    lbColl_80008D30_arg1* desc;
     u32 type;
     struct ftDeviceUnk3* arr;
     PAD_STACK(8);

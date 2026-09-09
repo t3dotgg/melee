@@ -334,7 +334,7 @@ void ftKp_SpecialSHit_Anim(HSD_GObj* gobj)
             return;
         }
 
-        if ((signed) fp1->mv.kp.unk1.x0 != 0) {
+        if (fp1->mv.kp.unk1.x0) {
             fp1->mv.kp.unk1.x4 = true;
 
             {

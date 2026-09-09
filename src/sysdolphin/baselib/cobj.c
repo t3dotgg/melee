@@ -757,12 +757,12 @@ int HSD_CObjGetLeftVector(HSD_CObj* cobj, Vec3* left)
 
 void HSD_CObjSetMtxDirty(HSD_CObj* cobj)
 {
-    cobj->flags |= (1 << 30) | (1 << 31);
+    cobj->flags |= (1u << 30) | (1u << 31);
 }
 
 bool HSD_CObjMtxIsDirty(HSD_CObj* cobj)
 {
-    return (cobj->flags & (1 << 30)) ||
+    return (cobj->flags & (1u << 30)) ||
            (cobj->eyepos != NULL && (cobj->eyepos->flags & 2)) ||
            (cobj->interest != NULL && (cobj->interest->flags & 2));
 }

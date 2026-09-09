@@ -335,13 +335,18 @@ static inline void it_802E6380_inline(Item_GObj* item_gobj)
 static inline s32 it_802E6380_tier(Item_GObj* item_gobj, it_2E5A_Attrs* attr,
                                    it_802E5FXX_struct* arg1)
 {
-    // NOTE: tiers[0].ecb[9] should be tiers[1].threshold, but writing it
-    // that way produces different asm offsets
     s32 off = 2;
+#ifndef MELEE_NATIVE
+    // The original compiler needs this byte offset for matching code.
     s32* tier_thresholds = (s32*) &attr->tiers[0].ecb;
+#endif
     if (arg1->xC < attr->tiers[2].threshold) {
         off = 1;
+#ifdef MELEE_NATIVE
+        if (arg1->xC < attr->tiers[1].threshold) {
+#else
         if (arg1->xC < tier_thresholds[9]) {
+#endif
             off = 0;
         }
     }
@@ -436,7 +441,11 @@ static inline void it_2E5A_ApplyStateDesc(HSD_GObj* item_gobj, int idx)
     Item* item = item_gobj->user_data;
     HSD_JObj* item_jobj = item_gobj->hsd_obj;
     it_2E5A_Attrs* attr = item->xC4_article_data->x4_specialAttributes;
+#ifdef MELEE_NATIVE
+    item->xD0_itemStateDesc = attr->tiers[idx].native_state;
+#else
     item->xD0_itemStateDesc = (ItemStateDesc*) &attr->tiers[idx].anim_joint;
+#endif
     Item_80268D34(item_gobj, item->xD0_itemStateDesc);
     HSD_JObjAnimAll(item_jobj);
 }

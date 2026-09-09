@@ -736,7 +736,7 @@ void fn_8019DD60(void)
     tmd->x2C = 0;
     gobj = fn_80190174(lbl_804D6690->cameras->desc);
     fn_801901F8(lbl_804D6690->cameras->desc);
-    fn_801902F0((s32) gobj);
+    fn_801902F0(gobj);
     fn_8019027C((UNK_T) lbl_804D6690->lights);
     fn_8019035C(0, lbl_804D6690->models[5], 0, 0x1A, 2, 1, fn_8019BF18, 0.0f);
     fn_8019035C(0, lbl_804D6690->models[4], 0, 0x1A, 2, 1, fn_8019BF8C, 0.0f);
