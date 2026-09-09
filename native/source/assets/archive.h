@@ -71,6 +71,7 @@ NativeArchiveStatus NativeArchiveGraphOpen(const NativeArchive* archive,
 void NativeArchiveGraphClose(NativeArchiveGraph* graph);
 
 struct HSD_Joint;
+struct HSD_MatAnimJoint;
 struct HSD_AnimJoint;
 struct HSD_AObjDesc;
 struct HSD_WObjDesc;
@@ -85,6 +86,12 @@ NativeArchiveStatus NativeArchiveJointByName(NativeArchiveGraph* graph,
                                              const char* name,
                                              struct HSD_Joint** output,
                                              NativeArchiveError* error);
+NativeArchiveStatus NativeArchiveMatAnimJoint(
+    NativeArchiveGraph* graph, uint32_t offset,
+    struct HSD_MatAnimJoint** output, NativeArchiveError* error);
+NativeArchiveStatus NativeArchiveMatAnimJointByName(
+    NativeArchiveGraph* graph, const char* name,
+    struct HSD_MatAnimJoint** output, NativeArchiveError* error);
 NativeArchiveStatus NativeArchiveAnimation(NativeArchiveGraph* graph,
                                           uint32_t offset,
                                           struct HSD_AnimJoint** output,

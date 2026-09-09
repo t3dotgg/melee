@@ -12,6 +12,7 @@
 #include <dolphin/os.h>
 #include <sysdolphin/baselib/archive.h>
 #include <sysdolphin/baselib/debug.h>
+#include <sysdolphin/baselib/mobj.h>
 
 #ifdef MELEE_NATIVE
 #include <sysdolphin/baselib/sislib.h>
@@ -120,7 +121,7 @@ static SIS* native_sis_root(NativeArchiveBinding* binding, uint32_t offset,
         if (status != NATIVE_ARCHIVE_OK) {
             if (!saw_entry) return NULL;
             if (getenv("MELEE_TRACE_SIS") != NULL)
-                OSReport("SIS scan end i=%zu status=%d msg=%s\\n", i,
+                OSReport("SIS scan end i=%zu status=%d msg=%s\n", i,
                          status, error == NULL ? "" : error->message);
             break;
         }
@@ -134,7 +135,7 @@ static SIS* native_sis_root(NativeArchiveBinding* binding, uint32_t offset,
     }
     if (word_count == 0 || word_count > SIZE_MAX / 4u) return NULL;
     if (getenv("MELEE_TRACE_SIS") != NULL)
-        OSReport("SIS words=%zu offset=%u\\n", word_count, offset);
+        OSReport("SIS words=%zu offset=%u\n", word_count, offset);
     record_count = (word_count + 1u) / 2u;
     if (record_count > SIZE_MAX / sizeof(*table)) return NULL;
     table = calloc(record_count, sizeof(*table));
@@ -153,7 +154,7 @@ static SIS* native_sis_root(NativeArchiveBinding* binding, uint32_t offset,
                                    &target, &present, error) !=
                 NATIVE_ARCHIVE_OK || !present) {
             if (getenv("MELEE_TRACE_SIS") != NULL)
-                OSReport("SIS fill failed i=%zu target=%u present=%d\\n", i,
+                OSReport("SIS fill failed i=%zu target=%u present=%d\n", i,
                          target, present);
             free(table);
             return NULL;
@@ -456,6 +457,11 @@ void* HSD_ArchiveNativePublicAddress(HSD_Archive* archive, const char* symbol)
         if (NativeArchiveAnimation(binding->graph, offset,
                                    (HSD_AnimJoint**) &root, &error) ==
             NATIVE_ARCHIVE_OK) return root;
+    } else if (native_name_ends_with(symbol, "_matanim_joint")) {
+        if (NativeArchiveMatAnimJoint(
+                binding->graph, offset, (HSD_MatAnimJoint**) &root, &error) ==
+            NATIVE_ARCHIVE_OK)
+            return root;
     } else if (native_name_ends_with(symbol, "_camera") ||
                native_name_ends_with(symbol, "_cobjdesc")) {
         if (NativeArchiveCObj(binding->graph, offset,

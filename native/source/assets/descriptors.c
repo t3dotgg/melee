@@ -34,6 +34,8 @@ typedef enum Schema {
     SCHEMA_TLUT,
     SCHEMA_TEXLOD,
     SCHEMA_TOBJTEV,
+    SCHEMA_MATANIMJOINT,
+    SCHEMA_MATANIM,
     SCHEMA_ANIMATION,
     SCHEMA_AOBJ,
     SCHEMA_FOBJ,
@@ -289,6 +291,14 @@ static void* add_node(NativeArchiveGraph* graph, uint32_t offset,
     case SCHEMA_TOBJTEV:
         disk_size = 32;
         host_size = sizeof(HSD_TObjTevDesc);
+        break;
+    case SCHEMA_MATANIMJOINT:
+        disk_size = 12;
+        host_size = sizeof(HSD_MatAnimJoint);
+        break;
+    case SCHEMA_MATANIM:
+        disk_size = 16;
+        host_size = sizeof(HSD_MatAnim);
         break;
     case SCHEMA_ANIMATION:
         disk_size = 20;
@@ -724,6 +734,22 @@ static bool convert_node(NativeArchiveGraph* graph, Node* node)
         tev->active = NativeArchiveBE32(bytes + 28);
         break;
     }
+    case SCHEMA_MATANIMJOINT: {
+        HSD_MatAnimJoint* animation = node->value;
+        animation->child = link_node(graph, offset, SCHEMA_MATANIMJOINT, 0);
+        animation->next = link_node(graph, offset + 4,
+                                    SCHEMA_MATANIMJOINT, 0);
+        animation->matanim = link_node(graph, offset + 8, SCHEMA_MATANIM, 0);
+        break;
+    }
+    case SCHEMA_MATANIM: {
+        HSD_MatAnim* animation = node->value;
+        animation->next = link_node(graph, offset, SCHEMA_MATANIM, 0);
+        animation->aobjdesc = link_node(graph, offset + 4, SCHEMA_AOBJ, 0);
+        /* Texture and render animation descriptors are optional. Their
+         * schemas are not needed by the title material animation roots. */
+        break;
+    }
     case SCHEMA_ANIMATION: {
         HSD_AnimJoint* animation = node->value;
         if (!unsupported_link(graph, offset + 12,
@@ -1124,6 +1150,8 @@ NativeArchiveStatus NativeArchiveFigaTree(NativeArchiveGraph* graph,
     }
 
 ROOT_READER(NativeArchiveJoint, HSD_Joint, SCHEMA_JOINT)
+ROOT_READER(NativeArchiveMatAnimJoint, HSD_MatAnimJoint,
+            SCHEMA_MATANIMJOINT)
 ROOT_READER(NativeArchiveAnimation, HSD_AnimJoint, SCHEMA_ANIMATION)
 ROOT_READER(NativeArchiveAObj, HSD_AObjDesc, SCHEMA_AOBJ)
 ROOT_READER(NativeArchiveWObj, HSD_WObjDesc, SCHEMA_WOBJ)
@@ -1160,6 +1188,8 @@ static NativeArchiveStatus find_named_root(NativeArchiveGraph* graph,
     }
 
 NAMED_ROOT_READER(NativeArchiveJointByName, HSD_Joint, NativeArchiveJoint)
+NAMED_ROOT_READER(NativeArchiveMatAnimJointByName, HSD_MatAnimJoint,
+                  NativeArchiveMatAnimJoint)
 NAMED_ROOT_READER(NativeArchiveAnimationByName, HSD_AnimJoint,
                   NativeArchiveAnimation)
 NAMED_ROOT_READER(NativeArchiveAObjByName, HSD_AObjDesc, NativeArchiveAObj)
