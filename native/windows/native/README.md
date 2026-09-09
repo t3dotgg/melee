@@ -23,6 +23,10 @@ simulation at 60 Hz while a separate render clock can run at 120 Hz.
 `XboxPadMapper` maps physical Xbox A to attack/confirm, B to special/back, and
 X/Y to jump while retaining edge-triggered state. `RenderSnapshot` provides an
 ordered, pointer-free handoff to a future D3D12 or Vulkan backend.
+`NativeScene` adds stable object IDs, deterministic callback ordering, and safe
+mutation during dispatch. `NativeFighter` and `NativeAudioMixer` demonstrate
+typed gameplay and voice scheduling slices; the latter exposes a backend seam
+for WASAPI/XAudio2.
 
 New native systems should use typed C++ fields and pointers instead of guest
 addresses. The existing matching/recompiled runtime remains the reference
