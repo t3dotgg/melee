@@ -2,6 +2,8 @@
 #include <dolphin/os/OSAlarm.h>
 #include <dolphin/os/OSThread.h>
 
+#include "scheduler.h"
+
 #include <pthread.h>
 #include <stdint.h>
 #include <stdlib.h>
@@ -14,7 +16,6 @@ u32 __OSCoreClock = 486000000u;
 
 static const size_t native_arena_size = 64u * 1024u * 1024u;
 static void* native_arena;
-static struct timespec native_time_start;
 static int native_os_initialized;
 static _Thread_local BOOL native_interrupts_enabled = TRUE;
 static _Thread_local OSContext* native_current_context;
@@ -23,26 +24,13 @@ static u32 native_sound_mode = OS_SOUND_MODE_STEREO;
 static u32 native_progressive_mode;
 static u32 native_reset_code;
 
-static OSTime monotonic_ticks(void)
-{
-    struct timespec now;
-    uint64_t ns;
-    uint64_t start_ns;
-
-    clock_gettime(CLOCK_MONOTONIC, &now);
-    ns = (uint64_t) now.tv_sec * 1000000000u + (uint64_t) now.tv_nsec;
-    start_ns = (uint64_t) native_time_start.tv_sec * 1000000000u +
-               (uint64_t) native_time_start.tv_nsec;
-    return (OSTime) ((ns - start_ns) * (uint64_t) OS_TIMER_CLOCK / 1000000000u);
-}
-
 void OSInit(void)
 {
     if (native_os_initialized) {
         return;
     }
     native_os_initialized = 1;
-    clock_gettime(CLOCK_MONOTONIC, &native_time_start);
+    NativeSchedulerInit();
 
     /* The native build has no boot ROM to provide an arena. */
     native_arena = aligned_alloc(32, native_arena_size);
@@ -63,7 +51,7 @@ OSTime OSGetTime(void)
     if (!native_os_initialized) {
         OSInit();
     }
-    return monotonic_ticks();
+    return NativeSchedulerGetTime();
 }
 
 OSTick OSGetTick(void) { return (OSTick) OSGetTime(); }
@@ -255,45 +243,62 @@ int OSCreateThread(OSThread* thread, void* (*func)(void*), void* param,
     return FALSE;
 }
 
-void OSInitAlarm(void) {}
-BOOL OSCheckAlarmQueue(void) { return FALSE; }
+void OSInitAlarm(void) { NativeSchedulerInit(); }
+BOOL OSCheckAlarmQueue(void)
+{
+    return NativeSchedulerAlarmQueued(NULL) ? TRUE : FALSE;
+}
 void OSCreateAlarm(OSAlarm* alarm)
 {
     if (alarm != NULL) {
+        NativeSchedulerRemoveAlarm(alarm);
         memset(alarm, 0, sizeof(*alarm));
     }
 }
 void OSSetAlarm(OSAlarm* alarm, OSTime tick, OSAlarmHandler handler)
 {
     if (alarm != NULL) {
+        NativeSchedulerRemoveAlarm(alarm);
         alarm->fire = OSGetTime() + tick;
         alarm->start = alarm->fire;
         alarm->period = 0;
         alarm->handler = handler;
+        if (handler != NULL) {
+            NativeSchedulerQueueAlarm(alarm);
+        }
     }
 }
 void OSSetAbsAlarm(OSAlarm* alarm, long long time, OSAlarmHandler handler)
 {
     if (alarm != NULL) {
+        NativeSchedulerRemoveAlarm(alarm);
         alarm->fire = time;
         alarm->start = time;
         alarm->period = 0;
         alarm->handler = handler;
+        if (handler != NULL) {
+            NativeSchedulerQueueAlarm(alarm);
+        }
     }
 }
 void OSSetPeriodicAlarm(OSAlarm* alarm, OSTime start, OSTime period,
                         OSAlarmHandler handler)
 {
     if (alarm != NULL) {
+        NativeSchedulerRemoveAlarm(alarm);
         alarm->fire = start;
         alarm->start = start;
         alarm->period = period;
         alarm->handler = handler;
+        if (handler != NULL) {
+            NativeSchedulerQueueAlarm(alarm);
+        }
     }
 }
 void OSCancelAlarm(OSAlarm* alarm)
 {
     if (alarm != NULL) {
+        NativeSchedulerRemoveAlarm(alarm);
         alarm->handler = NULL;
         alarm->period = 0;
     }

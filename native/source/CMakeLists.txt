@@ -68,6 +68,11 @@ add_executable(test_archive tests/test_archive.c assets/archive.c assets/descrip
 target_link_libraries(test_archive PRIVATE melee_host_options)
 add_test(NAME archive COMMAND test_archive)
 
+add_executable(test_scheduler tests/test_scheduler.c platform/os.c
+    platform/scheduler.c platform/vi.c platform/heap.c platform/report.c)
+target_link_libraries(test_scheduler PRIVATE melee_host_options)
+add_test(NAME scheduler COMMAND test_scheduler)
+
 # The focused tests above are the default build. The complete game target is
 # opt-in because it is still missing host services needed for a playable
 # window, controller input, audio, and save data. When enabled, CMake compiles

@@ -1,5 +1,7 @@
 #include <dolphin/vi.h>
 
+#include "scheduler.h"
+
 #include <string.h>
 
 typedef struct NativeVIState {
@@ -57,6 +59,8 @@ VIRetraceCallback VISetPostRetraceCallback(VIRetraceCallback callback)
 void VIWaitForRetrace(void)
 {
     ensure_initialized();
+    NativeSchedulerWaitForRetrace();
+    NativeSchedulerPump(NativeSchedulerGetTime());
     ++s_vi.retrace_count;
     s_vi.next_field ^= 1;
 
