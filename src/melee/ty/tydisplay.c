@@ -66,7 +66,11 @@ static size_t const _tyDisplay_804D6F10_len = 300;
 /* 4A2D98 */ static char _tyDisplay_devtext_buf[9 * (3 * 2)];
 /* 4A2DD0 */ static TyDspArchiveHolder _tyDisplay_804A2DD0;
 /* 4A2DE8 */ static HSD_Archive*
+#ifdef MELEE_NATIVE
+    _tyDisplay_804A2DE8[0x2C];
+#else
     _tyDisplay_804A2DE8[0xB0 / sizeof(HSD_Archive*)];
+#endif
 /* 4D6F10 */ static HSD_JObj** _tyDisplay_804D6F10;
 /* 4D6F14 */ static TyDspGrid* _tyDisplay_804D6F14;
 /* 4D6F18 */ static TyDspConfig* _tyDisplay_804D6F18;
