@@ -131,6 +131,7 @@ void HSD_DevComARAMWakeUp(void)
         if (req_idx >= 0) {
             if (aramDC->type == 3) {
                 u32 xfer_size;
+                uintptr_t dest;
                 if (aramDC->size > DEVCOM_BUF_SIZE) {
                     arq_callback = HSD_DevComStdCallback;
                     xfer_size = DEVCOM_BUF_SIZE;
@@ -147,32 +148,41 @@ void HSD_DevComARAMWakeUp(void)
                 }
                 DCStoreRange(HSD_DevCom_804C6330_bufs[req_idx],
                              DEVCOM_BUF_SIZE);
-                ARQPostRequest(devComARQR[req_idx], 0, 0, 1,
-                               (uintptr_t) HSD_DevCom_804C6330_bufs[req_idx],
-                               aramDC->dest, xfer_size, arq_callback);
+                /*
+                 * The native ARQ backend can invoke the callback before
+                 * ARQPostRequest returns. Publish the in-flight state and
+                 * advance the request before posting so a callback that
+                 * wakes ARAM again sees the next chunk.
+                 */
+                dest = aramDC->dest;
                 aramDC->dest += xfer_size;
                 aramDC->size -= xfer_size;
                 aramstate = 1;
+                ARQPostRequest(devComARQR[req_idx], 0, 0, 1,
+                               (uintptr_t) HSD_DevCom_804C6330_bufs[req_idx],
+                               dest, xfer_size, arq_callback);
             } else if (aramDC->type == 0xB) {
                 DCStoreRange((void*) aramDC->src, aramDC->size);
+                aramstate = 1;
                 ARQPostRequest(devComARQR[req_idx], 0, 0, 1, aramDC->src,
                                aramDC->dest, aramDC->size,
                                HSD_DevComARAMCallback);
-                aramstate = 1;
             } else if (aramDC->type == 0x19) {
                 DCInvalidateRange((void*) aramDC->dest, aramDC->size);
+                aramstate = 1;
                 ARQPostRequest(devComARQR[req_idx], 0, 1, 1, aramDC->src,
                                aramDC->dest, aramDC->size,
                                HSD_DevComARAMCallback);
-                aramstate = 1;
             } else if (aramDC->type == 0x1A) {
                 DCInvalidateRange(HSD_DevCom_804C6330_bufs[req_idx],
                                   DEVCOM_BUF_SIZE);
+                aramstate = 1;
                 ARQPostRequest(devComARQR[req_idx], 0, 1, 1, aramDC->src,
                                (uintptr_t) HSD_DevCom_804C6330_bufs[req_idx],
                                aramDC->size, HSD_DevComARAMCallback);
-                aramstate = 1;
             } else if (aramDC->type == 0x1B) {
+                uintptr_t src;
+                uintptr_t dest;
                 DCInvalidateRange(HSD_DevCom_804C6330_bufs[req_idx],
                                   DEVCOM_BUF_SIZE);
                 if (aramDC->size > DEVCOM_BUF_SIZE) {
@@ -182,16 +192,18 @@ void HSD_DevComARAMWakeUp(void)
                     arq_callback2 = HSD_DevComARAMCallback;
                     xfer_size2 = aramDC->size;
                 }
-                ARQPostRequest(&devComARQR[req_idx][1], 0, 1, 1, aramDC->src,
+                aramstate = 1;
+                src = aramDC->src;
+                dest = aramDC->dest;
+                ARQPostRequest(&devComARQR[req_idx][1], 0, 1, 1, src,
                                (uintptr_t) HSD_DevCom_804C6330_bufs[req_idx],
                                xfer_size2, NULL);
-                ARQPostRequest(&devComARQR[req_idx][0], 0, 0, 1,
-                               (uintptr_t) HSD_DevCom_804C6330_bufs[req_idx],
-                               aramDC->dest, xfer_size2, arq_callback2);
                 aramDC->src += xfer_size2;
                 aramDC->dest += xfer_size2;
                 aramDC->size -= xfer_size2;
-                aramstate = 1;
+                ARQPostRequest(&devComARQR[req_idx][0], 0, 0, 1,
+                               (uintptr_t) HSD_DevCom_804C6330_bufs[req_idx],
+                               dest, xfer_size2, arq_callback2);
             }
         }
     }
