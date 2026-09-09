@@ -372,8 +372,12 @@ void HSD_SisLib_803A5CC4(HSD_Text* text)
         HSD_Text* next = curr->next;
         if (curr == text) {
             if (curr->entity != NULL) {
-                HSD_GObjFree(curr->entity);
+                HSD_GObj* entity = curr->entity;
+                /* HSD_GObjFree invokes the user-data destructor. SIS uses
+                 * that destructor to unlink and free `curr`, so clear the
+                 * back pointer before the callback can release the text. */
                 curr->entity = NULL;
+                HSD_GObjFree(entity);
             } else {
                 HSD_SisLib_803A5A2C(curr);
             }
