@@ -86,18 +86,6 @@ static u16 read16(const u8* data)
 static bool reference(NativeStageArchive* stage, uint32_t field,
                       uint32_t* target, bool* present)
 {
-    /* lbArchive_InitializeDAT initializes unresolved external symbols to
-     * NULL on the console. Stage transformation records start in that state
-     * and are loaded from their own archive when the stage requests them. */
-    if ((field & 3u) == 0 && range(stage, field, 4) &&
-        stage->archive->external_fields != NULL &&
-        (stage->archive->external_fields[field / 32] &
-         (1u << ((field / 4) % 8))))
-    {
-        *target = 0;
-        *present = false;
-        return true;
-    }
     return NativeArchiveReference(stage->archive, field, target, present,
                                   stage->error) == NATIVE_ARCHIVE_OK;
 }

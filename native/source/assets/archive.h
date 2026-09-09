@@ -51,8 +51,12 @@ NativeArchiveStatus NativeArchiveFind(const NativeArchive* archive,
                                      const char* name, uint32_t* offset,
                                      NativeArchiveError* error);
 
-/* The relocation table distinguishes a reference to offset zero from null.
- * External references fail with UNSUPPORTED until typed binding is available. */
+/* Match the game's DAT initialization, which binds external symbols to NULL.
+ * Call before converting roots. Standalone archive readers reject unresolved
+ * externals unless the caller selects this policy. */
+void NativeArchiveNullExternals(NativeArchive* archive);
+
+/* The relocation table distinguishes a reference to offset zero from null. */
 NativeArchiveStatus NativeArchiveReference(const NativeArchive* archive,
                                           uint32_t field_offset,
                                           uint32_t* target, bool* present,

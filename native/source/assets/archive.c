@@ -318,6 +318,11 @@ NativeArchiveStatus NativeArchiveFind(const NativeArchive* archive,
                              "public symbol was not found");
 }
 
+void NativeArchiveNullExternals(NativeArchive* archive)
+{
+    if (archive != NULL) archive->null_externals = true;
+}
+
 NativeArchiveStatus NativeArchiveReference(const NativeArchive* archive,
                                           uint32_t field_offset,
                                           uint32_t* target, bool* present,
@@ -336,6 +341,7 @@ NativeArchiveStatus NativeArchiveReference(const NativeArchive* archive,
                                  "reference field is outside data or unaligned");
     }
     if (is_external(archive, field_offset)) {
+        if (archive->null_externals) return success(error);
         return NativeArchiveFail(error, NATIVE_ARCHIVE_UNSUPPORTED,
                                  HEADER_SIZE + (size_t) field_offset,
                                  "external reference needs typed binding");

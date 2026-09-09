@@ -16,6 +16,37 @@ static void word(unsigned char* data, size_t offset, uint32_t value)
     data[offset + 3] = value;
 }
 
+static void test_null_external_initialization(void)
+{
+    unsigned char file[55] = { 0 };
+    NativeArchive* archive;
+    NativeArchiveError error;
+    uint32_t target;
+    bool present;
+    unsigned char original[4];
+    word(file, 0, sizeof(file));
+    word(file, 4, 8);
+    word(file, 16, 1);
+    word(file, 32, 4);
+    word(file, 36, UINT32_MAX);
+    memcpy(file + 48, "shared", 7);
+    assert(NativeArchiveOpen(file, sizeof(file), &archive, &error) ==
+           NATIVE_ARCHIVE_OK);
+    assert(NativeArchiveReference(archive, 0, &target, &present, &error) ==
+           NATIVE_ARCHIVE_UNSUPPORTED);
+    NativeArchiveNullExternals(archive);
+    assert(NativeArchiveReference(archive, 0, &target, &present, &error) ==
+           NATIVE_ARCHIVE_OK);
+    assert(!present && target == 0);
+    assert(NativeArchiveReference(archive, 4, &target, &present, &error) ==
+           NATIVE_ARCHIVE_OK);
+    assert(!present);
+    assert(NativeArchiveRead(archive, 0, original, sizeof(original), &error) ==
+           NATIVE_ARCHIVE_OK);
+    assert(original[3] == 4);
+    NativeArchiveClose(archive);
+}
+
 static void test_stage_layouts(void)
 {
     enum {
@@ -67,6 +98,7 @@ static void test_stage_layouts(void)
     }
     assert(NativeArchiveOpen(file, sizeof(file), &archive, &error) ==
            NATIVE_ARCHIVE_OK);
+    NativeArchiveNullExternals(archive);
     assert(NativeArchiveGraphOpen(archive, &graph, &error) ==
            NATIVE_ARCHIVE_OK);
     stage = NativeStageArchiveOpen(archive, graph);
@@ -102,6 +134,7 @@ static void test_stage_layouts(void)
     word(data, 0xB4, 0x7FFFFFFF);
     assert(NativeArchiveOpen(file, sizeof(file), &archive, &error) ==
            NATIVE_ARCHIVE_OK);
+    NativeArchiveNullExternals(archive);
     assert(NativeArchiveGraphOpen(archive, &graph, &error) ==
            NATIVE_ARCHIVE_OK);
     stage = NativeStageArchiveOpen(archive, graph);
@@ -130,6 +163,7 @@ static void test_real_stage(const char* path)
     NativeArchiveError error;
     assert(NativeArchiveOpen(bytes, size, &archive, &error) ==
            NATIVE_ARCHIVE_OK);
+    NativeArchiveNullExternals(archive);
     assert(NativeArchiveGraphOpen(archive, &graph, &error) ==
            NATIVE_ARCHIVE_OK);
     NativeStageArchive* stage = NativeStageArchiveOpen(archive, graph);
@@ -173,6 +207,7 @@ static void test_real_stage(const char* path)
 
 int main(int argc, char** argv)
 {
+    test_null_external_initialization();
     test_stage_layouts();
     for (int i = 1; i < argc; ++i) {
         test_real_stage(argv[i]);

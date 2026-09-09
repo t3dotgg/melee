@@ -883,6 +883,7 @@ void lbArchive_InitializeDAT(HSD_Archive* archive, void* data, size_t length)
         HSD_ASSERT(73, 0);
         return;
     }
+    NativeArchiveNullExternals(native);
     status = NativeArchiveGraphOpen(native, &graph, &error);
     if (status != NATIVE_ARCHIVE_OK) {
         native_archive_error("graph", &error);

@@ -16,6 +16,7 @@ struct NativeArchive {
     size_t symbols_at;
     uint32_t* relocations;
     uint8_t* external_fields;
+    bool null_externals;
 };
 
 static inline uint32_t NativeArchiveBE32(const uint8_t* bytes)
