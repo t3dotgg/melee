@@ -318,20 +318,6 @@ typedef struct CSSAllData {
     struct CSSDoorsData2 data2; // 0x4A4
 } CSSAllData;
 
-#ifdef MELEE_NATIVE
-#define CSS_ALL_ICONS icons
-#define CSS_ALL_DOORS mnCharSel_803F0DFC
-#define CSS_ALL_TAGS mnCharSel_803F0E8C
-#define CSS_ALL_MISC mnCharSel_803F0EBC
-#define CSS_ALL_DATA2 data2
-#else
-#define CSS_ALL_ICONS all_data->icons
-#define CSS_ALL_DOORS all_data->doors_data
-#define CSS_ALL_TAGS all_data->tags
-#define CSS_ALL_MISC all_data->misc
-#define CSS_ALL_DATA2 all_data->data2
-#endif
-
 #define CSS_ALL ((CSSAllData*) &mnCharSel_803F0A48)
 
 #ifdef MELEE_NATIVE
@@ -344,11 +330,11 @@ typedef struct CSSAllData {
 #define CSS_ALL_MISC mnCharSel_803F0EBC
 #define CSS_ALL_DATA2 data2
 #else
-#define CSS_ALL_ICONS CSS_ALL->icons
-#define CSS_ALL_DOORS CSS_ALL->doors_data
-#define CSS_ALL_TAGS CSS_ALL->tags
-#define CSS_ALL_MISC CSS_ALL->misc
-#define CSS_ALL_DATA2 CSS_ALL->data2
+#define CSS_ALL_ICONS all_data->icons
+#define CSS_ALL_DOORS all_data->doors_data
+#define CSS_ALL_TAGS all_data->tags
+#define CSS_ALL_MISC all_data->misc
+#define CSS_ALL_DATA2 all_data->data2
 #endif
 
 TextKerning* mnCharSel_8025BC20(TextKerning* arg0, u32 arg1)
@@ -2061,6 +2047,9 @@ static inline s32 getPlayerForDoor(u8 door)
 
 void mnCharSel_8025FB50(u8 door, s32 arg1)
 {
+#ifndef MELEE_NATIVE
+    CSSAllData* all_data = CSS_ALL;
+#endif
     s32 icon_idx;
     s32 icon_offset;
     HSD_JObj* icon_jobj;
@@ -2122,6 +2111,9 @@ void mnCharSel_8025FB50(u8 door, s32 arg1)
 #endif
 s32 mnCharSel_8025FDEC(u8 door)
 {
+#ifndef MELEE_NATIVE
+    CSSAllData* all_data = CSS_ALL;
+#endif
     CSSData* css;
     HSD_JObj* sp10;
     int player;
@@ -2253,6 +2245,9 @@ static inline void updateCursorDisplay(HSD_JObj* jobj,
                                        HSD_JObj** state_jobj,
                                        HSD_JObj** color_jobj)
 {
+#ifndef MELEE_NATIVE
+    CSSAllData* all_data = CSS_ALL;
+#endif
 
     if (cursor->x5 != 1) {
         f32 y = cursor->x10;
@@ -2412,6 +2407,9 @@ static inline void cycleTeam(struct CSSCursorData* cursor, CSSDoor* dp, s32 di)
 
 void mnCharSel_CursorThink(HSD_GObj* gobj)
 {
+#ifndef MELEE_NATIVE
+    CSSAllData* all_data = CSS_ALL;
+#endif
     HSD_JObj* sp98;
     UNUSED u8 unk94[4];
     Point3d sp88;
