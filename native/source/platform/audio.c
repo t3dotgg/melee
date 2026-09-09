@@ -410,4 +410,3 @@ void DoCrossTalk(s32* left, s32* right, float cross, float invcross)
     (void) cross;
     (void) invcross;
 }
-
