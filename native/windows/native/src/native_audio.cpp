@@ -172,15 +172,15 @@ void NativeWindowsAudioBackend::start(const AudioVoice& voice)
         return;
     }
     std::lock_guard lock(state_->mutex);
+    if (state_->voices.contains(voice.id)) {
+        state_->close(buffer.handle);
+        return;
+    }
     // Insert before handing the header to waveOut: waveOut retains this
     // pointer until playback completes, so a stack or moved-from header would
     // be invalid while the device thread is active.
-    auto [iterator, inserted] = state_->voices.emplace(voice.id,
-                                                        std::move(buffer));
-    if (!inserted) {
-        state_->close(iterator->second.handle);
-        return;
-    }
+    state_->voices.emplace(voice.id, std::move(buffer));
+    const auto iterator = state_->voices.find(voice.id);
     auto& queued = iterator->second;
     const auto prepared = state_->prepare(
         queued.handle, &queued.header, static_cast<UINT>(sizeof(WaveHeader)));
