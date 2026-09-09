@@ -317,8 +317,8 @@ static void gx_raster_triangle(const GXSWVertex* a, const GXSWVertex* b,
         return;
     }
     if (gx_cull_mode == GX_CULL_ALL ||
-        (gx_cull_mode == GX_CULL_BACK && area > 0) ||
-        (gx_cull_mode == GX_CULL_FRONT && area < 0))
+        (gx_cull_mode == GX_CULL_BACK && area < 0) ||
+        (gx_cull_mode == GX_CULL_FRONT && area > 0))
     {
         return;
     }

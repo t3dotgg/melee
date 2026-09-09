@@ -60,10 +60,12 @@ static void test_gx_raster_cases(void)
     assert((pixel & 255) == 127);
 
     gx_test_raster_setup();
-    GXSetCullMode(GX_CULL_BACK);
+    /* The SDK swaps front/back culling before the hardware register write.
+     * This triangle has negative screen-space winding. */
+    GXSetCullMode(GX_CULL_FRONT);
     gx_test_raster_triangle(0.5f, red);
     assert((gx_test_raster_pixel(32, 32) & 0xffffff) == 0xff0000);
-    GXSetCullMode(GX_CULL_FRONT);
+    GXSetCullMode(GX_CULL_BACK);
     gx_test_raster_triangle(0.4f, blue);
     assert((gx_test_raster_pixel(32, 32) & 0xffffff) == 0xff0000);
 
