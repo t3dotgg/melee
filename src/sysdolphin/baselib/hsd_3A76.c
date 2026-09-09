@@ -499,6 +499,11 @@ void HSD_SisLib_803A84BC(HSD_GObj* gobj, intptr_t pass)
         if (textures == NULL) {
             textures = HSD_SisLib_FontAtlas;
         }
+        if (kerning == NULL) {
+            /* The native fallback atlas also supplies texture bytes for the
+             * extended glyph branch below. */
+            kerning = (TextKerning*) HSD_SisLib_FontAtlas;
+        }
         if (gobj != NULL) {
             if (text->x4C != 0) {
                 HSD_StateSetZMode(GX_TRUE, GX_LEQUAL, GX_FALSE);
