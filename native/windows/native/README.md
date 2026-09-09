@@ -1,11 +1,14 @@
 # Native Windows shell (experimental)
 
-This directory is the first bounded slice of a future source-level Windows
-port. It builds a real 64-bit C++ executable with a host-owned frame loop,
-typed game interface, bounds-checked game memory, validated asset archives,
-typed Xbox input, fixed-rate timing, and renderer snapshot interpolation. It does not load the
-GameCube DOL, execute PowerPC code, or include game data. The demo game only
-proves the interfaces and is not a playable Melee build.
+This directory is a bounded source-level Windows port slice. It builds a real
+64-bit C++ executable with a host-owned frame loop, typed game interface,
+bounds-checked game memory, validated asset archives, typed Xbox input,
+fixed-rate timing, and renderer snapshot interpolation. On Windows with a
+D3D12 adapter it creates a visible Win32 flip-model window, records a native
+render-target clear pass, fences the direct queue, and presents at the 120 Hz
+render cadence. It does not load the GameCube DOL, execute PowerPC code, or
+include game data. The demo game remains a deterministic training shell rather
+than a complete playable Melee port.
 
 Build with Visual Studio or Clang from a x64 developer prompt:
 
@@ -13,6 +16,7 @@ Build with Visual Studio or Clang from a x64 developer prompt:
 cmake -S native/windows/native -B build/native-shell -G Ninja
 cmake --build build/native-shell
 ctest --test-dir build/native-shell --output-on-failure
+build/native-shell/melee_native_shell.exe --frames 120
 ```
 
 `NativeGameMemory` stores bytes in host memory and provides explicit big-endian
@@ -22,7 +26,9 @@ entries before exposing immutable data spans. `NativeTimingScheduler` advances
 simulation at 60 Hz while a separate render clock can run at 120 Hz.
 `XboxPadMapper` maps physical Xbox A to attack/confirm, B to special/back, and
 X/Y to jump while retaining edge-triggered state. `RenderSnapshot` provides an
-ordered, pointer-free handoff to a future D3D12 or Vulkan backend.
+ordered, pointer-free handoff to the renderer;
+`NativeWin32SwapChain::clear_and_present` is the first concrete D3D12 command
+path and is covered by `native_gpu_pass`.
 `NativeScene` adds stable object IDs, deterministic callback ordering, and safe
 mutation during dispatch. `NativeFighter` and `NativeAudioMixer` demonstrate
 typed gameplay and voice scheduling slices; the latter exposes a backend seam
