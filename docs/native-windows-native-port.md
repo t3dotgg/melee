@@ -94,8 +94,10 @@ I/O, typed XInput mapping, a deterministic 60 Hz simulation scheduler with an
 independent 120 Hz render clock, and an ordered render snapshot/interpolation
 interface. These components build as a 64-bit Windows executable without the
 DOL or GameCube SDK and have focused CTest coverage. The executable is a shell
-and deterministic demo game; fighter rules, scenes, GX-compatible rendering,
-audio, saves, and the complete asset catalog still require source-level ports.
+and deterministic demo game; a small typed fighter rules slice now covers
+movement, jump, gravity, attack, and special actions. Full fighter rules,
+scenes, collision, GX-compatible rendering, audio, and the complete asset
+catalog still require source-level ports.
 
 ## Acceptance tests
 
