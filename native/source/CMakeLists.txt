@@ -14,6 +14,7 @@ set(CMAKE_C_STANDARD_REQUIRED ON)
 set(CMAKE_C_EXTENSIONS ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 option(MELEE_SANITIZERS "Check memory access and undefined behavior" ON)
+option(MELEE_METAL_TESTS "Run graphics tests on an available Metal device" OFF)
 option(MELEE_BUILD_NATIVE_GAME
     "Build the complete direct-source ARM64 game executable (experimental)" OFF)
 get_filename_component(MELEE_ROOT "../.." ABSOLUTE)
@@ -204,6 +205,25 @@ add_executable(test_gx tests/test_gx.c platform/gx.c)
 target_link_libraries(test_gx PRIVATE melee_host_options)
 add_test(NAME gx COMMAND test_gx)
 
+set_source_files_properties(platform/gx_metal.m PROPERTIES
+    COMPILE_OPTIONS -fobjc-arc)
+if(MELEE_METAL_TESTS)
+    add_executable(test_gx_metal tests/test_gx.c platform/gx.c
+        platform/gx_metal.m)
+    target_compile_definitions(test_gx_metal PRIVATE MELEE_NATIVE_METAL)
+    target_link_libraries(test_gx_metal PRIVATE melee_host_options
+        "-framework Metal" "-framework Foundation")
+    add_test(NAME gx_metal COMMAND test_gx_metal)
+    set_tests_properties(gx_metal PROPERTIES
+        ENVIRONMENT "MELEE_REQUIRE_METAL=1")
+
+    add_executable(test_gx_metal_backend tests/test_gx_metal.c
+        platform/gx_metal.m)
+    target_link_libraries(test_gx_metal_backend PRIVATE melee_host_options
+        "-framework Metal" "-framework Foundation")
+    add_test(NAME gx_metal_backend COMMAND test_gx_metal_backend)
+endif()
+
 # The focused tests above are the default build. The complete game target is
 # opt-in because it is still missing host services needed for a playable
 # window, controller input, audio, and save data. When enabled, CMake compiles
@@ -225,12 +245,16 @@ if(MELEE_BUILD_NATIVE_GAME)
         ${MELEE_NATIVE_GAME_SOURCES}
         ${MELEE_NATIVE_SUPPORT_SOURCES})
     target_link_libraries(native_melee PRIVATE melee_host_options)
-    target_compile_definitions(native_melee PRIVATE MELEE_NATIVE_DISPLAY)
+    target_compile_definitions(native_melee PRIVATE
+        MELEE_NATIVE_DISPLAY MELEE_NATIVE_METAL)
     target_link_libraries(native_melee PRIVATE
         "-framework Cocoa"
         "-framework QuartzCore"
+        "-framework Metal"
+        "-framework Foundation"
         "-framework AudioToolbox")
     target_sources(native_melee PRIVATE
-        "${CMAKE_CURRENT_SOURCE_DIR}/platform/audio_output.m")
+        "${CMAKE_CURRENT_SOURCE_DIR}/platform/audio_output.m"
+        "${CMAKE_CURRENT_SOURCE_DIR}/platform/gx_metal.m")
     set_target_properties(native_melee PROPERTIES OUTPUT_NAME melee-native)
 endif()
