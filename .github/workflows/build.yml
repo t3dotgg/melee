@@ -32,6 +32,29 @@ jobs:
       if: matrix.os == 'macos-latest'
       run: python -m unittest discover -s native/macos/tests -v
 
+  # No game data is available here. Match validation runs locally.
+  native-arm64:
+    name: Direct ARM64 build and sanitizer tests
+    runs-on: macos-15
+    timeout-minutes: 30
+    env:
+      UBSAN_OPTIONS: halt_on_error=1:print_stacktrace=1
+    steps:
+    - uses: actions/checkout@v6
+    - uses: actions/setup-python@v6
+      with:
+        python-version: '3.13'
+    - name: Compile every native source
+      run: python native/source/compile.py --jobs 3 --output build/native-source/inventory
+    - name: Configure the native game and sanitizer tests
+      run: >-
+        cmake -S native/source -B build/native-source/ci -G Ninja
+        -DMELEE_BUILD_NATIVE_GAME=ON -DMELEE_SANITIZERS=ON
+    - name: Build the complete ARM64 executable and tests
+      run: cmake --build build/native-source/ci --target all native_melee --parallel 3
+    - name: Run native sanitizer tests
+      run: ctest --test-dir build/native-source/ci --output-on-failure
+
   # This target produces a library. Full GameCube verification needs local game data.
   native-build:
     name: Native library build
