@@ -382,8 +382,11 @@ NativeArchiveStatus NativeEventArchiveRead(NativeEventArchive* events,
                                            void** output,
                                            NativeArchiveError* error)
 {
+    NativeArchiveError local = { NATIVE_ARCHIVE_OK, 0, "ok" };
     uint32_t target;
     bool present;
+    events->error = error == NULL ? &local : error;
+    *events->error = local;
     if (output != NULL) {
         *output = NULL;
     }
