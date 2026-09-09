@@ -32,6 +32,7 @@ typedef struct NativeGXMetalState {
     uint32_t blend_mode, blend_src, blend_dst, logic_op;
     uint32_t color_update, alpha_update, dst_alpha_enabled, dst_alpha;
     uint32_t cull_mode;
+    uint32_t scissor[4];
     uint32_t fog_type, fog_ortho, fog_range_enabled, fog_center;
     float fog_start, fog_end, fog_near, fog_far;
     float viewport_near, viewport_far;
