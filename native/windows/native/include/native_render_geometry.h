@@ -34,6 +34,26 @@ struct NativeRenderGeometry {
     bool empty() const noexcept { return draws.empty(); }
 };
 
+// One contiguous vertex/index upload, with the index range aligned to 16
+// bytes. Limits bound both GPU allocation and draw-list bookkeeping.
+inline constexpr std::uint32_t native_geometry_upload_limit = 32U * 1024U * 1024U;
+inline constexpr std::uint32_t native_geometry_draw_limit = 65536U;
+
+struct NativeGeometryUploadPlan {
+    std::uint32_t vertex_bytes = 0;
+    std::uint32_t index_bytes = 0;
+    std::uint32_t index_offset = 0;
+    std::uint32_t total_bytes = 0;
+    std::uint32_t draw_count = 0;
+};
+
+// Validate finite vertices, in-range indices, and nonempty triangle-list
+// draws before a backend allocates or writes storage. Empty geometry is valid;
+// every failure clears the output plan. No graphics API or allocation is used.
+bool plan_geometry_upload(const NativeRenderGeometry& geometry,
+                          NativeGeometryUploadPlan& plan,
+                          std::uint32_t byte_limit = native_geometry_upload_limit) noexcept;
+
 // Build a deterministic colored quad for each render object.  A quad is a
 // temporary fighter/stage proxy: the simulation supplies only a transform,
 // while a future DAT/material importer can replace this function's geometry

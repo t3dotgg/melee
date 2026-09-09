@@ -1,5 +1,7 @@
 #pragma once
 
+#include "native_render_geometry.h"
+
 #include <array>
 #include <cstdint>
 
@@ -25,6 +27,11 @@ public:
     bool initialize(const NativeSwapChainDesc& desc = {});
     void shutdown() noexcept;
     bool present() noexcept;
+    // Prepare a validated, bounded vertex/index upload. Storage is retained and
+    // reused across frames; draw ranges are copied and owned by the frontend.
+    // The next clear_and_present submits pending copies and binds the buffers.
+    // This does not issue draws: a material/shader pipeline is still required.
+    bool prepare_geometry(const NativeRenderGeometry& geometry) noexcept;
     // Record and submit a native D3D12 render pass that clears the current
     // back buffer, waits for GPU completion, and presents it. This is the
     // first concrete command-recording boundary used by the native renderer.
@@ -36,6 +43,10 @@ public:
     std::uint32_t width() const noexcept { return width_; }
     std::uint32_t height() const noexcept { return height_; }
     std::uint64_t presented_frames() const noexcept { return presented_frames_; }
+    bool close_requested() const noexcept { return close_requested_; }
+    const NativeGeometryUploadPlan& prepared_geometry() const noexcept { return geometry_plan_; }
+    std::span<const NativeRenderDraw> prepared_draws() const noexcept { return geometry_draws_; }
+    std::uint64_t geometry_uploads() const noexcept { return geometry_uploads_; }
     void* native_window() const noexcept { return window_; }
 
 private:
@@ -50,6 +61,16 @@ private:
     void* rtv_heap_ = nullptr;
     void* fence_ = nullptr;
     void* fence_event_ = nullptr;
+    void* geometry_upload_ = nullptr;
+    void* geometry_buffer_ = nullptr;
+    void* geometry_mapping_ = nullptr;
+    NativeGeometryUploadPlan geometry_plan_{};
+    std::vector<NativeRenderDraw> geometry_draws_;
+    std::uint32_t geometry_capacity_ = 0;
+    std::uint64_t geometry_uploads_ = 0;
+    bool geometry_pending_ = false;
+    bool geometry_buffer_ready_ = false;
+    bool submission_failed_ = false;
     std::array<void*, 8> back_buffers_{};
     std::uint32_t rtv_increment_ = 0;
     std::uint64_t fence_value_ = 0;
@@ -60,6 +81,7 @@ private:
     bool tearing_supported_ = false;
     bool com_initialized_ = false;
     bool class_registered_ = false;
+    bool close_requested_ = false;
     std::uint64_t presented_frames_ = 0;
 };
 

@@ -1,19 +1,28 @@
 #include "native_swapchain.h"
 
+#include <algorithm>
+#include <cstring>
+#include <type_traits>
+
 #ifdef _WIN32
 #include <d3d12.h>
 #include <dxgi1_6.h>
 #include <windows.h>
-
-#include <algorithm>
 
 namespace {
 constexpr wchar_t kClassName[] = L"MeleeNativeSwapChainWindow";
 
 LRESULT CALLBACK window_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
 {
+    if (msg == WM_NCCREATE) {
+        const auto* create = reinterpret_cast<const CREATESTRUCTW*>(lp);
+        SetWindowLongPtrW(hwnd, GWLP_USERDATA,
+                         reinterpret_cast<LONG_PTR>(create->lpCreateParams));
+    }
     if (msg == WM_CLOSE) {
-        return 0; // hidden frontend owns lifetime; don't destroy from a stray close
+        auto* close_requested = reinterpret_cast<bool*>(GetWindowLongPtrW(hwnd, GWLP_USERDATA));
+        if (close_requested != nullptr) *close_requested = true;
+        return 0; // The owning loop stops before releasing GPU/window resources.
     }
     return DefWindowProcW(hwnd, msg, wp, lp);
 }
@@ -86,7 +95,7 @@ bool NativeWin32SwapChain::initialize(const NativeSwapChainDesc& desc)
     const DWORD style = WS_OVERLAPPEDWINDOW;
     window_ = CreateWindowExW(0, kClassName, L"Melee Native", style, 0, 0,
                               static_cast<int>(width_), static_cast<int>(height_), nullptr, nullptr,
-                              instance, nullptr);
+                              instance, &close_requested_);
     if (window_ == nullptr) return fail();
 
     auto* factory = static_cast<IDXGIFactory4*>(nullptr);
@@ -165,6 +174,20 @@ bool NativeWin32SwapChain::initialize(const NativeSwapChainDesc& desc)
 void NativeWin32SwapChain::shutdown() noexcept
 {
 #ifdef _WIN32
+    // A failed signal/wait can leave the last submission outstanding. Retire
+    // that work before releasing storage, unless the device itself was removed.
+    if (queue_ != nullptr && fence_ != nullptr && fence_event_ != nullptr && submission_failed_) {
+        auto* fence = static_cast<ID3D12Fence*>(fence_);
+        const std::uint64_t value = ++fence_value_;
+        if (SUCCEEDED(static_cast<ID3D12CommandQueue*>(queue_)->Signal(fence, value)) &&
+            fence->GetCompletedValue() < value &&
+            SUCCEEDED(fence->SetEventOnCompletion(value, static_cast<HANDLE>(fence_event_))))
+            WaitForSingleObject(static_cast<HANDLE>(fence_event_), INFINITE);
+    }
+    if (geometry_upload_ != nullptr && geometry_mapping_ != nullptr)
+        static_cast<ID3D12Resource*>(geometry_upload_)->Unmap(0, nullptr);
+    release_object(geometry_upload_);
+    release_object(geometry_buffer_);
     release_render_targets(back_buffers_);
     release_object(fence_);
     release_object(rtv_heap_);
@@ -187,8 +210,87 @@ void NativeWin32SwapChain::shutdown() noexcept
     rtv_increment_ = 0;
     fence_value_ = 0;
     width_ = height_ = buffer_count_ = 0;
+    geometry_upload_ = geometry_buffer_ = geometry_mapping_ = nullptr;
+    geometry_plan_ = {};
+    geometry_draws_.clear();
+    geometry_capacity_ = 0;
+    geometry_uploads_ = 0;
+    geometry_pending_ = geometry_buffer_ready_ = submission_failed_ = false;
+    close_requested_ = false;
     tearing_supported_ = class_registered_ = com_initialized_ = false;
     presented_frames_ = 0;
+}
+
+bool NativeWin32SwapChain::prepare_geometry(const NativeRenderGeometry& geometry) noexcept
+{
+    NativeGeometryUploadPlan plan;
+    if (!available() || submission_failed_ || !plan_geometry_upload(geometry, plan)) return false;
+#ifdef _WIN32
+    static_assert(std::is_trivially_copyable_v<NativeRenderVertex>);
+    static_assert(sizeof(NativeRenderVertex) == 16);
+    // Complete all allocating work before changing the last accepted frame.
+    std::vector<NativeRenderDraw> draws;
+    try {
+        draws = geometry.draws;
+    } catch (...) {
+        return false;
+    }
+    if (plan.total_bytes > geometry_capacity_) {
+        std::uint32_t capacity = 65536;
+        while (capacity < plan.total_bytes) capacity *= 2;
+        D3D12_HEAP_PROPERTIES heap{};
+        heap.Type = D3D12_HEAP_TYPE_UPLOAD;
+        D3D12_RESOURCE_DESC desc{};
+        desc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
+        desc.Width = capacity;
+        desc.Height = 1;
+        desc.DepthOrArraySize = 1;
+        desc.MipLevels = 1;
+        desc.SampleDesc.Count = 1;
+        desc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
+        auto* device = static_cast<ID3D12Device*>(device_);
+        ID3D12Resource* upload = nullptr;
+        ID3D12Resource* buffer = nullptr;
+        void* mapping = nullptr;
+        if (FAILED(device->CreateCommittedResource(&heap, D3D12_HEAP_FLAG_NONE, &desc,
+                                                    D3D12_RESOURCE_STATE_GENERIC_READ, nullptr,
+                                                    __uuidof(ID3D12Resource),
+                                                    reinterpret_cast<void**>(&upload))))
+            return false;
+        heap.Type = D3D12_HEAP_TYPE_DEFAULT;
+        const D3D12_RANGE no_reads{0, 0};
+        if (FAILED(device->CreateCommittedResource(&heap, D3D12_HEAP_FLAG_NONE, &desc,
+                                                    D3D12_RESOURCE_STATE_COPY_DEST, nullptr,
+                                                    __uuidof(ID3D12Resource),
+                                                    reinterpret_cast<void**>(&buffer))) ||
+            FAILED(upload->Map(0, &no_reads, &mapping))) {
+            if (buffer != nullptr) buffer->Release();
+            upload->Release();
+            return false;
+        }
+        if (geometry_upload_ != nullptr)
+            static_cast<ID3D12Resource*>(geometry_upload_)->Unmap(0, nullptr);
+        release_object(geometry_upload_);
+        release_object(geometry_buffer_);
+        geometry_upload_ = upload;
+        geometry_buffer_ = buffer;
+        geometry_mapping_ = mapping;
+        geometry_capacity_ = capacity;
+        geometry_buffer_ready_ = false;
+    }
+    if (plan.total_bytes != 0) {
+        auto* destination = static_cast<std::byte*>(geometry_mapping_);
+        std::memcpy(destination, geometry.vertices.data(), plan.vertex_bytes);
+        std::memset(destination + plan.vertex_bytes, 0, plan.index_offset - plan.vertex_bytes);
+        std::memcpy(destination + plan.index_offset, geometry.indices.data(), plan.index_bytes);
+    }
+    geometry_plan_ = plan;
+    geometry_draws_.swap(draws);
+    geometry_pending_ = plan.total_bytes != 0;
+    return true;
+#else
+    return false;
+#endif
 }
 
 bool NativeWin32SwapChain::present() noexcept
@@ -210,7 +312,7 @@ bool NativeWin32SwapChain::clear_and_present(float red, float green, float blue,
 {
 #ifdef _WIN32
     if (swap_chain_ == nullptr || command_allocator_ == nullptr || command_list_ == nullptr ||
-        rtv_heap_ == nullptr || fence_ == nullptr || fence_event_ == nullptr)
+        rtv_heap_ == nullptr || fence_ == nullptr || fence_event_ == nullptr || submission_failed_)
         return false;
     auto* chain = static_cast<IDXGISwapChain3*>(swap_chain_);
     auto* allocator = static_cast<ID3D12CommandAllocator*>(command_allocator_);
@@ -220,6 +322,32 @@ bool NativeWin32SwapChain::clear_and_present(float red, float green, float blue,
     const UINT index = chain->GetCurrentBackBufferIndex();
     if (index >= buffer_count_ || back_buffers_[index] == nullptr) return false;
     if (FAILED(allocator->Reset()) || FAILED(list->Reset(allocator, nullptr))) return false;
+    constexpr D3D12_RESOURCE_STATES geometry_read = D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER |
+                                                  D3D12_RESOURCE_STATE_INDEX_BUFFER;
+    if (geometry_pending_) {
+        auto* buffer = static_cast<ID3D12Resource*>(geometry_buffer_);
+        D3D12_RESOURCE_BARRIER copy_barrier{};
+        copy_barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+        copy_barrier.Transition.pResource = buffer;
+        copy_barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+        copy_barrier.Transition.StateBefore = geometry_read;
+        copy_barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_COPY_DEST;
+        if (geometry_buffer_ready_) list->ResourceBarrier(1, &copy_barrier);
+        list->CopyBufferRegion(buffer, 0, static_cast<ID3D12Resource*>(geometry_upload_), 0,
+                               geometry_plan_.total_bytes);
+        std::swap(copy_barrier.Transition.StateBefore, copy_barrier.Transition.StateAfter);
+        list->ResourceBarrier(1, &copy_barrier);
+    }
+    if (geometry_plan_.total_bytes != 0) {
+        const auto address = static_cast<ID3D12Resource*>(geometry_buffer_)->GetGPUVirtualAddress();
+        const D3D12_VERTEX_BUFFER_VIEW vertices{address, geometry_plan_.vertex_bytes,
+                                              sizeof(NativeRenderVertex)};
+        const D3D12_INDEX_BUFFER_VIEW indices{address + geometry_plan_.index_offset,
+                                            geometry_plan_.index_bytes, DXGI_FORMAT_R32_UINT};
+        list->IASetVertexBuffers(0, 1, &vertices);
+        list->IASetIndexBuffer(&indices);
+        list->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+    }
     auto* resource = static_cast<ID3D12Resource*>(back_buffers_[index]);
     D3D12_RESOURCE_BARRIER barrier{};
     barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
@@ -237,6 +365,7 @@ bool NativeWin32SwapChain::clear_and_present(float red, float green, float blue,
     if (FAILED(list->Close())) return false;
     ID3D12CommandList* lists[] = {list};
     queue->ExecuteCommandLists(1, lists);
+    submission_failed_ = true; // Do not reuse storage until the fence completes.
     const std::uint64_t value = ++fence_value_;
     if (FAILED(queue->Signal(fence, value))) return false;
     if (fence->GetCompletedValue() < value) {
@@ -244,6 +373,13 @@ bool NativeWin32SwapChain::clear_and_present(float red, float green, float blue,
             return false;
         if (WaitForSingleObject(static_cast<HANDLE>(fence_event_), INFINITE) != WAIT_OBJECT_0)
             return false;
+    }
+    if (fence->GetCompletedValue() == UINT64_MAX) return false; // Removed device.
+    submission_failed_ = false;
+    if (geometry_pending_) {
+        ++geometry_uploads_;
+        geometry_pending_ = false;
+        geometry_buffer_ready_ = true;
     }
     return present();
 #else

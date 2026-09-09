@@ -30,6 +30,39 @@ bool finite_transform(const RenderTransform& transform)
 
 } // namespace
 
+bool plan_geometry_upload(const NativeRenderGeometry& geometry,
+                          NativeGeometryUploadPlan& plan,
+                          std::uint32_t byte_limit) noexcept
+{
+    plan = {};
+    if (geometry.vertices.empty() && geometry.indices.empty() && geometry.draws.empty())
+        return true;
+    if (geometry.vertices.empty() || geometry.indices.empty() || geometry.draws.empty() ||
+        geometry.draws.size() > native_geometry_draw_limit ||
+        geometry.vertices.size() > byte_limit / sizeof(NativeRenderVertex) ||
+        geometry.indices.size() > byte_limit / sizeof(std::uint32_t))
+        return false;
+    const std::uint64_t vertex_bytes = geometry.vertices.size() * sizeof(NativeRenderVertex);
+    const std::uint64_t index_offset = (vertex_bytes + 15U) & ~std::uint64_t(15U);
+    const std::uint64_t index_bytes = geometry.indices.size() * sizeof(std::uint32_t);
+    if (index_offset + index_bytes > byte_limit) return false;
+    for (const auto& vertex : geometry.vertices)
+        if (!finite_transform(vertex.position)) return false;
+    for (const auto index : geometry.indices)
+        if (index >= geometry.vertices.size()) return false;
+    for (const auto& draw : geometry.draws) {
+        if (draw.index_count == 0 || draw.index_count % 3 != 0 ||
+            draw.first_index > geometry.indices.size() ||
+            draw.index_count > geometry.indices.size() - draw.first_index)
+            return false;
+    }
+    plan = {static_cast<std::uint32_t>(vertex_bytes), static_cast<std::uint32_t>(index_bytes),
+            static_cast<std::uint32_t>(index_offset),
+            static_cast<std::uint32_t>(index_offset + index_bytes),
+            static_cast<std::uint32_t>(geometry.draws.size())};
+    return true;
+}
+
 NativeRenderGeometry build_proxy_geometry(std::span<const RenderObject> objects,
                                            float half_width,
                                            float half_height)

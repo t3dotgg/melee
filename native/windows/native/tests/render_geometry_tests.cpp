@@ -23,6 +23,28 @@ int main()
     assert(geometry.indices[0] == 0 && geometry.indices[5] == 3);
     assert(geometry.vertices[0].color != geometry.vertices[4].color);
 
+    NativeGeometryUploadPlan upload_plan;
+    assert(plan_geometry_upload(geometry, upload_plan));
+    assert(upload_plan.vertex_bytes == 8U * sizeof(NativeRenderVertex));
+    assert(upload_plan.index_bytes == 12U * sizeof(std::uint32_t));
+    assert(upload_plan.index_offset % 16U == 0);
+    assert(upload_plan.total_bytes >= upload_plan.index_offset + upload_plan.index_bytes);
+    assert(upload_plan.draw_count == 2);
+    NativeRenderGeometry malformed = geometry;
+    malformed.indices[0] = 99;
+    assert(!plan_geometry_upload(malformed, upload_plan));
+    assert(upload_plan.total_bytes == 0);
+    malformed = geometry;
+    malformed.draws[0].index_count = 5;
+    assert(!plan_geometry_upload(malformed, upload_plan));
+    malformed = geometry;
+    malformed.vertices[0].position.z = INFINITY;
+    assert(!plan_geometry_upload(malformed, upload_plan));
+    assert(!plan_geometry_upload(geometry, upload_plan, upload_plan.vertex_bytes));
+    const auto complete_bytes = static_cast<std::uint32_t>(8U * sizeof(NativeRenderVertex) +
+                                                            12U * sizeof(std::uint32_t) + 15U);
+    assert(!plan_geometry_upload(geometry, upload_plan, complete_bytes - 1));
+
     RenderCommandBuffer commands;
     commands.append(snapshot.objects[0]);
     const NativeRenderGeometry command_geometry = commands.build_proxy_geometry();
