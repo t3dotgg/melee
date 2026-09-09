@@ -1182,6 +1182,36 @@ void* HSD_ArchiveNativePublicAddress(HSD_Archive* archive, const char* symbol)
     return NULL;
 }
 
+size_t HSD_ArchiveNativeDataLimit(const void* pointer)
+{
+    NativeArchiveBinding* binding;
+    for (binding = native_archive_bindings; binding != NULL;
+         binding = binding->next)
+    {
+        uintptr_t start = (uintptr_t) binding->archive->data;
+        uintptr_t address = (uintptr_t) pointer;
+        size_t offset;
+        size_t limit = NativeArchiveDataSize(binding->archive);
+        if (address < start || address - start >= limit) {
+            continue;
+        }
+        offset = (size_t) (address - start);
+        for (size_t i = 0; i < NativeArchivePublicCount(binding->archive);
+             ++i)
+        {
+            NativeArchiveSymbol symbol;
+            if (NativeArchivePublic(binding->archive, i, &symbol, NULL) ==
+                    NATIVE_ARCHIVE_OK &&
+                symbol.offset > offset && symbol.offset < limit)
+            {
+                limit = symbol.offset;
+            }
+        }
+        return limit - offset;
+    }
+    return 0;
+}
+
 void HSD_ArchiveNativeRelease(HSD_Archive* archive)
 {
     NativeArchiveBinding** cursor = &native_archive_bindings;

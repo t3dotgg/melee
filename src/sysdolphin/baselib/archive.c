@@ -36,6 +36,12 @@ HSD_ArchiveNativePublicAddress(HSD_Archive* archive, const char* symbol)
     return NULL;
 }
 
+__attribute__((weak)) size_t HSD_ArchiveNativeDataLimit(const void* pointer)
+{
+    (void) pointer;
+    return 0;
+}
+
 __attribute__((weak)) size_t HSD_ArchiveNativeSisCount(const void* table)
 {
     (void) table;

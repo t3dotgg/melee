@@ -26,6 +26,9 @@ typedef struct {
 #endif
 
 #include "cobj.h"
+#ifdef MELEE_NATIVE
+#include "archive.h"
+#endif
 #include "gobjobject.h"
 #include "mtx.h"
 #include "particle.static.h"
@@ -100,13 +103,30 @@ static f32 particle_be_float(const void* p)
 static void particle_native_load(int bank, const u8* cmdBank,
                                  const u8* texBank)
 {
-    u32 cmd_count = particle_be32(cmdBank + 8);
-    HSD_PSCmdList** commands =
-        calloc((size_t) cmd_count + 1, sizeof(*commands));
-    u32 tex_count = particle_be32(texBank);
-    HSD_PSTexGroup** textures =
-        calloc((size_t) tex_count + 1, sizeof(*textures));
+    size_t cmd_bank_size = HSD_ArchiveNativeDataLimit(cmdBank);
+    size_t tex_bank_size = HSD_ArchiveNativeDataLimit(texBank);
+    u32 cmd_count;
+    u32 tex_count;
+    HSD_PSCmdList** commands;
+    HSD_PSTexGroup** textures;
     u32 i;
+    if (cmd_bank_size < 12) {
+        OSPanic(__FILE__, 108, "invalid native particle command bank\n");
+        return;
+    }
+    cmd_count = particle_be32(cmdBank + 8);
+    if (cmd_count > (cmd_bank_size - 12) / sizeof(u32) ||
+        tex_bank_size < 4) {
+        OSPanic(__FILE__, 108, "invalid native particle bank tables\n");
+        return;
+    }
+    tex_count = particle_be32(texBank);
+    if (tex_count > (tex_bank_size - 4) / sizeof(u32)) {
+        OSPanic(__FILE__, 108, "invalid native particle texture bank\n");
+        return;
+    }
+    commands = calloc((size_t) cmd_count + 1, sizeof(*commands));
+    textures = calloc((size_t) tex_count + 1, sizeof(*textures));
     if (commands == NULL || textures == NULL) {
         free(commands);
         free(textures);
@@ -115,13 +135,28 @@ static void particle_native_load(int bank, const u8* cmdBank,
     }
     for (i = 0; i < cmd_count; ++i) {
         u32 target = particle_be32(cmdBank + 12 + i * 4);
+        u32 next_target = (u32) cmd_bank_size;
+        u32 j;
         HSD_PSCmdList* src;
         HSD_PSCmdList* dst;
-        if (target == 0) {
+        size_t size;
+        if (target == 0 || target > cmd_bank_size ||
+            cmd_bank_size - target < 60) {
+            continue;
+        }
+        for (j = 0; j < cmd_count; ++j) {
+            u32 candidate = particle_be32(cmdBank + 12 + j * 4);
+            if (candidate > target && candidate < next_target &&
+                candidate <= cmd_bank_size) {
+                next_target = candidate;
+            }
+        }
+        if (next_target < target + 60 || next_target > cmd_bank_size) {
             continue;
         }
         src = (HSD_PSCmdList*) (cmdBank + target);
-        dst = calloc(1, 0x100);
+        size = (size_t) (next_target - target);
+        dst = calloc(1, size + sizeof(*dst));
         if (dst == NULL) {
             continue;
         }
@@ -142,35 +177,65 @@ static void particle_native_load(int bank, const u8* cmdBank,
         dst->param1 = particle_be_float((u8*) src + 48);
         dst->param2 = particle_be_float((u8*) src + 52);
         dst->param3 = particle_be_float((u8*) src + 56);
-        memcpy(dst->cmdList, (u8*) src + 60, 0x40);
+        memcpy(dst->cmdList, (u8*) src + 60, size - 60);
+        dst->cmdList[size - 60] = 0xFF;
         commands[i] = dst;
     }
     for (i = 0; i < tex_count; ++i) {
         u32 target = particle_be32(texBank + 4 + i * 4);
         HSD_PSTexGroup* src;
         HSD_PSTexGroup* dst;
-        u32 j;
+        size_t num;
+        size_t entries;
+        u32 fmt;
+        u16 palnum;
+        u16 palflag;
+        bool valid = true;
+        size_t j;
         if (target == 0) {
             continue;
         }
+        if (target > tex_bank_size || tex_bank_size - target < 24) {
+            OSPanic(__FILE__, 183, "invalid native particle texture group\n");
+            continue;
+        }
         src = (HSD_PSTexGroup*) (texBank + target);
-        dst = calloc(1, sizeof(*dst) + 4 * 64);
+        num = particle_be32((u8*) src);
+        fmt = particle_be32((u8*) src + 4);
+        palnum = particle_be16((u8*) src + 20);
+        palflag = particle_be16((u8*) src + 22);
+        entries = num;
+        if (fmt >= 8 && fmt <= 10) {
+            entries += (palflag & 1) ? 1 : palnum != 0 ? palnum : num;
+        }
+        if (entries > (tex_bank_size - target - 24) / sizeof(u32)) {
+            OSPanic(__FILE__, 183, "invalid native particle texture table\n");
+            continue;
+        }
+        dst = calloc(1, offsetof(HSD_PSTexGroup, texTable) +
+                            (entries + 1) * sizeof(*dst->texTable));
         if (dst == NULL) {
             continue;
         }
-        dst->num = particle_be32((u8*) src);
-        dst->fmt = particle_be32((u8*) src + 4);
+        dst->num = num;
+        dst->fmt = fmt;
         dst->tlutfmt = particle_be32((u8*) src + 8);
         dst->width = particle_be32((u8*) src + 12);
         dst->height = particle_be32((u8*) src + 16);
-        dst->palnum = particle_be16((u8*) src + 20);
-        dst->palflag = particle_be16((u8*) src + 22);
-        if (dst->num > 64) {
-            dst->num = 64;
-        }
-        for (j = 0; j < dst->num; ++j) {
+        dst->palnum = palnum;
+        dst->palflag = palflag;
+        for (j = 0; j < entries; ++j) {
             u32 image = particle_be32((u8*) src + 24 + j * 4);
+            if (image >= tex_bank_size) {
+                OSPanic(__FILE__, 183, "invalid native particle image\n");
+                valid = false;
+                break;
+            }
             dst->texTable[j] = image == 0 ? NULL : (u8*) (texBank + image);
+        }
+        if (!valid) {
+            free(dst);
+            continue;
         }
         textures[i] = dst;
     }
