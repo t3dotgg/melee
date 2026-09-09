@@ -157,6 +157,13 @@ static void HSD_SynthSFXHeaderLoadCallback(int result, intptr_t length, void* ad
     if (HSD_Synth_804D7738 == 0) {
         int bankID = HSD_Synth_804C2A60[0].bankID;
 
+#ifdef MELEE_NATIVE
+        /* The GameCube reads this header into a big-endian u32 array. */
+        for (int i = 0; i < 8; ++i) {
+            hsd_SynthSFXLoadBuf[i] = __builtin_bswap32(hsd_SynthSFXLoadBuf[i]);
+        }
+#endif
+
         HSD_ASSERTREPORT(0xCD,
                          hsd_SynthSFXBankHead[bankID + 1] -
                                  hsd_SynthSFXBank[bankID] >=
