@@ -300,6 +300,10 @@ void HSD_SisLib_803A8134(void* cursor, HSD_Text* text, f32* out_width,
     if (sis != NULL) {
         glyph_tex = sis->textures;
     }
+    /* Keep status and error screens usable before a font archive loads. */
+    if (glyph_tex == NULL) {
+        glyph_tex = HSD_SisLib_FontAtlas;
+    }
     *out_width = 0.0F;
     *out_height = 32.0F * text->x80.y;
 loop_3:
@@ -491,6 +495,9 @@ void HSD_SisLib_803A84BC(HSD_GObj* gobj, intptr_t pass)
                 kerning = sis->kerning;
                 textures = sis->textures;
             }
+        }
+        if (textures == NULL) {
+            textures = HSD_SisLib_FontAtlas;
         }
         if (gobj != NULL) {
             if (text->x4C != 0) {
