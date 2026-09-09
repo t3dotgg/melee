@@ -681,23 +681,10 @@ struct foo {
     AXPBADPCMLOOP x48;
 };
 
-#ifdef MELEE_NATIVE
-/* The stream keeps the AX voice payload at entry+0x10. The host entry header
- * is four bytes wider because its next pointer is 64-bit, so point directly
- * at the payload instead of using the widened foo offsets. */
-struct NativeSfxVoice {
-    AXPBADDR x10;
-    AXPBADPCM x20;
-    AXPBADPCMLOOP x48;
-};
-#define SFX_VOICE(i) \
-    ((struct NativeSfxVoice*) ((u8*) sfx_entry + (i) * 0x40 + 0x10))
-#else
 /** @remarks The per-voice blocks of an SFX entry are 0x40 apart, which is
  *  less than the AX structures they carry.
  */
 #define SFX_VOICE(i) ((struct foo*) ((u8*) sfx_entry + (i) * 0x40))
-#endif
 
 static AXPBMIX lbl_80407FB4 = { 0 };
 
