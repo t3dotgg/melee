@@ -25,9 +25,14 @@ typedef void (*OSErrorHandler)(OSError error, OSContext* context, ...);
 #define OS_ERROR_BREAKPOINT 12
 #define OS_ERROR_SYSTEM_INTERRUPT 13
 #define OS_ERROR_THERMAL_INTERRUPT 14
+#ifdef MELEE_NATIVE
+#define OS_ERROR_MEMORY_PROTECTION 15
+#define OS_ERROR_MAX (OS_ERROR_MEMORY_PROTECTION + 1)
+#else
 #define OS_ERROR_MAX (OS_ERROR_THERMAL_INTERRUPT + 1)
+#endif
 
-extern OSErrorHandler OSErrorTable[15];
+extern OSErrorHandler OSErrorTable[OS_ERROR_MAX];
 
 OSErrorHandler OSSetErrorHandler(OSError error, OSErrorHandler handler);
 
