@@ -1054,8 +1054,13 @@ HSD_Archive* lbArchive_80016DBC(const char* filename, void* symbol_dst, ...)
 void lbArchive_80016EFC(HSD_Archive* archive)
 {
 #ifdef MELEE_NATIVE
+    NativeArchiveBinding* binding = native_binding(archive);
+    HSD_ASSERT(0xFC, archive);
+    HSD_ASSERT(0xFD, binding);
+    void* input = binding->input;
     HSD_ArchiveNativeRelease(archive);
-    lbHeap_80015CA8(0, (u8*) archive - 0x20);
+    lbHeap_80015CA8(0, input);
+    lbHeap_80015CA8(0, archive);
     return;
 #else
     HSD_ASSERT(0xFC, archive);
