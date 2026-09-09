@@ -8,8 +8,8 @@ The existing Mac app compiles translated PowerPC code into ARM64 machine
 code. It still uses guest CPU state, 32-bit guest addresses, and Dolphin
 services. That app is a separate build path.
 
-This is Theo's fully automated slop experiment. It is not meant for serious
-use or investigation. No support, maintenance, or human review is promised.
+The direct build is an experimental port. It is separate from the existing
+translated Mac app.
 
 ## Completion requirements
 
@@ -35,9 +35,10 @@ Run on an Apple Silicon Mac with Xcode command line tools:
 python3 native/source/compile.py --jobs 8
 ```
 
-This compiles every C file under `src/melee` and `src/sysdolphin` into
-ARM64 objects. It returns a failure status if any file fails. The JSON
-report and individual compiler logs are under `build/native-source`.
+This compiles 984 game and engine files plus the native support files under
+`native/source` and the required MSL floating point constants. The current
+inventory is 1004/1004 ARM64 files. It returns a failure status if any file
+fails. The JSON report and compiler logs are under `build/native-source`.
 It requires no game image and does not fetch or run a translator.
 
 To check a changed directory:
@@ -52,7 +53,7 @@ GameCube layouts. They are not host byte offsets.
 
 ## Native launcher
 
-The optional `native_melee` target links the direct C sources with the host
+The optional `native_melee` target links all direct C sources with the host
 platform services. Build it on an Apple Silicon Mac with:
 
 ```sh
@@ -70,25 +71,27 @@ build/native-source/game/melee-native --disc /path/to/melee.iso
 
 A single path is accepted too. The launcher detects directories and regular
 files. The same paths can be supplied with `MELEE_GAME_ROOT` and
-`MELEE_DISC_IMAGE`. The target is opt-in while host rendering, controller
-input, audio, scheduling, and save support are still incomplete. A successful
-link does not mean that the game is playable.
+`MELEE_DISC_IMAGE`.
 
 ## Current state
 
-The initial inventory compiles 798 of 984 game and engine C files. It treats
-pointer truncation as an error. This does not establish link completeness
-or correct runtime behavior.
+The full direct-source target now links successfully with no undefined
+symbols. The host services include 64-bit heap and context storage, typed
+archive loading, filesystem or ISO disc reads, ARAM, controller state,
+retrace callbacks, headless GX state, deterministic audio stubs, cache
+operations, card stubs, and an explicit unavailable THP decoder.
 
-The port is in progress. There is no playable direct-source build yet.
+The executable has not run a real match. The current headless runtime still
+needs a real frame scheduler, Metal rendering, audio output, persistent card
+storage, and fixes for startup paths that assume asynchronous ARQ callbacks.
+Do not treat a successful link as playable behavior.
 
 ## Work order
 
-1. Host SDK types, allocator sizes, pointer IDs, math, and a reproducible build.
-2. Typed archive conversion and a real model and animation load.
-3. Full source compilation and a link inventory for missing code and data.
-4. Host file access, scheduling, input, graphics, audio, and saves.
-5. Game startup, menus, a match, and behavior checks against the existing game.
+1. Add asynchronous ARQ completion and a real frame scheduler.
+2. Load a real model and animation from the supplied Melee image.
+3. Add a Metal renderer, audio output, and persistent card storage.
+4. Boot menus, enter a match, check controls and match end, and return to the menu.
 
 Separate agent worktrees isolate SDK headers, allocation and IDs, scene
 objects, archive data, and host math. Integration happens on
