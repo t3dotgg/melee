@@ -81,9 +81,10 @@ archive loading, filesystem or ISO disc reads, ARAM, controller state,
 retrace callbacks, headless GX state, deterministic audio stubs, cache
 operations, card stubs, and an explicit unavailable THP decoder.
 
-The executable has not run a real match. The current headless runtime still
-needs a real frame scheduler, Metal rendering, audio output, persistent card
-storage, and fixes for startup paths that assume asynchronous ARQ callbacks.
+The executable has not run a real match. An empty game directory reaches the
+SIS initialization path and then stops because the game data is absent. The
+runtime still needs a real frame scheduler, Metal rendering, audio output,
+persistent card storage, and real archive and font data from the disc image.
 Do not treat a successful link as playable behavior.
 
 ## Work order
