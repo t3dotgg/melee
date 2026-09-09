@@ -1,6 +1,7 @@
 #ifndef MELEE_NATIVE_GX_RASTER_H
 #define MELEE_NATIVE_GX_RASTER_H
 
+#include "gx_fog.h"
 #include "gx_tev.h"
 
 static GXBool gx_z_compare;
@@ -211,6 +212,7 @@ static void gx_plot(s32 x, s32 y, const GXSWVertex* vertex)
     if (gx_z_compare && gx_z_update && !gx_z_before_texture) {
         gx_depth[index] = depth;
     }
+    color = gx_fog_apply(color, depth, x);
     gx_efb[index] = gx_blend_pixel(color, gx_efb[index]);
 }
 

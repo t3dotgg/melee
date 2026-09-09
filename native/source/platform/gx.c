@@ -980,6 +980,7 @@ GXFifoObj* GXInit(void* buffer, u32 size)
     gx_in_begin = GX_FALSE;
     gx_active_vtxfmt = GX_VTXFMT0;
     gx_transform_reset();
+    gx_fog_reset();
     gx_tev_reset();
     gx_raster_reset();
     gx_copy_reset();
@@ -1092,8 +1093,9 @@ static void gx_stream_float(f32 value)
     }
 GX_WRITE1(GXParam, u8, 1)
 GX_WRITE1(GXParam, u16, 2)
-GX_WRITE1(GXParam, u32, 4) GX_WRITE1(GXParam, s8, 1) GX_WRITE1(GXParam, s16, 2)
-    GX_WRITE1(GXParam, s32, 4) GX_FLOAT1(GXParam)
+GX_WRITE1(GXParam, u32, 4)
+GX_WRITE1(GXParam, s8, 1) GX_WRITE1(GXParam, s16, 2) GX_WRITE1(GXParam, s32, 4)
+    GX_FLOAT1(GXParam)
         GX_FLOAT3(GXParam) void GXParam4f32(f32 x, f32 y, f32 z, f32 w)
 {
     GXParam3f32(x, y, z);
@@ -1101,12 +1103,12 @@ GX_WRITE1(GXParam, u32, 4) GX_WRITE1(GXParam, s8, 1) GX_WRITE1(GXParam, s16, 2)
 }
 GX_FLOAT2(GXPosition)
 GX_FLOAT3(GXPosition)
-GX_WRITE2(GXPosition, u8, 1) GX_WRITE3(GXPosition, u8, 1)
-    GX_WRITE2(GXPosition, s8, 1) GX_WRITE3(GXPosition, s8, 1)
-        GX_WRITE2(GXPosition, u16, 2) GX_WRITE3(GXPosition, u16, 2)
-            GX_WRITE2(GXPosition, s16, 2) GX_WRITE3(GXPosition, s16, 2)
-                GX_FLOAT3(GXNormal) GX_WRITE3(GXNormal, s8,
-                                              1) GX_WRITE3(GXNormal, s16, 2)
+GX_WRITE2(GXPosition, u8, 1)
+GX_WRITE3(GXPosition, u8, 1) GX_WRITE2(GXPosition, s8, 1)
+    GX_WRITE3(GXPosition, s8, 1) GX_WRITE2(GXPosition, u16, 2)
+        GX_WRITE3(GXPosition, u16, 2) GX_WRITE2(GXPosition, s16, 2)
+            GX_WRITE3(GXPosition, s16, 2) GX_FLOAT3(GXNormal)
+                GX_WRITE3(GXNormal, s8, 1) GX_WRITE3(GXNormal, s16, 2)
                     GX_WRITE1(GXColor, u16, 2) GX_WRITE1(GXColor, u32, 4)
                         GX_WRITE3(GXColor, u8, 1) void GXColor4u8(u8 r, u8 g,
                                                                   u8 b, u8 a)
@@ -1116,11 +1118,11 @@ GX_WRITE2(GXPosition, u8, 1) GX_WRITE3(GXPosition, u8, 1)
 }
 GX_FLOAT1(GXTexCoord)
 GX_FLOAT2(GXTexCoord)
-GX_WRITE1(GXTexCoord, u8, 1) GX_WRITE2(GXTexCoord, u8, 1)
-    GX_WRITE1(GXTexCoord, s8, 1) GX_WRITE2(GXTexCoord, s8, 1)
-        GX_WRITE1(GXTexCoord, u16, 2) GX_WRITE2(GXTexCoord, u16, 2)
-            GX_WRITE1(GXTexCoord, s16, 2) GX_WRITE2(GXTexCoord, s16, 2)
-                GX_WRITE1(GXMatrixIndex, u8, 1)
+GX_WRITE1(GXTexCoord, u8, 1)
+GX_WRITE2(GXTexCoord, u8, 1) GX_WRITE1(GXTexCoord, s8, 1)
+    GX_WRITE2(GXTexCoord, s8, 1) GX_WRITE1(GXTexCoord, u16, 2)
+        GX_WRITE2(GXTexCoord, u16, 2) GX_WRITE1(GXTexCoord, s16, 2)
+            GX_WRITE2(GXTexCoord, s16, 2) GX_WRITE1(GXMatrixIndex, u8, 1)
 #define GX_INDEX(name)                                                        \
     void name##1x8(u8 x)                                                      \
     {                                                                         \
@@ -1130,8 +1132,8 @@ GX_WRITE1(GXTexCoord, u8, 1) GX_WRITE2(GXTexCoord, u8, 1)
     {                                                                         \
         gx_stream_write(x, 2);                                                \
     }
-                    GX_INDEX(GXPosition) GX_INDEX(GXNormal) GX_INDEX(GXColor)
-                        GX_INDEX(GXTexCoord)
+                GX_INDEX(GXPosition) GX_INDEX(GXNormal) GX_INDEX(GXColor)
+                    GX_INDEX(GXTexCoord)
 #undef GX_INDEX
 #undef GX_WRITE1
 #undef GX_WRITE2
@@ -1140,7 +1142,7 @@ GX_WRITE1(GXTexCoord, u8, 1) GX_WRITE2(GXTexCoord, u8, 1)
 #undef GX_FLOAT2
 #undef GX_FLOAT3
 
-                            u32
+                        u32
     GXGetTexBufferSize(u16 width, u16 height, u32 format, u8 mipmap,
                        u8 max_lod)
 {
@@ -1288,7 +1290,6 @@ void GXClearVtxDesc(void)
 }
 
 void GXEnableTexOffsets(GXTexCoordID coord, u8 line_enable, u8 point_enable) {}
-void GXInitFogAdjTable(GXFogAdjTable* table, u16 width, f32 projmtx[4][4]) {}
 
 void GXInitTlutObj(GXTlutObj* tlut_obj, void* lut, GXTlutFmt fmt,
                    u16 n_entries)
@@ -1349,11 +1350,7 @@ void GXSetArray(GXAttr attr, const void* base_ptr, u8 stride)
 void GXSetDither(GXBool dither) {}
 
 void GXSetFieldMode(GXBool field_mode, GXBool half_aspect_ratio) {}
-void GXSetFog(GXFogType type, f32 startz, f32 endz, f32 nearz, f32 farz,
-              GXColor color)
-{
-}
-void GXSetFogRangeAdj(GXBool enable, u16 center, GXFogAdjTable* table) {}
+
 void GXSetIndTexCoordScale(GXIndTexStageID ind_state, GXIndTexScale scale_s,
                            GXIndTexScale scale_t)
 {
