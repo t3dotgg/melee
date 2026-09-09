@@ -64,14 +64,15 @@ struct NativeRefractionData {
     f32* values;
 };
 
-
 static NativeArchiveBinding* native_archive_bindings;
 
 static void* native_scene_alloc(NativeArchiveBinding* binding, size_t size)
 {
     NativeSceneAllocation* allocation;
     void* pointer = calloc(1, size);
-    if (pointer == NULL) return NULL;
+    if (pointer == NULL) {
+        return NULL;
+    }
     allocation = calloc(1, sizeof(*allocation));
     if (allocation == NULL) {
         free(pointer);
@@ -87,8 +88,11 @@ static NativeArchiveBinding* native_binding(HSD_Archive* archive)
 {
     NativeArchiveBinding* binding;
     for (binding = native_archive_bindings; binding != NULL;
-         binding = binding->next) {
-        if (binding->legacy == archive) return binding;
+         binding = binding->next)
+    {
+        if (binding->legacy == archive) {
+            return binding;
+        }
     }
     return NULL;
 }
@@ -130,7 +134,9 @@ static bool native_name_ends_with(const char* name, const char* suffix)
 {
     size_t name_len;
     size_t suffix_len;
-    if (name == NULL || suffix == NULL) return false;
+    if (name == NULL || suffix == NULL) {
+        return false;
+    }
     name_len = strlen(name);
     suffix_len = strlen(suffix);
     return name_len >= suffix_len &&
@@ -143,7 +149,7 @@ static void native_archive_error(const char* operation,
     OSReport("native archive %s failed at %zu: %s\n", operation,
              error == NULL ? 0 : error->offset,
              error == NULL || error->message == NULL ? "unknown error"
-                                                      : error->message);
+                                                     : error->message);
 }
 
 /* SIS roots are contiguous four-byte pointer words. The first two words
@@ -174,21 +180,27 @@ static SIS* native_sis_root(NativeArchiveBinding* binding, uint32_t offset,
         NativeArchiveStatus status0;
         NativeArchiveStatus status1;
         status0 = NativeArchiveReference(binding->archive, (uint32_t) field,
-                                          &targets[0], &present[0], error);
-        status1 = NativeArchiveReference(binding->archive,
-                                          (uint32_t) (field + 4u),
-                                          &targets[1], &present[1], error);
+                                         &targets[0], &present[0], error);
+        status1 =
+            NativeArchiveReference(binding->archive, (uint32_t) (field + 4u),
+                                   &targets[1], &present[1], error);
         if (status0 != NATIVE_ARCHIVE_OK || status1 != NATIVE_ARCHIVE_OK) {
-            if (!saw_entry) return NULL;
+            if (!saw_entry) {
+                return NULL;
+            }
             break;
         }
         if (!present[0] || !present[1]) {
-            if (saw_entry) break;
+            if (saw_entry) {
+                break;
+            }
             return NULL;
         }
         /* A target equal to data_size is the archive's end sentinel. Keep
          * the table slot, but expose it as NULL below. */
-        if (targets[0] > data_size || targets[1] > data_size) return NULL;
+        if (targets[0] > data_size || targets[1] > data_size) {
+            return NULL;
+        }
         saw_entry = true;
         word_count = i + 2;
     }
@@ -196,7 +208,9 @@ static SIS* native_sis_root(NativeArchiveBinding* binding, uint32_t offset,
         return NULL;
     }
     record_count = (word_count + 1u) / 2u;
-    if (record_count > SIZE_MAX / sizeof(*table)) return NULL;
+    if (record_count > SIZE_MAX / sizeof(*table)) {
+        return NULL;
+    }
     table = calloc(record_count, sizeof(*table));
     if (table == NULL) {
         if (error != NULL) {
@@ -209,20 +223,24 @@ static SIS* native_sis_root(NativeArchiveBinding* binding, uint32_t offset,
     for (i = 0; i < word_count; ++i) {
         uint32_t target = 0;
         bool present = false;
-        if (NativeArchiveReference(binding->archive, offset + (uint32_t) (i * 4u),
-                                   &target, &present, error) !=
-                NATIVE_ARCHIVE_OK || !present) {
+        if (NativeArchiveReference(binding->archive,
+                                   offset + (uint32_t) (i * 4u), &target,
+                                   &present, error) != NATIVE_ARCHIVE_OK ||
+            !present)
+        {
             free(table);
             return NULL;
         }
         if ((i & 1u) == 0) {
-            table[i / 2u].kerning = target < NativeArchiveDataSize(binding->archive)
-                                         ? (TextKerning*) (binding->archive->data + target)
-                                         : NULL;
+            table[i / 2u].kerning =
+                target < NativeArchiveDataSize(binding->archive)
+                    ? (TextKerning*) (binding->archive->data + target)
+                    : NULL;
         } else {
-            table[i / 2u].textures = target < NativeArchiveDataSize(binding->archive)
-                                         ? (TextGlyphTexture*) (binding->archive->data + target)
-                                         : NULL;
+            table[i / 2u].textures =
+                target < NativeArchiveDataSize(binding->archive)
+                    ? (TextGlyphTexture*) (binding->archive->data + target)
+                    : NULL;
         }
     }
     root = calloc(1, sizeof(*root));
@@ -244,17 +262,21 @@ size_t HSD_ArchiveNativeSisCount(const void* table)
 {
     NativeArchiveBinding* binding;
     for (binding = native_archive_bindings; binding != NULL;
-         binding = binding->next) {
+         binding = binding->next)
+    {
         NativeSisRoot* root;
         for (root = binding->sis_roots; root != NULL; root = root->next) {
-            if (root->table == table) return root->count;
+            if (root->table == table) {
+                return root->count;
+            }
         }
     }
     return 0;
 }
 
-static struct Fighter_804D653C_t* native_rumble_root(
-    NativeArchiveBinding* binding, uint32_t offset, NativeArchiveError* error)
+static struct Fighter_804D653C_t*
+native_rumble_root(NativeArchiveBinding* binding, uint32_t offset,
+                   NativeArchiveError* error)
 {
     size_t count = 0;
     size_t i;
@@ -267,24 +289,34 @@ static struct Fighter_804D653C_t* native_rumble_root(
         NativeArchiveStatus status = NativeArchiveReference(
             binding->archive, offset + (uint32_t) (i * 8u), &target, &present,
             error);
-        if (status != NATIVE_ARCHIVE_OK || !present) break;
-        if (!NativeArchiveDataRange(binding->archive, target, 1)) return NULL;
+        if (status != NATIVE_ARCHIVE_OK || !present) {
+            break;
+        }
+        if (!NativeArchiveDataRange(binding->archive, target, 1)) {
+            return NULL;
+        }
         count = i + 1;
     }
-    if (count == 0) return NULL;
+    if (count == 0) {
+        return NULL;
+    }
     table = calloc(count, sizeof(*table));
-    if (table == NULL) return NULL;
+    if (table == NULL) {
+        return NULL;
+    }
     for (i = 0; i < count; ++i) {
         uint32_t target = 0;
         bool present = false;
         const uint8_t* bytes = binding->archive->data + offset + i * 8u;
         if (NativeArchiveReference(binding->archive,
                                    offset + (uint32_t) (i * 8u), &target,
-                                   &present, error) != NATIVE_ARCHIVE_OK) {
+                                   &present, error) != NATIVE_ARCHIVE_OK)
+        {
             free(table);
             return NULL;
         }
-        table[i].unk = present ? (void*) (binding->archive->data + target) : NULL;
+        table[i].unk =
+            present ? (void*) (binding->archive->data + target) : NULL;
         table[i].unk4 = bytes[4];
         table[i].unk5 = bytes[5];
     }
@@ -296,7 +328,7 @@ static bool native_scene_reference(NativeArchiveBinding* binding,
                                    bool* present, NativeArchiveError* error)
 {
     return NativeArchiveReference(binding->archive, field, target, present,
-                                   error) == NATIVE_ARCHIVE_OK;
+                                  error) == NATIVE_ARCHIVE_OK;
 }
 
 static DynamicModelDesc* native_scene_model(NativeArchiveBinding* binding,
@@ -306,12 +338,17 @@ static DynamicModelDesc* native_scene_model(NativeArchiveBinding* binding,
     DynamicModelDesc* model = native_scene_alloc(binding, sizeof(*model));
     uint32_t target;
     bool present;
-    if (model == NULL) return NULL;
-    if (!native_scene_reference(binding, offset, &target, &present, error))
+    if (model == NULL) {
         return NULL;
+    }
+    if (!native_scene_reference(binding, offset, &target, &present, error)) {
+        return NULL;
+    }
     if (present && NativeArchiveJoint(binding->graph, target, &model->joint,
                                       error) != NATIVE_ARCHIVE_OK)
+    {
         return NULL;
+    }
     /* Each animation channel is a terminated array of typed roots. */
     for (size_t channel = 0; channel < 3; ++channel) {
         size_t count = 0;
@@ -334,15 +371,20 @@ static DynamicModelDesc* native_scene_model(NativeArchiveBinding* binding,
             {
                 return NULL;
             }
-            if (!animation_present) break;
+            if (!animation_present) {
+                break;
+            }
         }
         if (count == limit) {
             NativeArchiveFail(error, NATIVE_ARCHIVE_BOUNDS, target,
                               "unterminated scene animation list");
             return NULL;
         }
-        animations = native_scene_alloc(binding, (count + 1) * sizeof(*animations));
-        if (animations == NULL) return NULL;
+        animations =
+            native_scene_alloc(binding, (count + 1) * sizeof(*animations));
+        if (animations == NULL) {
+            return NULL;
+        }
         for (size_t i = 0; i < count; ++i) {
             uint32_t animation_offset;
             bool animation_present;
@@ -413,39 +455,57 @@ static size_t native_scene_pointer_limit(NativeArchiveBinding* binding,
 }
 
 static DynamicModelDesc** native_scene_models(NativeArchiveBinding* binding,
-                                              uint32_t offset, size_t* count,
+                                              uint32_t offset,
+                                              size_t fixed_count,
+                                              size_t* count,
                                               NativeArchiveError* error)
 {
     size_t i;
     DynamicModelDesc** models;
     *count = 0;
-    size_t limit = native_scene_pointer_limit(binding, offset);
-    for (i = 0; i < limit; ++i) {
+    size_t limit = fixed_count != 0
+                       ? fixed_count
+                       : native_scene_pointer_limit(binding, offset);
+    for (i = 0; fixed_count == 0 && i < limit; ++i) {
         uint32_t target;
         bool present;
         if (!native_scene_reference(binding, offset + (uint32_t) (i * 4u),
                                     &target, &present, error))
+        {
             return NULL;
-        if (!present) break;
+        }
+        if (!present) {
+            break;
+        }
         ++*count;
     }
-    if (*count == 0) return NULL;
+    if (*count == 0) {
+        return NULL;
+    }
     models = native_scene_alloc(binding, (*count + 1) * sizeof(*models));
-    if (models == NULL) return NULL;
+    if (models == NULL) {
+        return NULL;
+    }
     for (i = 0; i < *count; ++i) {
         uint32_t target;
         bool present;
         if (!native_scene_reference(binding, offset + (uint32_t) (i * 4u),
-                                    &target, &present, error) || !present)
+                                    &target, &present, error) ||
+            !present)
+        {
             return NULL;
+        }
         models[i] = native_scene_model(binding, target, error);
-        if (models[i] == NULL) return NULL;
+        if (models[i] == NULL) {
+            return NULL;
+        }
     }
     return models;
 }
 
-static struct SceneCameraDesc* native_scene_cameras(
-    NativeArchiveBinding* binding, uint32_t offset, NativeArchiveError* error)
+static struct SceneCameraDesc*
+native_scene_cameras(NativeArchiveBinding* binding, uint32_t offset,
+                     NativeArchiveError* error)
 {
     /* The scene camera field points to one eight-byte record. */
     struct SceneCameraDesc* camera =
@@ -583,8 +643,9 @@ static struct SceneFogDesc* native_scene_fog(NativeArchiveBinding* binding,
     return fog;
 }
 
-static HSD_LightAnim** native_scene_light_anims(
-    NativeArchiveBinding* binding, uint32_t offset, NativeArchiveError* error)
+static HSD_LightAnim** native_scene_light_anims(NativeArchiveBinding* binding,
+                                                uint32_t offset,
+                                                NativeArchiveError* error)
 {
     size_t count = 0;
     size_t i;
@@ -594,22 +655,33 @@ static HSD_LightAnim** native_scene_light_anims(
         bool present;
         if (!native_scene_reference(binding, offset + (uint32_t) (i * 4u),
                                     &target, &present, error))
+        {
             return NULL;
-        if (!present) break;
+        }
+        if (!present) {
+            break;
+        }
         ++count;
     }
-    if (count == 0) return NULL;
-    animations = native_scene_alloc(binding, (count + 1) * sizeof(*animations));
-    if (animations == NULL) return NULL;
+    if (count == 0) {
+        return NULL;
+    }
+    animations =
+        native_scene_alloc(binding, (count + 1) * sizeof(*animations));
+    if (animations == NULL) {
+        return NULL;
+    }
     for (i = 0; i < count; ++i) {
         uint32_t target;
         bool present;
         if (!native_scene_reference(binding, offset + (uint32_t) (i * 4u),
-                                    &target, &present, error) || !present ||
-            NativeArchiveLightAnimation(binding->graph, target,
-                                        &animations[i], error) !=
-                NATIVE_ARCHIVE_OK)
+                                    &target, &present, error) ||
+            !present ||
+            NativeArchiveLightAnimation(binding->graph, target, &animations[i],
+                                        error) != NATIVE_ARCHIVE_OK)
+        {
             return NULL;
+        }
     }
     return animations;
 }
@@ -623,15 +695,23 @@ static LightList* native_scene_light(NativeArchiveBinding* binding,
     bool present;
     if (light == NULL ||
         !native_scene_reference(binding, offset, &target, &present, error))
+    {
         return NULL;
+    }
     if (present && NativeArchiveLight(binding->graph, target, &light->desc,
                                       error) != NATIVE_ARCHIVE_OK)
+    {
         return NULL;
+    }
     if (!native_scene_reference(binding, offset + 4, &target, &present, error))
+    {
         return NULL;
+    }
     if (present) {
         light->anims = native_scene_light_anims(binding, target, error);
-        if (light->anims == NULL) return NULL;
+        if (light->anims == NULL) {
+            return NULL;
+        }
     }
     return light;
 }
@@ -648,53 +728,76 @@ static LightList** native_scene_lights(NativeArchiveBinding* binding,
         bool present;
         if (!native_scene_reference(binding, offset + (uint32_t) (i * 4u),
                                     &target, &present, error))
+        {
             return NULL;
-        if (!present) break;
+        }
+        if (!present) {
+            break;
+        }
         ++count;
     }
-    if (count == 0) return NULL;
+    if (count == 0) {
+        return NULL;
+    }
     lights = native_scene_alloc(binding, (count + 1) * sizeof(*lights));
-    if (lights == NULL) return NULL;
+    if (lights == NULL) {
+        return NULL;
+    }
     for (i = 0; i < count; ++i) {
         uint32_t target;
         bool present;
         if (!native_scene_reference(binding, offset + (uint32_t) (i * 4u),
-                                    &target, &present, error) || !present)
+                                    &target, &present, error) ||
+            !present)
+        {
             return NULL;
+        }
         lights[i] = native_scene_light(binding, target, error);
-        if (lights[i] == NULL) return NULL;
+        if (lights[i] == NULL) {
+            return NULL;
+        }
     }
     return lights;
 }
 
 static SceneDesc* native_scene_root(NativeArchiveBinding* binding,
-                                    uint32_t offset,
-                                    NativeArchiveError* error)
+                                    uint32_t offset, NativeArchiveError* error)
 {
     SceneDesc* scene = native_scene_alloc(binding, sizeof(*scene));
     uint32_t models_offset, cameras_offset, lights_offset, fog_offset;
     bool models_present, cameras_present, lights_present, fog_present;
     size_t model_count;
-    if (scene == NULL || !native_scene_reference(binding, offset, &models_offset,
-                                                 &models_present, error) ||
+    if (scene == NULL ||
+        !native_scene_reference(binding, offset, &models_offset,
+                                &models_present, error) ||
         !native_scene_reference(binding, offset + 4, &cameras_offset,
                                 &cameras_present, error))
+    {
         return NULL;
+    }
     if (models_present) {
-        scene->models = native_scene_models(binding, models_offset, &model_count,
-                                             error);
-        if (scene->models == NULL) return NULL;
+        scene->models = native_scene_models(binding, models_offset, 0,
+                                            &model_count, error);
+        if (scene->models == NULL) {
+            return NULL;
+        }
     }
     if (cameras_present) {
         scene->cameras = native_scene_cameras(binding, cameras_offset, error);
-        if (scene->cameras == NULL) return NULL;
+        if (scene->cameras == NULL) {
+            return NULL;
+        }
     }
     if (!native_scene_reference(binding, offset + 8, &lights_offset,
                                 &lights_present, error))
+    {
         return NULL;
+    }
     if (lights_present) {
         scene->lights = native_scene_lights(binding, lights_offset, error);
-        if (scene->lights == NULL) return NULL;
+        if (scene->lights == NULL) {
+            return NULL;
+        }
     }
     if (!native_scene_reference(binding, offset + 12, &fog_offset,
                                 &fog_present, error))
@@ -719,14 +822,21 @@ void* HSD_ArchiveNativePublicAddress(HSD_Archive* archive, const char* symbol)
 
     if (binding == NULL || symbol == NULL ||
         NativeArchiveFind(binding->archive, symbol, &offset, &error) !=
-            NATIVE_ARCHIVE_OK) {
+            NATIVE_ARCHIVE_OK)
+    {
         if (binding != NULL) {
             OSReport("native lookup miss %s public_count=%zu\n", symbol,
                      NativeArchivePublicCount(binding->archive));
-            for (size_t i = 0; i < NativeArchivePublicCount(binding->archive) && i < 5; i++) {
+            for (size_t i = 0;
+                 i < NativeArchivePublicCount(binding->archive) && i < 5; i++)
+            {
                 NativeArchiveSymbol item;
-                if (NativeArchivePublic(binding->archive, i, &item, NULL) == NATIVE_ARCHIVE_OK)
-                    OSReport("  public[%zu]=%s off=%u\n", i, item.name, item.offset);
+                if (NativeArchivePublic(binding->archive, i, &item, NULL) ==
+                    NATIVE_ARCHIVE_OK)
+                {
+                    OSReport("  public[%zu]=%s off=%u\n", i, item.name,
+                             item.offset);
+                }
             }
         }
         return NULL;
@@ -742,21 +852,27 @@ void* HSD_ArchiveNativePublicAddress(HSD_Archive* archive, const char* symbol)
     }
     NativeArchiveStatus fighter_status = NativeFighterArchiveRead(
         binding->fighters, symbol, offset, &root, &error);
-    if (fighter_status == NATIVE_ARCHIVE_OK) return root;
+    if (fighter_status == NATIVE_ARCHIVE_OK) {
+        return root;
+    }
     if (fighter_status != NATIVE_ARCHIVE_NOT_FOUND) {
         native_archive_error(symbol, &error);
         return NULL;
     }
-    NativeArchiveStatus item_status = NativeItemArchiveRead(
-        binding->items, symbol, offset, &root, &error);
-    if (item_status == NATIVE_ARCHIVE_OK) return root;
+    NativeArchiveStatus item_status =
+        NativeItemArchiveRead(binding->items, symbol, offset, &root, &error);
+    if (item_status == NATIVE_ARCHIVE_OK) {
+        return root;
+    }
     if (item_status != NATIVE_ARCHIVE_NOT_FOUND) {
         native_archive_error(symbol, &error);
         return NULL;
     }
     NativeArchiveStatus effect_status = NativeEffectArchiveRead(
         binding->effects, symbol, offset, &root, &error);
-    if (effect_status == NATIVE_ARCHIVE_OK) return root;
+    if (effect_status == NATIVE_ARCHIVE_OK) {
+        return root;
+    }
     if (effect_status != NATIVE_ARCHIVE_NOT_FOUND) {
         native_archive_error(symbol, &error);
         return NULL;
@@ -807,28 +923,40 @@ void* HSD_ArchiveNativePublicAddress(HSD_Archive* archive, const char* symbol)
         uint32_t values_offset;
         bool values_present;
         size_t count;
-        if (!NativeArchiveDataRange(binding->archive, offset, 8))
+        if (!NativeArchiveDataRange(binding->archive, offset, 8)) {
             return NULL;
+        }
         count = binding->archive->data[offset];
         if (NativeArchiveReference(binding->archive, offset + 4,
-                                   &values_offset, &values_present, &error) !=
-                NATIVE_ARCHIVE_OK ||
+                                   &values_offset, &values_present,
+                                   &error) != NATIVE_ARCHIVE_OK ||
             (count != 0 && (!values_present ||
-                            !NativeArchiveDataRange(binding->archive,
-                                                    values_offset,
-                                                    count * 8))))
+                            !NativeArchiveDataRange(
+                                binding->archive, values_offset, count * 8))))
+        {
             return NULL;
+        }
         data = native_scene_alloc(binding, sizeof(*data));
-        if (data == NULL) return NULL;
+        if (data == NULL) {
+            return NULL;
+        }
         data->count = (u8) count;
-        data->values = count == 0 ? NULL :
-            native_scene_alloc(binding, count * 2 * sizeof(*data->values));
-        if (count != 0 && data->values == NULL) return NULL;
+        data->values =
+            count == 0 ? NULL
+                       : native_scene_alloc(binding,
+                                            count * 2 * sizeof(*data->values));
+        if (count != 0 && data->values == NULL) {
+            return NULL;
+        }
         for (size_t i = 0; i < count * 2; ++i) {
-            uint32_t bits = ((uint32_t) binding->archive->data[values_offset + i * 4] << 24) |
-                            ((uint32_t) binding->archive->data[values_offset + i * 4 + 1] << 16) |
-                            ((uint32_t) binding->archive->data[values_offset + i * 4 + 2] << 8) |
-                            binding->archive->data[values_offset + i * 4 + 3];
+            uint32_t bits =
+                ((uint32_t) binding->archive->data[values_offset + i * 4]
+                 << 24) |
+                ((uint32_t) binding->archive->data[values_offset + i * 4 + 1]
+                 << 16) |
+                ((uint32_t) binding->archive->data[values_offset + i * 4 + 2]
+                 << 8) |
+                binding->archive->data[values_offset + i * 4 + 3];
             memcpy(&data->values[i], &bits, sizeof(bits));
         }
         return data;
@@ -840,30 +968,37 @@ void* HSD_ArchiveNativePublicAddress(HSD_Archive* archive, const char* symbol)
         bool present;
         void** slot;
         uint8_t* converted;
-        if (NativeArchiveReference(binding->archive, offset, &target,
-                                   &present, &error) != NATIVE_ARCHIVE_OK ||
-            !present || !NativeArchiveDataRange(binding->archive, target,
-                                                0x188))
+        if (NativeArchiveReference(binding->archive, offset, &target, &present,
+                                   &error) != NATIVE_ARCHIVE_OK ||
+            !present ||
+            !NativeArchiveDataRange(binding->archive, target, 0x188))
+        {
             return NULL;
+        }
         slot = native_scene_alloc(binding, sizeof(*slot));
         converted = native_scene_alloc(binding, 0x188);
-        if (slot == NULL || converted == NULL) return NULL;
+        if (slot == NULL || converted == NULL) {
+            return NULL;
+        }
         for (size_t i = 0; i < 0x188; i += 4) {
-            uint32_t bits = ((uint32_t) binding->archive->data[target + i]
-                             << 24) |
-                            ((uint32_t) binding->archive->data[target + i + 1]
-                             << 16) |
-                            ((uint32_t) binding->archive->data[target + i + 2]
-                             << 8) |
-                            binding->archive->data[target + i + 3];
+            uint32_t bits =
+                ((uint32_t) binding->archive->data[target + i] << 24) |
+                ((uint32_t) binding->archive->data[target + i + 1] << 16) |
+                ((uint32_t) binding->archive->data[target + i + 2] << 8) |
+                binding->archive->data[target + i + 3];
             memcpy(converted + i, &bits, sizeof(bits));
         }
         *slot = converted;
         return slot;
     }
-    if (native_name_ends_with(symbol, "_scene_modelset")) {
+    if (strcmp(symbol, "ScInfCnt_scene_models") == 0 ||
+        native_name_ends_with(symbol, "_scene_modelset"))
+    {
         size_t count;
-        root = native_scene_models(binding, offset, &count, &error);
+        root = native_scene_models(
+            binding, offset,
+            strcmp(symbol, "ScInfCnt_scene_models") == 0 ? 8 : 0, &count,
+            &error);
         if (root != NULL) {
             return root;
         }
@@ -872,60 +1007,84 @@ void* HSD_ArchiveNativePublicAddress(HSD_Archive* archive, const char* symbol)
     }
     if (native_name_ends_with(symbol, "_scene_data")) {
         root = native_scene_root(binding, offset, &error);
-        if (root != NULL) return root;
+        if (root != NULL) {
+            return root;
+        }
     }
     if (native_name_ends_with(symbol, "_scene_lights")) {
         root = native_scene_lights(binding, offset, &error);
-        if (root != NULL) return root;
+        if (root != NULL) {
+            return root;
+        }
     }
     if (native_name_ends_with(symbol, "_animjoint") ||
-        native_name_ends_with(symbol, "_animation")) {
+        native_name_ends_with(symbol, "_animation"))
+    {
         if (NativeArchiveAnimation(binding->graph, offset,
-                                   (HSD_AnimJoint**) &root, &error) ==
-            NATIVE_ARCHIVE_OK) return root;
+                                   (HSD_AnimJoint**) &root,
+                                   &error) == NATIVE_ARCHIVE_OK)
+        {
+            return root;
+        }
     } else if (native_name_ends_with(symbol, "_matanim_joint")) {
-        if (NativeArchiveMatAnimJoint(
-                binding->graph, offset, (HSD_MatAnimJoint**) &root, &error) ==
-            NATIVE_ARCHIVE_OK)
+        if (NativeArchiveMatAnimJoint(binding->graph, offset,
+                                      (HSD_MatAnimJoint**) &root,
+                                      &error) == NATIVE_ARCHIVE_OK)
+        {
             return root;
+        }
     } else if (native_name_ends_with(symbol, "_camera") ||
-               native_name_ends_with(symbol, "_cobjdesc")) {
-        if (NativeArchiveCObj(binding->graph, offset,
-                              (HSD_CObjDesc**) &root, &error) ==
-            NATIVE_ARCHIVE_OK) return root;
-    } else if (native_name_ends_with(symbol, "_shapeanim_joint")) {
-        if (NativeArchiveShapeAnimJoint(
-                binding->graph, offset, (HSD_ShapeAnimJoint**) &root,
-                &error) == NATIVE_ARCHIVE_OK)
+               native_name_ends_with(symbol, "_cobjdesc"))
+    {
+        if (NativeArchiveCObj(binding->graph, offset, (HSD_CObjDesc**) &root,
+                              &error) == NATIVE_ARCHIVE_OK)
+        {
             return root;
+        }
+    } else if (native_name_ends_with(symbol, "_shapeanim_joint")) {
+        if (NativeArchiveShapeAnimJoint(binding->graph, offset,
+                                        (HSD_ShapeAnimJoint**) &root,
+                                        &error) == NATIVE_ARCHIVE_OK)
+        {
+            return root;
+        }
     } else if (native_name_ends_with(symbol, "_joint")) {
         if (NativeArchiveJoint(binding->graph, offset, (HSD_Joint**) &root,
                                &error) == NATIVE_ARCHIVE_OK)
+        {
             return root;
+        }
     } else if (native_name_ends_with(symbol, "_light")) {
-        if (NativeArchiveLight(binding->graph, offset,
-                               (HSD_LightDesc**) &root, &error) ==
-            NATIVE_ARCHIVE_OK)
+        if (NativeArchiveLight(binding->graph, offset, (HSD_LightDesc**) &root,
+                               &error) == NATIVE_ARCHIVE_OK)
+        {
             return root;
+        }
     } else if (native_name_ends_with(symbol, "_fog")) {
-        if (NativeArchiveFog(binding->graph, offset,
-                             (HSD_FogDesc**) &root, &error) ==
-            NATIVE_ARCHIVE_OK)
+        if (NativeArchiveFog(binding->graph, offset, (HSD_FogDesc**) &root,
+                             &error) == NATIVE_ARCHIVE_OK)
+        {
             return root;
+        }
     } else if (native_name_ends_with(symbol, "_sobjdesc")) {
-        if (NativeArchiveSObj(binding->graph, offset,
-                              (HSD_SObjDesc**) &root, &error) ==
-            NATIVE_ARCHIVE_OK)
+        if (NativeArchiveSObj(binding->graph, offset, (HSD_SObjDesc**) &root,
+                              &error) == NATIVE_ARCHIVE_OK)
+        {
             return root;
+        }
     } else if (native_name_ends_with(symbol, "_wobj")) {
         if (NativeArchiveWObj(binding->graph, offset, (HSD_WObjDesc**) &root,
                               &error) == NATIVE_ARCHIVE_OK)
+        {
             return root;
+        }
     }
     /* Byte-only DAT roots are safe to expose through the old API. */
     if (binding->archive->reloc_count == 0 &&
         NativeArchiveDataRange(binding->archive, offset, 1))
+    {
         return (void*) (binding->archive->data + offset);
+    }
     if (error.status == NATIVE_ARCHIVE_OK) {
         error.status = NATIVE_ARCHIVE_UNSUPPORTED;
         error.offset = offset;
@@ -941,9 +1100,13 @@ void HSD_ArchiveNativeRelease(HSD_Archive* archive)
     NativeArchiveBinding* binding;
     NativeSisRoot* sis;
     NativeSceneAllocation* allocation;
-    while (*cursor != NULL && (*cursor)->legacy != archive) cursor = &(*cursor)->next;
+    while (*cursor != NULL && (*cursor)->legacy != archive) {
+        cursor = &(*cursor)->next;
+    }
     binding = *cursor;
-    if (binding == NULL) return;
+    if (binding == NULL) {
+        return;
+    }
     *cursor = binding->next;
     sis = binding->sis_roots;
     while (sis != NULL) {
@@ -1017,8 +1180,8 @@ void lbArchive_InitializeDAT(HSD_Archive* archive, void* data, size_t length)
     state->items = NativeItemArchiveOpen(native, graph);
     state->effects = NativeEffectArchiveOpen(native, graph);
     state->fighters = NativeFighterArchiveOpen(native, graph, state->items);
-    if (state->stage == NULL || state->items == NULL || state->effects == NULL ||
-        state->fighters == NULL)
+    if (state->stage == NULL || state->items == NULL ||
+        state->effects == NULL || state->fighters == NULL)
     {
         NativeEffectArchiveClose(state->effects);
         NativeFighterArchiveClose(state->fighters);
@@ -1325,7 +1488,8 @@ int lbArchiveRelocate(HSD_Archive* archive, u8* src, size_t file_size,
     (void) src;
     (void) file_size;
     (void) base_addr;
-    OSReport("lbArchiveRelocate is unavailable on native hosts; use NativeArchive.\n");
+    OSReport("lbArchiveRelocate is unavailable on native hosts; use "
+             "NativeArchive.\n");
     return -1;
 #else
     size_t file_offset;
