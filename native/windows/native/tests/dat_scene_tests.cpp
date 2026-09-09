@@ -31,8 +31,10 @@ int main()
         const auto archive = NativeDatArchive::parse(std::as_bytes(std::span(raw)));
         const auto offset = std::stoull(offset_text);
         const auto materials = collect_hsd_joint_materials(archive, offset);
+        const auto joints = collect_hsd_joint_nodes(archive, offset);
+        assert(!joints.empty());
         std::cout << "native DAT scene: " << path << " materials=" << materials.size()
-                  << " root=" << offset << "\n";
+                  << " joints=" << joints.size() << " root=" << offset << "\n";
     }
     std::cout << "native DAT scene tests passed\n";
 }

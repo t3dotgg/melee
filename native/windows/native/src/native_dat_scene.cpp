@@ -3,6 +3,8 @@
 #include "native_material_asset.h"
 
 #include <algorithm>
+#include <bit>
+#include <cstring>
 #include <optional>
 #include <stdexcept>
 #include <unordered_set>
@@ -21,6 +23,12 @@ std::optional<std::size_t> pointer(const NativeDatArchive& archive, std::size_t 
                                    std::size_t field)
 {
     return archive.pointer_target_at(base + field);
+}
+
+float be_float(std::span<const std::byte> bytes, std::size_t offset)
+{
+    const auto bits = be32(bytes, offset);
+    return std::bit_cast<float>(bits);
 }
 }
 
@@ -56,6 +64,28 @@ std::vector<NativeDatMaterialRef> collect_hsd_joint_materials(
                               decode_hsd_material(archive, *material, mode)});
             (void)bytes;
         }
+    }
+    return result;
+}
+
+std::vector<NativeDatJointRef> collect_hsd_joint_nodes(
+    const NativeDatArchive& archive, std::size_t joint_offset, std::size_t max_nodes)
+{
+    if (max_nodes == 0) throw std::invalid_argument("DAT scene node limit must be nonzero");
+    archive.data_at(joint_offset, 0x40);
+    std::vector<std::size_t> pending{joint_offset};
+    std::unordered_set<std::size_t> seen;
+    std::vector<NativeDatJointRef> result;
+    while (!pending.empty()) {
+        const auto joint = pending.back();
+        pending.pop_back();
+        if (!seen.insert(joint).second) continue;
+        if (seen.size() > max_nodes) throw std::invalid_argument("DAT scene graph is too large");
+        const auto bytes = archive.data_at(joint, 0x38);
+        result.push_back({joint, be32(bytes, 4),
+                          {be_float(bytes, 0x2C), be_float(bytes, 0x30), be_float(bytes, 0x34)}});
+        if (const auto child = pointer(archive, joint, 8); child) pending.push_back(*child);
+        if (const auto next = pointer(archive, joint, 12); next) pending.push_back(*next);
     }
     return result;
 }
