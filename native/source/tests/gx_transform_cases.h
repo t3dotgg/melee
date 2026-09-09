@@ -3,6 +3,8 @@
 
 #include <math.h>
 
+#include <dolphin/gx.h>
+
 static void test_gx_transform_setup(void)
 {
     GXInit(NULL, 0);

@@ -2,9 +2,13 @@
 #include <stdint.h>
 #include <string.h>
 
+#include "gx_copy_cases.h"
+#include "gx_raster_cases.h"
+#include "gx_tev_cases.h"
+#include "gx_transform_cases.h"
 #include <dolphin/gx.h>
 
-static void put_be32(uint8_t *dst, uint32_t value)
+static void put_be32(uint8_t* dst, uint32_t value)
 {
     dst[0] = (uint8_t) (value >> 24);
     dst[1] = (uint8_t) (value >> 16);
@@ -12,7 +16,7 @@ static void put_be32(uint8_t *dst, uint32_t value)
     dst[3] = (uint8_t) value;
 }
 
-static void put_be_float(uint8_t *dst, float value)
+static void put_be_float(uint8_t* dst, float value)
 {
     uint32_t bits;
     memcpy(&bits, &value, sizeof bits);
@@ -25,6 +29,10 @@ int main(void)
     GXInit(NULL, 0);
     GXSetViewport(0, 0, 64, 64, 0, 1);
     GXSetScissor(0, 0, 64, 64);
+    GXSetVtxDesc(GX_VA_POS, GX_DIRECT);
+    GXSetVtxDesc(GX_VA_CLR0, GX_DIRECT);
+    GXSetVtxAttrFmt(GX_VTXFMT0, GX_VA_POS, GX_POS_XY, GX_F32, 0);
+    GXSetVtxAttrFmt(GX_VTXFMT0, GX_VA_CLR0, GX_CLR_RGBA, GX_RGBA8, 0);
     GXBegin(GX_TRIANGLES, GX_VTXFMT0, 3);
     GXPosition2f32(-1.0f, -1.0f);
     GXColor4u8(255, 0, 0, 255);
@@ -44,7 +52,9 @@ int main(void)
     GXCopyDisp(xfb, GX_TRUE);
     memset(xfb, 0xff, sizeof(xfb));
     GXCopyDisp(xfb, GX_FALSE);
-    for (size_t i = 0; i < sizeof(xfb); i++) assert(xfb[i] == 0);
+    for (size_t i = 0; i < sizeof(xfb); i++) {
+        assert(xfb[i] == 0);
+    }
 
     /* GXCallDisplayList receives the exact big endian FIFO stream emitted by
      * GXBegin and the direct vertex writers. The native decoder must honor
@@ -61,11 +71,14 @@ int main(void)
     list[1] = 0;
     list[2] = 3;
     const float positions[3][3] = {
-        { -1.0f, -1.0f, 0.0f }, { 1.0f, -1.0f, 0.0f },
+        { -1.0f, -1.0f, 0.0f },
+        { 1.0f, -1.0f, 0.0f },
         { 0.0f, 1.0f, 0.0f },
     };
     const uint8_t colors[3][4] = {
-        { 255, 0, 0, 255 }, { 0, 255, 0, 255 }, { 0, 0, 255, 255 },
+        { 255, 0, 0, 255 },
+        { 0, 255, 0, 255 },
+        { 0, 0, 255, 255 },
     };
     size_t offset = 3;
     for (size_t vertex = 0; vertex < 3; vertex++) {
@@ -140,15 +153,23 @@ int main(void)
     GXSetVtxAttrFmt(GX_VTXFMT0, GX_VA_POS, GX_POS_XY, GX_F32, 0);
     GXSetVtxAttrFmt(GX_VTXFMT0, GX_VA_TEX0, GX_TEX_ST, GX_F32, 0);
     GXBegin(GX_QUADS, GX_VTXFMT0, 4);
-    GXPosition2f32(-1.0f, -1.0f); GXTexCoord2f32(0.0f, 1.0f);
-    GXPosition2f32(1.0f, -1.0f); GXTexCoord2f32(1.0f, 1.0f);
-    GXPosition2f32(1.0f, 1.0f); GXTexCoord2f32(1.0f, 0.0f);
-    GXPosition2f32(-1.0f, 1.0f); GXTexCoord2f32(0.0f, 0.0f);
+    GXPosition2f32(-1.0f, -1.0f);
+    GXTexCoord2f32(0.0f, 1.0f);
+    GXPosition2f32(1.0f, -1.0f);
+    GXTexCoord2f32(1.0f, 1.0f);
+    GXPosition2f32(1.0f, 1.0f);
+    GXTexCoord2f32(1.0f, 0.0f);
+    GXPosition2f32(-1.0f, 1.0f);
+    GXTexCoord2f32(0.0f, 0.0f);
     GXEnd();
     GXSetDispCopySrc(0, 0, 64, 64);
     GXSetDispCopyDst(64, 64);
     memset(xfb, 0, sizeof xfb);
     GXCopyDisp(xfb, GX_FALSE);
     assert(xfb[(32 * 64 + 32) * 2] > 0xc0);
+    test_gx_raster_cases();
+    test_gx_copy_cases();
+    test_gx_tev_cases();
+    test_gx_transform_cases();
     return 0;
 }

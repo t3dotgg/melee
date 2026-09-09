@@ -1,6 +1,8 @@
 #ifndef MELEE_NATIVE_GX_COPY_CASES_H
 #define MELEE_NATIVE_GX_COPY_CASES_H
 
+#include <dolphin/gx.h>
+
 static void test_gx_copy_cases(void)
 {
     u8 texture[256];

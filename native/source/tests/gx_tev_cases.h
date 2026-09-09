@@ -1,6 +1,8 @@
 #ifndef MELEE_NATIVE_GX_TEV_CASES_H
 #define MELEE_NATIVE_GX_TEV_CASES_H
 
+#include <dolphin/gx.h>
+
 static void gx_tev_test_setup(void)
 {
     GXInit(NULL, 0);

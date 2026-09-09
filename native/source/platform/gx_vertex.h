@@ -1,6 +1,8 @@
 #ifndef MELEE_NATIVE_GX_VERTEX_H
 #define MELEE_NATIVE_GX_VERTEX_H
 
+#include <dolphin/gx.h>
+
 /* The game submits host values. Archive display lists are decoded before
  * they enter this structure. Matrix indices select GX matrix rows. */
 typedef struct GXNativeVertex {
