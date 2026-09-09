@@ -28,6 +28,8 @@ NativeRgba8 decode_gx_texture(GxTextureFormat format, std::uint16_t width,
     case GxTextureFormat::I8: case GxTextureFormat::IA4: bytes_per_block = 32; break;
     case GxTextureFormat::IA8: case GxTextureFormat::RGB565: case GxTextureFormat::RGB5A3: bytes_per_block = 32; break;
     case GxTextureFormat::RGBA8: bytes_per_block = 64; break;
+    case GxTextureFormat::C4: case GxTextureFormat::C8: case GxTextureFormat::C14X2:
+        throw std::invalid_argument("indexed texture requires a palette");
     }
     const std::size_t blocks_x = (width + block_w - 1) / block_w;
     const std::size_t blocks_y = (height + block_h - 1) / block_h;
@@ -70,6 +72,58 @@ NativeRgba8 decode_gx_texture(GxTextureFormat format, std::uint16_t width,
             pixel(out, static_cast<std::uint16_t>(ox + x), static_cast<std::uint16_t>(oy + y), r, g, b, a);
         }
         cursor += bytes_per_block;
+    }
+    return out;
+}
+
+NativeRgba8 decode_gx_indexed_texture(GxTextureFormat format, std::uint16_t width,
+                                      std::uint16_t height,
+                                      std::span<const std::byte> source,
+                                      std::span<const NativePaletteEntry> palette)
+{
+    if (width == 0 || height == 0) throw std::invalid_argument("texture dimensions must be nonzero");
+    if (palette.empty()) throw std::invalid_argument("indexed texture palette must be nonempty");
+    std::size_t block_w = 0, block_h = 0, bytes_per_block = 0;
+    switch (format) {
+    case GxTextureFormat::C4: block_w = 8; block_h = 8; bytes_per_block = 32; break;
+    case GxTextureFormat::C8: block_w = 8; block_h = 4; bytes_per_block = 32; break;
+    case GxTextureFormat::C14X2: block_w = 4; block_h = 4; bytes_per_block = 32; break;
+    default: throw std::invalid_argument("texture format is not indexed");
+    }
+    const std::size_t blocks_x = (width + block_w - 1) / block_w;
+    const std::size_t blocks_y = (height + block_h - 1) / block_h;
+    if (blocks_x > (static_cast<std::size_t>(-1) / blocks_y) ||
+        blocks_x * blocks_y > static_cast<std::size_t>(-1) / bytes_per_block)
+        throw std::invalid_argument("texture size overflows");
+    if (source.size() < blocks_x * blocks_y * bytes_per_block)
+        throw std::invalid_argument("texture data is truncated");
+    NativeRgba8 out{width, height,
+                    std::vector<std::uint8_t>(static_cast<std::size_t>(width) * height * 4)};
+    std::size_t cursor = 0;
+    for (std::size_t by = 0; by < blocks_y; ++by) {
+        for (std::size_t bx = 0; bx < blocks_x; ++bx) {
+            const std::size_t ox = bx * block_w, oy = by * block_h;
+            for (std::size_t y = 0; y < block_h; ++y) {
+                for (std::size_t x = 0; x < block_w; ++x) {
+                    const std::size_t pixel_index = y * block_w + x;
+                    std::size_t palette_index = 0;
+                    if (format == GxTextureFormat::C4) {
+                        const auto packed = at(source, cursor + pixel_index / 2);
+                        palette_index = (pixel_index & 1) ? (packed & 0x0F) : (packed >> 4);
+                    } else if (format == GxTextureFormat::C8) {
+                        palette_index = at(source, cursor + pixel_index);
+                    } else {
+                        palette_index = be16(source, cursor + pixel_index * 2) & 0x3FFF;
+                    }
+                    if (palette_index >= palette.size())
+                        throw std::invalid_argument("indexed texture palette index out of range");
+                    const auto color = palette[palette_index];
+                    pixel(out, static_cast<std::uint16_t>(ox + x),
+                          static_cast<std::uint16_t>(oy + y), color.r, color.g, color.b, color.a);
+                }
+            }
+            cursor += bytes_per_block;
+        }
     }
     return out;
 }

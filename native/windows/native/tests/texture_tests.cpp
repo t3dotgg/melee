@@ -17,5 +17,18 @@ int main()
     try { (void)decode_gx_texture(GxTextureFormat::RGB565, 4, 4, std::span<const std::byte>(rgba.data(), 2)); }
     catch (const std::invalid_argument&) { rejected = true; }
     assert(rejected);
+    std::vector<std::byte> c4(32);
+    c4[0] = std::byte{0x12}; // first two texels use palette entries 1 and 2
+    const NativePaletteEntry palette[] = {
+        {0, 0, 0, 255}, {10, 20, 30, 255}, {40, 50, 60, 128},
+    };
+    const auto indexed = decode_gx_indexed_texture(GxTextureFormat::C4, 8, 8, c4, palette);
+    assert(indexed.pixels[0] == 10 && indexed.pixels[1] == 20 && indexed.pixels[2] == 30);
+    assert(indexed.pixels[4] == 40 && indexed.pixels[5] == 50 && indexed.pixels[6] == 60 && indexed.pixels[7] == 128);
+    rejected = false;
+    try { (void)decode_gx_indexed_texture(GxTextureFormat::C4, 8, 8, c4,
+                                          std::span<const NativePaletteEntry>(palette, 1)); }
+    catch (const std::invalid_argument&) { rejected = true; }
+    assert(rejected);
     std::cout << "native GX texture tests passed\n";
 }
