@@ -8,9 +8,10 @@
 #include "lbfile.h"
 #include "lbheap.h"
 #include "types.h"
-#include <melee/sc/types.h>
 #include <dolphin/os.h>
+#include <melee/sc/types.h>
 #include <sysdolphin/baselib/archive.h>
+#include <sysdolphin/baselib/cobj.h>
 #include <sysdolphin/baselib/debug.h>
 #include <sysdolphin/baselib/mobj.h>
 #include <sysdolphin/baselib/sobjlib.h>
@@ -384,6 +385,33 @@ static DynamicModelDesc* native_scene_model(NativeArchiveBinding* binding,
     return model;
 }
 
+/* Public model tables can end at the next archive object without a null
+ * entry. Relocation targets and public roots mark those object boundaries. */
+static size_t native_scene_pointer_limit(NativeArchiveBinding* binding,
+                                         uint32_t offset)
+{
+    NativeArchive* archive = binding->archive;
+    uint32_t end = archive->data_size;
+    if (offset >= end) {
+        return 0;
+    }
+    for (size_t i = 0; i < archive->reloc_count; ++i) {
+        uint32_t target =
+            NativeArchiveBE32(archive->data + archive->relocations[i]);
+        if (target > offset && target < end) {
+            end = target;
+        }
+    }
+    for (size_t i = 0; i < archive->public_count; ++i) {
+        uint32_t target =
+            NativeArchiveBE32(archive->file + archive->public_at + i * 8);
+        if (target > offset && target < end) {
+            end = target;
+        }
+    }
+    return (end - offset) / 4;
+}
+
 static DynamicModelDesc** native_scene_models(NativeArchiveBinding* binding,
                                               uint32_t offset, size_t* count,
                                               NativeArchiveError* error)
@@ -391,7 +419,8 @@ static DynamicModelDesc** native_scene_models(NativeArchiveBinding* binding,
     size_t i;
     DynamicModelDesc** models;
     *count = 0;
-    for (i = 0; i < 256; ++i) {
+    size_t limit = native_scene_pointer_limit(binding, offset);
+    for (i = 0; i < limit; ++i) {
         uint32_t target;
         bool present;
         if (!native_scene_reference(binding, offset + (uint32_t) (i * 4u),
@@ -418,69 +447,140 @@ static DynamicModelDesc** native_scene_models(NativeArchiveBinding* binding,
 static struct SceneCameraDesc* native_scene_cameras(
     NativeArchiveBinding* binding, uint32_t offset, NativeArchiveError* error)
 {
-    size_t i;
-    struct SceneCameraDesc* cameras;
-    for (i = 0; i < 32; ++i) {
-        uint32_t target;
-        bool present;
-        if (!native_scene_reference(binding, offset + (uint32_t) (i * 8u),
-                                    &target, &present, error))
-            return NULL;
-        /* A camera entry is present when its descriptor is present.  Its
-         * animation pointer is optional and is commonly null. */
-        if (!present) break;
+    /* The scene camera field points to one eight-byte record. */
+    struct SceneCameraDesc* camera =
+        native_scene_alloc(binding, sizeof(*camera));
+    uint32_t target;
+    bool present;
+    if (camera == NULL ||
+        !native_scene_reference(binding, offset, &target, &present, error) ||
+        !present ||
+        NativeArchiveCObj(binding->graph, target, &camera->desc, error) !=
+            NATIVE_ARCHIVE_OK)
+    {
+        return NULL;
     }
-    if (i == 0) return NULL;
-    cameras = native_scene_alloc(binding, (i + 1) * sizeof(*cameras));
-    if (cameras == NULL) return NULL;
-    for (size_t j = 0; j < i; ++j) {
-        uint32_t target;
-        bool present;
-        if (!native_scene_reference(binding, offset + (uint32_t) (j * 8u),
-                                    &target, &present, error) || !present)
-            return NULL;
-        if (NativeArchiveCObj(binding->graph, target, &cameras[j].desc,
-                              error) != NATIVE_ARCHIVE_OK)
-            return NULL;
-        if (!native_scene_reference(binding,
-                                    offset + (uint32_t) (j * 8u + 4u), &target,
-                                    &present, error))
-            return NULL;
-        if (present) {
-            size_t animation_count = 0;
-            size_t k;
-            HSD_CameraAnim** animations;
-            for (k = 0; k < 256; ++k) {
-                uint32_t animation_offset;
-                bool animation_present;
-                if (!native_scene_reference(
-                        binding, target + (uint32_t) (k * 4u),
-                        &animation_offset, &animation_present, error))
-                    return NULL;
-                if (!animation_present) break;
-                ++animation_count;
+    if (!native_scene_reference(binding, offset + 4, &target, &present, error))
+    {
+        return NULL;
+    }
+    if (present) {
+        size_t count = 0;
+        size_t limit = native_scene_pointer_limit(binding, target);
+        for (; count < limit; ++count) {
+            uint32_t animation_offset;
+            bool animation_present;
+            if (!native_scene_reference(binding, target + count * 4,
+                                        &animation_offset, &animation_present,
+                                        error))
+            {
+                return NULL;
             }
-            if (animation_count == 0) return NULL;
-            animations = native_scene_alloc(
-                binding, (animation_count + 1) * sizeof(*animations));
-            if (animations == NULL) return NULL;
-            for (k = 0; k < animation_count; ++k) {
-                uint32_t animation_offset;
-                bool animation_present;
-                if (!native_scene_reference(
-                        binding, target + (uint32_t) (k * 4u),
-                        &animation_offset, &animation_present, error) ||
-                    !animation_present ||
-                    NativeArchiveCameraAnimation(binding->graph,
-                                                 animation_offset,
-                                                 &animations[k], error) !=
-                        NATIVE_ARCHIVE_OK)
-                    return NULL;
+            if (!animation_present) {
+                break;
             }
-            cameras[j].anims = animations;
+        }
+        camera->anims =
+            native_scene_alloc(binding, (count + 1) * sizeof(*camera->anims));
+        if (camera->anims == NULL) {
+            return NULL;
+        }
+        for (size_t i = 0; i < count; ++i) {
+            uint32_t animation_offset;
+            bool animation_present;
+            if (!native_scene_reference(binding, target + i * 4,
+                                        &animation_offset, &animation_present,
+                                        error) ||
+                !animation_present ||
+                NativeArchiveCameraAnimation(binding->graph, animation_offset,
+                                             &camera->anims[i],
+                                             error) != NATIVE_ARCHIVE_OK)
+            {
+                return NULL;
+            }
         }
     }
-    return cameras;
+    return camera;
+}
+
+static struct SceneFogDesc* native_scene_fog(NativeArchiveBinding* binding,
+                                             uint32_t offset,
+                                             NativeArchiveError* error)
+{
+    struct SceneFogDesc* fog = native_scene_alloc(binding, sizeof(*fog));
+    uint32_t target;
+    bool present;
+    if (fog == NULL ||
+        !native_scene_reference(binding, offset, &target, &present, error) ||
+        !present ||
+        NativeArchiveFog(binding->graph, target, &fog->desc, error) !=
+            NATIVE_ARCHIVE_OK)
+    {
+        return NULL;
+    }
+    if (!native_scene_reference(binding, offset + 4, &target, &present, error))
+    {
+        return NULL;
+    }
+    if (!present) {
+        return fog;
+    }
+    size_t count = 0;
+    size_t limit = native_scene_pointer_limit(binding, target);
+    for (; count < limit; ++count) {
+        uint32_t animation_offset;
+        bool animation_present;
+        if (!native_scene_reference(binding, target + count * 4,
+                                    &animation_offset, &animation_present,
+                                    error))
+        {
+            return NULL;
+        }
+        if (!animation_present) {
+            break;
+        }
+    }
+    fog->anims =
+        native_scene_alloc(binding, (count + 1) * sizeof(*fog->anims));
+    if (fog->anims == NULL) {
+        return NULL;
+    }
+    for (size_t i = 0; i < count; ++i) {
+        uint32_t animation_offset, aobj_offset;
+        bool animation_present;
+        if (!native_scene_reference(binding, target + i * 4, &animation_offset,
+                                    &animation_present, error) ||
+            !animation_present ||
+            !native_scene_reference(binding, animation_offset, &aobj_offset,
+                                    &present, error))
+        {
+            return NULL;
+        }
+        /* SceneDesc exposes this wrapper through HSD_CameraAnim. The fog
+         * caller reads aobjdesc. Its serialized wrapper occupies two words. */
+        fog->anims[i] = native_scene_alloc(binding, sizeof(*fog->anims[i]));
+        if (fog->anims[i] == NULL) {
+            return NULL;
+        }
+        if (present && NativeArchiveAObj(binding->graph, aobj_offset,
+                                         &fog->anims[i]->aobjdesc,
+                                         error) != NATIVE_ARCHIVE_OK)
+        {
+            return NULL;
+        }
+        if (!native_scene_reference(binding, animation_offset + 4,
+                                    &aobj_offset, &present, error))
+        {
+            return NULL;
+        }
+        if (present) {
+            NativeArchiveFail(error, NATIVE_ARCHIVE_UNSUPPORTED,
+                              animation_offset + 4 + 32,
+                              "fog adjustment animation needs a typed reader");
+            return NULL;
+        }
+    }
+    return fog;
 }
 
 static HSD_LightAnim** native_scene_light_anims(
@@ -572,8 +672,8 @@ static SceneDesc* native_scene_root(NativeArchiveBinding* binding,
                                     NativeArchiveError* error)
 {
     SceneDesc* scene = native_scene_alloc(binding, sizeof(*scene));
-    uint32_t models_offset, cameras_offset, lights_offset;
-    bool models_present, cameras_present, lights_present;
+    uint32_t models_offset, cameras_offset, lights_offset, fog_offset;
+    bool models_present, cameras_present, lights_present, fog_present;
     size_t model_count;
     if (scene == NULL || !native_scene_reference(binding, offset, &models_offset,
                                                  &models_present, error) ||
@@ -595,6 +695,17 @@ static SceneDesc* native_scene_root(NativeArchiveBinding* binding,
     if (lights_present) {
         scene->lights = native_scene_lights(binding, lights_offset, error);
         if (scene->lights == NULL) return NULL;
+    }
+    if (!native_scene_reference(binding, offset + 12, &fog_offset,
+                                &fog_present, error))
+    {
+        return NULL;
+    }
+    if (fog_present) {
+        scene->fogs = native_scene_fog(binding, fog_offset, error);
+        if (scene->fogs == NULL) {
+            return NULL;
+        }
     }
     return scene;
 }
@@ -749,6 +860,15 @@ void* HSD_ArchiveNativePublicAddress(HSD_Archive* archive, const char* symbol)
         }
         *slot = converted;
         return slot;
+    }
+    if (native_name_ends_with(symbol, "_scene_modelset")) {
+        size_t count;
+        root = native_scene_models(binding, offset, &count, &error);
+        if (root != NULL) {
+            return root;
+        }
+        native_archive_error(symbol, &error);
+        return NULL;
     }
     if (native_name_ends_with(symbol, "_scene_data")) {
         root = native_scene_root(binding, offset, &error);
