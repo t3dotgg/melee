@@ -26,9 +26,8 @@ combine it with `--frames N` for a bounded smoke run:
 build/native-shell/melee_native_shell.exe --training --frames 120
 ```
 
-The first Xbox pad drives player one. Player two is present in the simulation,
-collision pass, and render snapshot but remains idle until a multi-pad input
-source is wired in.
+Xbox user 0 drives player one and user 1 drives player two through the same
+Switch-like action mapping; either pad may move, jump, attack, or use special.
 
 `NativeGameMemory` stores bytes in host memory and provides explicit big-endian
 accessors for data that still needs that representation during migration.
