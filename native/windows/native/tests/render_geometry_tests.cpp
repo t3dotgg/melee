@@ -30,6 +30,7 @@ int main()
     assert(upload_plan.index_offset % 16U == 0);
     assert(upload_plan.total_bytes >= upload_plan.index_offset + upload_plan.index_bytes);
     assert(upload_plan.draw_count == 2);
+    const auto complete_bytes = upload_plan.total_bytes;
     NativeRenderGeometry malformed = geometry;
     malformed.indices[0] = 99;
     assert(!plan_geometry_upload(malformed, upload_plan));
@@ -41,9 +42,16 @@ int main()
     malformed.vertices[0].position.z = INFINITY;
     assert(!plan_geometry_upload(malformed, upload_plan));
     assert(!plan_geometry_upload(geometry, upload_plan, upload_plan.vertex_bytes));
-    const auto complete_bytes = static_cast<std::uint32_t>(8U * sizeof(NativeRenderVertex) +
-                                                            12U * sizeof(std::uint32_t) + 15U);
     assert(!plan_geometry_upload(geometry, upload_plan, complete_bytes - 1));
+    assert(plan_geometry_upload(geometry, upload_plan, complete_bytes));
+    malformed = geometry;
+    malformed.draws[0].first_index = UINT32_MAX;
+    assert(!plan_geometry_upload(malformed, upload_plan));
+    malformed = geometry;
+    malformed.draws.clear();
+    assert(!plan_geometry_upload(malformed, upload_plan));
+    assert(plan_geometry_upload({}, upload_plan, 0));
+    assert(upload_plan.total_bytes == 0 && upload_plan.draw_count == 0);
 
     RenderCommandBuffer commands;
     commands.append(snapshot.objects[0]);
