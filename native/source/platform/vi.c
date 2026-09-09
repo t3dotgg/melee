@@ -1,11 +1,12 @@
+#include "card.h"
+#include "os.h"
+#include "pad.h"
+#include "scheduler.h"
 #include <dolphin/vi.h>
 
-#include "scheduler.h"
-#include "pad.h"
-
 #if defined(MELEE_NATIVE_DISPLAY)
-#include "display.h"
 #include "audio_output.h"
+#include "display.h"
 extern void NativeAudioTick(void) __attribute__((weak_import));
 #endif
 
@@ -68,6 +69,9 @@ void VIWaitForRetrace(void)
     ensure_initialized();
     NativeSchedulerWaitForRetrace();
     NativeSchedulerPump(NativeSchedulerGetTime());
+    if (NativeOSInterruptsEnabled()) {
+        NativeCardPump();
+    }
     ++s_vi.retrace_count;
     s_vi.next_field ^= 1;
 
@@ -97,16 +101,17 @@ void VIWaitForRetrace(void)
 #if defined(MELEE_NATIVE_DISPLAY)
     NativeDisplaySetRetraceCount(s_vi.retrace_count);
     if (!s_vi.black && s_vi.next_frame_buffer != NULL) {
-        uint16_t width = s_vi.mode.viWidth != 0 ? s_vi.mode.viWidth
-                                                : s_vi.mode.fbWidth;
-        uint16_t height = s_vi.mode.viHeight != 0 ? s_vi.mode.viHeight
-                                                  : s_vi.mode.xfbHeight;
+        uint16_t width =
+            s_vi.mode.viWidth != 0 ? s_vi.mode.viWidth : s_vi.mode.fbWidth;
+        uint16_t height =
+            s_vi.mode.viHeight != 0 ? s_vi.mode.viHeight : s_vi.mode.xfbHeight;
         uint16_t stride = (uint16_t) ((s_vi.mode.fbWidth + 15u) & ~15u);
         NativeDisplayPresent(s_vi.next_frame_buffer, width, height, stride);
     }
     /* Input events must continue to reach the pad shim while the VI is
      * presenting frames. NativeDisplayPresent also pumps events, but this
-     * call keeps the input path explicit for a future asynchronous renderer. */
+     * call keeps the input path explicit for a future asynchronous renderer.
+     */
     NativeDisplayPumpEvents();
 #endif
 }

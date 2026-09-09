@@ -24,7 +24,7 @@ repos:
     - id: clang-format
       args: [--version=22.1.8]
       types_or: [file]
-      files: \.(c|h|dox)$|^native/macos/(launcher\.m|input/[^/]+\.inc)$
+      files: \.(c|h|dox)$|^native/macos/(launcher\.m|input/[^/]+\.inc)$|^native/source/platform/[^/]+\.m$
       require_serial: true
 - repo: https://github.com/editorconfig-checker/editorconfig-checker.python
   rev: 3.11.1

@@ -1,14 +1,16 @@
-#include <dolphin/os.h>
-#include <dolphin/os/OSAlarm.h>
-#include <dolphin/os/OSThread.h>
-
-#include "scheduler.h"
+#include "os.h"
 
 #include <pthread.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+
+#include "card.h"
+#include "scheduler.h"
+#include <dolphin/os.h>
+#include <dolphin/os/OSAlarm.h>
+#include <dolphin/os/OSThread.h>
 
 /* GameCube's time base is one quarter of its 162 MHz bus clock. */
 u32 __OSBusClock = 162000000u;
@@ -42,9 +44,18 @@ void OSInit(void)
     OSSetArenaHi((u8*) native_arena + native_arena_size);
 }
 
-u32 OSGetConsoleType(void) { return OS_CONSOLE_PC_EMULATOR; }
-u32 OSGetPhysicalMemSize(void) { return (u32) native_arena_size; }
-u32 OSGetConsoleSimulatedMemSize(void) { return (u32) native_arena_size; }
+u32 OSGetConsoleType(void)
+{
+    return OS_CONSOLE_PC_EMULATOR;
+}
+u32 OSGetPhysicalMemSize(void)
+{
+    return (u32) native_arena_size;
+}
+u32 OSGetConsoleSimulatedMemSize(void)
+{
+    return (u32) native_arena_size;
+}
 
 OSTime OSGetTime(void)
 {
@@ -54,12 +65,16 @@ OSTime OSGetTime(void)
     return NativeSchedulerGetTime();
 }
 
-OSTick OSGetTick(void) { return (OSTick) OSGetTime(); }
+OSTick OSGetTick(void)
+{
+    return (OSTick) OSGetTime();
+}
 
 BOOL OSEnableInterrupts(void)
 {
     BOOL old = native_interrupts_enabled;
     native_interrupts_enabled = TRUE;
+    NativeCardPump();
     return old;
 }
 
@@ -74,7 +89,15 @@ BOOL OSRestoreInterrupts(BOOL level)
 {
     BOOL old = native_interrupts_enabled;
     native_interrupts_enabled = level != FALSE;
+    if (native_interrupts_enabled) {
+        NativeCardPump();
+    }
     return old;
+}
+
+BOOL NativeOSInterruptsEnabled(void)
+{
+    return native_interrupts_enabled;
 }
 
 void OSInitContext(OSContext* context, uptr pc, uptr newsp)
@@ -85,10 +108,22 @@ void OSInitContext(OSContext* context, uptr pc, uptr newsp)
     context->state = OS_CONTEXT_STATE_FPSAVED;
 }
 
-void OSClearContext(OSContext* context) { memset(context, 0, sizeof(*context)); }
-OSContext* OSGetCurrentContext(void) { return native_current_context; }
-void OSSetCurrentContext(OSContext* context) { native_current_context = context; }
-void OSLoadContext(OSContext* context) { native_current_context = context; }
+void OSClearContext(OSContext* context)
+{
+    memset(context, 0, sizeof(*context));
+}
+OSContext* OSGetCurrentContext(void)
+{
+    return native_current_context;
+}
+void OSSetCurrentContext(OSContext* context)
+{
+    native_current_context = context;
+}
+void OSLoadContext(OSContext* context)
+{
+    native_current_context = context;
+}
 u32 OSSaveContext(OSContext* context)
 {
     if (context != NULL) {
@@ -96,14 +131,26 @@ u32 OSSaveContext(OSContext* context)
     }
     return 0;
 }
-void OSLoadFPUContext(OSContext* context) { (void) context; }
-void OSSaveFPUContext(OSContext* context) { (void) context; }
-void OSFillFPUContext(OSContext* context) { (void) context; }
+void OSLoadFPUContext(OSContext* context)
+{
+    (void) context;
+}
+void OSSaveFPUContext(OSContext* context)
+{
+    (void) context;
+}
+void OSFillFPUContext(OSContext* context)
+{
+    (void) context;
+}
 uptr OSGetStackPointer(void)
 {
     return (uptr) __builtin_frame_address(0);
 }
-uptr OSSwitchStack(uptr newsp) { return newsp; }
+uptr OSSwitchStack(uptr newsp)
+{
+    return newsp;
+}
 int OSSwitchFiber(uptr pc, uptr newsp)
 {
     (void) pc;
@@ -149,8 +196,14 @@ void OSInitThreadQueue(OSThreadQueue* queue)
     queue->head = NULL;
     queue->tail = NULL;
 }
-void OSSleepThread(OSThreadQueue* queue) { (void) queue; }
-void OSWakeupThread(OSThreadQueue* queue) { (void) queue; }
+void OSSleepThread(OSThreadQueue* queue)
+{
+    (void) queue;
+}
+void OSWakeupThread(OSThreadQueue* queue)
+{
+    (void) queue;
+}
 s32 OSSuspendThread(OSThread* thread)
 {
     s32 old = thread == NULL ? 0 : thread->suspend;
@@ -173,7 +226,8 @@ s32 OSResumeThread(OSThread* thread)
     pthread_mutex_lock(&native_thread_lock);
     slot = find_thread(thread);
     if (slot != NULL && !slot->started) {
-        slot->started = pthread_create(&slot->handle, NULL, native_thread_main, slot) == 0;
+        slot->started =
+            pthread_create(&slot->handle, NULL, native_thread_main, slot) == 0;
         if (!slot->started) {
             thread->state = OS_THREAD_STATE_MORIBUND;
         }
@@ -197,7 +251,10 @@ void OSCancelThread(OSThread* thread)
     }
     pthread_mutex_unlock(&native_thread_lock);
 }
-OSThread* OSGetCurrentThread(void) { return native_current_thread; }
+OSThread* OSGetCurrentThread(void)
+{
+    return native_current_thread;
+}
 s32 OSEnableScheduler(void)
 {
     s32 old = native_scheduler_disabled;
@@ -210,7 +267,10 @@ s32 OSDisableScheduler(void)
     native_scheduler_disabled = 1;
     return old;
 }
-s32 OSCheckActiveThreads(void) { return 0; }
+s32 OSCheckActiveThreads(void)
+{
+    return 0;
+}
 
 int OSCreateThread(OSThread* thread, void* (*func)(void*), void* param,
                    void* stack, u32 stack_size, s32 priority,
@@ -232,8 +292,10 @@ int OSCreateThread(OSThread* thread, void* (*func)(void*), void* param,
     pthread_mutex_lock(&native_thread_lock);
     for (i = 0; i < sizeof(native_threads) / sizeof(native_threads[0]); i++) {
         if (native_threads[i].thread == NULL) {
-            native_threads[i] = (NativeThreadSlot) {
-                .thread = thread, .entry = func, .argument = param,
+            native_threads[i] = (NativeThreadSlot){
+                .thread = thread,
+                .entry = func,
+                .argument = param,
             };
             pthread_mutex_unlock(&native_thread_lock);
             return TRUE;
@@ -243,7 +305,10 @@ int OSCreateThread(OSThread* thread, void* (*func)(void*), void* param,
     return FALSE;
 }
 
-void OSInitAlarm(void) { NativeSchedulerInit(); }
+void OSInitAlarm(void)
+{
+    NativeSchedulerInit();
+}
 BOOL OSCheckAlarmQueue(void)
 {
     return NativeSchedulerAlarmQueued(NULL) ? TRUE : FALSE;
@@ -304,19 +369,40 @@ void OSCancelAlarm(OSAlarm* alarm)
     }
 }
 
-u32 OSGetSoundMode(void) { return native_sound_mode; }
-void OSSetSoundMode(u32 mode) { native_sound_mode = mode; }
-u32 OSGetProgressiveMode(void) { return native_progressive_mode; }
-void OSSetProgressiveMode(u32 mode) { native_progressive_mode = mode; }
-u32 OSGetResetCode(void) { return native_reset_code; }
+u32 OSGetSoundMode(void)
+{
+    return native_sound_mode;
+}
+void OSSetSoundMode(u32 mode)
+{
+    native_sound_mode = mode;
+}
+u32 OSGetProgressiveMode(void)
+{
+    return native_progressive_mode;
+}
+void OSSetProgressiveMode(u32 mode)
+{
+    native_progressive_mode = mode;
+}
+u32 OSGetResetCode(void)
+{
+    return native_reset_code;
+}
 void OSResetSystem(int reset, u32 reset_code, BOOL force_menu)
 {
     (void) reset;
     (void) force_menu;
     native_reset_code = reset_code;
 }
-BOOL OSGetResetSwitchState(void) { return FALSE; }
-BOOL OSGetResetButtonState(void) { return FALSE; }
+BOOL OSGetResetSwitchState(void)
+{
+    return FALSE;
+}
+BOOL OSGetResetButtonState(void)
+{
+    return FALSE;
+}
 
 void OSTicksToCalendarTime(OSTime ticks, OSCalendarTime* td)
 {
@@ -337,8 +423,8 @@ void OSTicksToCalendarTime(OSTime ticks, OSCalendarTime* td)
     td->wday = tm_value.tm_wday;
     td->yday = tm_value.tm_yday;
     td->msec = (int) ((ticks % second_ticks) * 1000 / second_ticks);
-    td->usec = (int) ((ticks % (second_ticks / 1000)) * 1000000 /
-                      second_ticks);
+    td->usec =
+        (int) ((ticks % (second_ticks / 1000)) * 1000000 / second_ticks);
 }
 
 OSTime OSCalendarTimeToTicks(OSCalendarTime* td)
@@ -348,7 +434,7 @@ OSTime OSCalendarTimeToTicks(OSCalendarTime* td)
     if (td == NULL) {
         return 0;
     }
-    tm_value = (struct tm) {
+    tm_value = (struct tm){
         .tm_sec = td->sec,
         .tm_min = td->min,
         .tm_hour = td->hour,

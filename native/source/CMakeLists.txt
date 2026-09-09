@@ -91,10 +91,11 @@ target_link_libraries(test_archive_legacy PRIVATE melee_host_options)
 add_test(NAME archive_legacy COMMAND test_archive_legacy)
 
 add_executable(test_scheduler tests/test_scheduler.c platform/os.c
-    platform/scheduler.c platform/vi.c platform/heap.c platform/report.c)
+    platform/scheduler.c platform/vi.c platform/heap.c platform/report.c
+    platform/card.c)
 target_sources(test_scheduler PRIVATE platform/pad.c)
 target_link_libraries(test_scheduler PRIVATE melee_host_options)
-add_test(NAME scheduler COMMAND test_scheduler)
+add_test(NAME scheduler COMMAND test_scheduler "${CMAKE_BINARY_DIR}")
 
 add_executable(test_pad tests/test_pad.c platform/pad.c)
 target_link_libraries(test_pad PRIVATE melee_host_options)
@@ -103,6 +104,19 @@ add_test(NAME pad COMMAND test_pad)
 add_executable(test_audio tests/test_audio.c platform/audio.c)
 target_link_libraries(test_audio PRIVATE melee_host_options)
 add_test(NAME audio COMMAND test_audio)
+
+add_executable(test_card tests/test_card.c platform/card.c)
+target_link_libraries(test_card PRIVATE melee_host_options)
+add_test(NAME card COMMAND test_card "${CMAKE_BINARY_DIR}")
+
+add_executable(test_hsd_card tests/test_hsd_card.c platform/card.c
+    "${MELEE_ROOT}/src/melee/lb/lbcardnew.c")
+foreach(module hsd_3A94 hsd_3B27 hsd_3B2B hsd_3B2E hsd_4D11)
+    target_sources(test_hsd_card PRIVATE
+        "${MELEE_ROOT}/src/sysdolphin/baselib/${module}.c")
+endforeach()
+target_link_libraries(test_hsd_card PRIVATE melee_host_options)
+add_test(NAME hsd_card COMMAND test_hsd_card)
 
 add_executable(test_synth_stream tests/test_synth_stream.c platform/audio.c
     platform/report.c)
