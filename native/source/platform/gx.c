@@ -59,7 +59,18 @@ void GXInitTexObjCI(GXTexObj*o,void*d,u16 w,u16 h,GXTexFmt f,GXTexWrapMode s,GXT
 void GXInitTexObjLOD(GXTexObj*o,GXTexFilter a,GXTexFilter b,f32 c,f32 d,f32 e,GXBool f,GXBool g,GXAnisotropy h){o->dummy[4]=(uptr)a|((uptr)b<<8);(void)c;(void)d;(void)e;(void)f;(void)g;(void)h;}
 GXTexFmt GXGetTexObjFmt(const GXTexObj*o){return (GXTexFmt)(o->dummy[2]&255);} u16 GXGetTexObjWidth(const GXTexObj*o){return (u16)o->dummy[1];} u16 GXGetTexObjHeight(const GXTexObj*o){return (u16)(o->dummy[1]>>16);} void*GXGetTexObjData(const GXTexObj*o){return(void*)o->dummy[0];}
 void GXProject(f32 x,f32 y,f32 z,f32 m[3][4],f32*pm,f32*vp,f32*sx,f32*sy,f32*sz){if(sx)*sx=x;if(sy)*sy=y;if(sz)*sz=z;(void)m;(void)pm;(void)vp;}
-void GXSetProjection(f32 m[4][4],GXProjectionType t){memcpy(gx_projection,m,sizeof gx_projection);(void)t;} void GXSetProjectionv(f32*p){if(p)memcpy(gx_projection,p,sizeof gx_projection);} void GXGetProjectionv(f32*p){if(p)memcpy(p,gx_projection,sizeof gx_projection);}
+void GXSetProjection(f32 m[4][4], GXProjectionType t)
+{
+    gx_projection[0] = (f32)t;
+    gx_projection[1] = m[0][0];
+    gx_projection[2] = (t == GX_ORTHOGRAPHIC) ? m[0][3] : m[0][2];
+    gx_projection[3] = m[1][1];
+    gx_projection[4] = (t == GX_ORTHOGRAPHIC) ? m[1][3] : m[1][2];
+    gx_projection[5] = m[2][2];
+    gx_projection[6] = m[2][3];
+}
+void GXSetProjectionv(f32 *p) { if (p) memcpy(gx_projection, p, sizeof gx_projection); }
+void GXGetProjectionv(f32 *p) { if (p) memcpy(p, gx_projection, sizeof gx_projection); }
 void GXSetViewport(f32 l,f32 t,f32 w,f32 h,f32 n,f32 f){gx_viewport[0]=l;gx_viewport[1]=t;gx_viewport[2]=w;gx_viewport[3]=h;gx_viewport[4]=n;gx_viewport[5]=f;} void GXSetViewportJitter(f32 l,f32 t,f32 w,f32 h,f32 n,f32 f,u32 q){(void)q;GXSetViewport(l,t,w,h,n,f);} void GXGetViewportv(f32*p){if(p)memcpy(p,gx_viewport,sizeof gx_viewport);} void GXSetScissor(u32 l,u32 t,u32 w,u32 h){gx_scissor[0]=l;gx_scissor[1]=t;gx_scissor[2]=w;gx_scissor[3]=h;}
 void GXClearVtxDesc(void) {}
 void GXCopyDisp(void *dest, GXBool clear) {}
