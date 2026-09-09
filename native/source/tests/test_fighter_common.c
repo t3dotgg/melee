@@ -138,6 +138,9 @@ static void test_tables(bool bad_count)
         common, "ftLoadCommonData", 0, &root, &error);
     if (bad_count) {
         assert(status == NATIVE_ARCHIVE_INVALID && root == NULL);
+        assert(NativeFighterCommonArchiveRead(common, "ftLoadCommonData", 0,
+                                              &root, &error) == status);
+        assert(root == NULL);
     } else {
         assert(status == NATIVE_ARCHIVE_OK);
         void** targets = root;
