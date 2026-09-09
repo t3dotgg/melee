@@ -26,6 +26,7 @@ static int g_ready;
 static int g_is_iso;
 static int g_iso_fd = -1;
 static char g_current_dir[PATH_MAX] = "/";
+static DVDDiskID g_disk_id = { {'G', 'A', 'L', 'E'}, {'0', '1'}, 0, 2, 0, 0, { 0 } };
 
 static u32 be32(const u8* p)
 {
@@ -127,6 +128,7 @@ static int dvd_load_iso(void)
     if (pread(g_iso_fd, header, sizeof(header), 0) != (ssize_t) sizeof(header)) {
         return 0;
     }
+    memcpy(&g_disk_id, header, sizeof(g_disk_id));
     u32 fst_offset = be32(header + 0x424);
     u32 fst_size = be32(header + 0x428);
     if (fst_offset == 0 || fst_size < 12 || fst_size > 64 * 1024 * 1024) {
@@ -232,6 +234,24 @@ static NativeDVDEntry* dvd_file_for(const DVDFileInfo* info)
 }
 
 void DVDInit(void) { dvd_init(); }
+
+BOOL DVDCheckDisk(void)
+{
+    dvd_init();
+    return g_entry_count > 1;
+}
+
+s32 DVDGetDriveStatus(void)
+{
+    return DVDCheckDisk() ? DVD_STATE_END : DVD_STATE_NO_DISK;
+}
+
+DVDDiskID* DVDGetCurrentDiskID(void)
+{
+    dvd_init();
+    return &g_disk_id;
+}
+
 
 s32 DVDConvertPathToEntrynum(const char* path)
 {
