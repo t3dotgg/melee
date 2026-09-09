@@ -13,9 +13,15 @@ struct ftKoopa_FighterVars {
 union ftKoopa_MotionVars {
     /// @todo Proper state name.
     struct ftKoopa_State1Vars {
+#ifdef MELEE_NATIVE
+        bool x0;
+        bool x4;
+        int x8;
+#else
         UNK_T x0;
         bool x4;
         UNK_T x8;
+#endif
         bool xC;
     } unk1;
     /// @todo Possibly #ftKoopa_State1Vars.

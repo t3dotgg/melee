@@ -232,7 +232,7 @@ void ftKb_SpecialN_800F5BA4(Fighter* fp)
     ftKb_DatAttrs* da = fp->dat_attrs;
     if ((s32) fp->kind == FTKIND_KIRBY &&
         (s32) fp->u.kb.hat.kind != FTKIND_KIRBY && !fp->u.kb.hat.x8_b0 &&
-        (u32) fp->victim_gobj == 0U &&
+        fp->victim_gobj == NULL &&
         fp->dmg.x1860_element != HitElement_Cape &&
         HSD_Randi((s32) da->specialn_odds_lose_ability_on_hit) == 0)
     {
@@ -245,7 +245,7 @@ void ftKb_SpecialN_800F5C34(Fighter* fp)
     ftKb_DatAttrs* da = fp->dat_attrs;
     if ((s32) fp->kind == FTKIND_KIRBY &&
         (s32) fp->u.kb.hat.kind != FTKIND_KIRBY && !fp->u.kb.hat.x8_b0 &&
-        (u32) fp->victim_gobj == 0U &&
+        fp->victim_gobj == NULL &&
         HSD_Randi((s32) da->specialn_odds_lose_ability_on_hit) == 0)
     {
         s32 msid = fp->motion_id;

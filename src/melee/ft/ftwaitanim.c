@@ -52,7 +52,7 @@ static inline enum_t getAnimID(WaitStruct* arg1)
     while (wait_data->u.i.x != -1) {
         count += wait_data->u.i.y;
         if (max <= count) {
-            return (enum_t) wait_data->u.p.x;
+            return wait_data->u.i.x;
         }
         wait_data += 1;
     }

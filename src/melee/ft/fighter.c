@@ -126,7 +126,11 @@ struct Fighter_804D6520_t* Fighter_804D6520 = NULL;
 struct Fighter_804D6524_t* Fighter_804D6524 = NULL;
 struct Fighter_ShakeTable_t* Fighter_SmashChargeShakeTable = NULL;
 struct Fighter_ShakeTable_t* Fighter_GrabMashShake = NULL;
+#ifdef MELEE_NATIVE
+struct Fighter_DamageFallSamples* Fighter_804D6530 = NULL;
+#else
 Vec2** Fighter_804D6530 = NULL;
+#endif
 UNK_T Fighter_804D6534 = NULL;
 struct Fighter_804D653C_t* Fighter_804D6538 = NULL;
 struct Fighter_804D653C_t* Fighter_804D653C = NULL;
@@ -1111,7 +1115,7 @@ void Fighter_ChangeMotionState(Fighter_GObj* gobj, FtMotionId msid,
     }
 
     if (((flags & Ft_MF_KeepAccessory) == 0) &&
-        ((u32) fp->x20A0_accessory != 0U))
+        (fp->x20A0_accessory != NULL))
     {
         HSD_JObjRemoveAll(fp->x20A0_accessory);
         fp->x20A0_accessory = 0U;
