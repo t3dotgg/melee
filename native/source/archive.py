@@ -40,6 +40,13 @@ def main() -> int:
         type=Path,
         help="Link report path (default: BUILD_DIR/link-report.json)",
     )
+    parser.add_argument(
+        "--extra-object",
+        action="append",
+        type=Path,
+        default=[],
+        help="Additional ARM64 object to include, such as a native platform stub",
+    )
     args = parser.parse_args()
     if platform.system() != "Darwin" or platform.machine() != "arm64":
         parser.error("Run this ARM64 link check on an Apple Silicon Mac")
@@ -53,6 +60,9 @@ def main() -> int:
     compile_report = json.loads(compile_report_path.read_text())
     sources = compile_report.get("sources", [])
     objects = [build_dir / entry["object"] for entry in sources if entry.get("success")]
+    game_object_count = len(objects)
+    extra_objects = [path.resolve() for path in args.extra_object]
+    objects.extend(extra_objects)
     missing = [str(path) for path in objects if not path.is_file()]
     failed_sources = [entry.get("source", "") for entry in sources if not entry.get("success")]
 
@@ -61,8 +71,9 @@ def main() -> int:
         report = {
             "architecture": "arm64",
             "archive": str(archive),
-            "compiled": len(objects),
+            "compiled": game_object_count,
             "total": len(sources),
+            "extra_objects": [str(path) for path in extra_objects],
             "failed_sources": failed_sources,
             "missing_objects": missing,
             "archived": False,
@@ -80,8 +91,9 @@ def main() -> int:
         report = {
             "architecture": "arm64",
             "archive": str(archive),
-            "compiled": len(objects),
+            "compiled": game_object_count,
             "total": len(sources),
+            "extra_objects": [str(path) for path in extra_objects],
             "failed_sources": failed_sources,
             "archived": False,
             "linked": False,
@@ -127,8 +139,9 @@ def main() -> int:
     report = {
         "architecture": "arm64",
         "archive": str(archive),
-        "compiled": len(objects),
+        "compiled": game_object_count,
         "total": len(sources),
+        "extra_objects": [str(path) for path in extra_objects],
         "failed_sources": failed_sources,
         "archived": archive_result.returncode == 0,
         "linked": link_result.returncode == 0,
@@ -140,7 +153,7 @@ def main() -> int:
         "undefined_symbols": undefined_symbols,
     }
     report_path.write_text(json.dumps(report, indent=2) + "\n")
-    print(f"Archived {len(objects)}/{len(sources)} objects: {archive}")
+    print(f"Archived {len(objects)} objects ({game_object_count} game sources): {archive}")
     print(f"Link probe: {'success' if link_result.returncode == 0 else 'failed'}")
     print(f"Link report: {report_path}")
     return 0 if link_result.returncode == 0 else 1
