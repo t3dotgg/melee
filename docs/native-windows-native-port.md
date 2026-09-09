@@ -150,19 +150,21 @@ with no XInput DLL or connected controller.
 Typed Persistent, Scene, Frame, and Audio arenas now provide alignment-safe
 allocation, generation-checked handles, and deterministic reset behavior in
 place of the GameCube heap and raw pointer ranges.
-The renderer backend contract now has a headless implementation for deterministic
-tests and a Windows D3D12 capability probe; a swap-chain frontend and GX/TEV
-translation still remain to be implemented.
+The renderer backend contract has a headless implementation for deterministic
+tests and a Windows D3D12 capability probe. The swap-chain frontend now has a
+native color pipeline for transitional proxy geometry; full GX/TEV translation
+is still pending.
 The native target also initializes and releases a real D3D12 device through the
 Windows loader, selecting the highest available feature level. The Win32
 frontend now owns RTV views for every flip-model back buffer, records a
 PRESENT/RENDER_TARGET clear pass, submits it on a direct queue, signals a fence,
 and presents at the independent render cadence. The shell uses this path when
 the device is available and polls XInput user 0 through the Switch-like action
-mapping. Shader/material pipelines and GX/TEV translation remain separate work.
+mapping. The shell uses the native color pipeline for transitional geometry;
+full GX/TEV translation remains separate work.
 Immutable render snapshots also convert into validated, pointer-free proxy
 geometry with ordered draw ranges; this is covered by the native render
-geometry test and is ready for D3D12 vertex-buffer upload.
+geometry test and is uploaded and drawn by the D3D12 path.
 The native frontend now owns a real Win32 window handle and message pump,
 including hidden-window operation for headless tests.
 The current Windows target now also creates an `IDXGISwapChain3` flip-model
@@ -174,7 +176,9 @@ The asset layer now decodes GX I4/I8/IA4/IA8, RGB565, RGB5A3, RGBA8, and
 palette-indexed C4/C8/C14X2 tiled blocks into host RGBA8 pixels with
 dimension, truncation, and palette-index checks. Material, mipmap, and TEV
 state conversion now has a validated host-side model that preserves raw GX
-enum values and unknown render flags; backend shader emission remains.
+enum values and unknown render flags. A native asset bridge decodes the proven
+20-byte big-endian HSD_Material record from a named MARC entry and requires the
+containing render mode explicitly; full DAT descriptor traversal remains.
 `NativeDisc` now maps validated numeric entry IDs to the rooted asset service,
 providing synchronous and ordered asynchronous reads with cancellation. DVD
 seek timing and the complete original disc table still need to be derived from
