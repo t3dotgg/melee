@@ -112,6 +112,17 @@ static void test_slot_layouts(void)
     close_fixture(&fixture);
 
     memset(&fixture, 0, sizeof(fixture));
+    ref(&fixture, 400, 32);
+    ref(&fixture, 404, 64);
+    ref(&fixture, 408, 96);
+    open_fixture(&fixture);
+    CHECK(NativeFighterArticlesRead(fixture.articles, "ftDataMasterhand", 400,
+                                    &result, &error) == NATIVE_ARCHIVE_OK);
+    CHECK(result[0] != NULL && result[1] != NULL && result[2] != NULL);
+    CHECK(result[0] != result[1] && result[1] != result[2]);
+    close_fixture(&fixture);
+
+    memset(&fixture, 0, sizeof(fixture));
     ref(&fixture, 400 + 16, 32);
     word(fixture.file + 32, 32 + 0x20, 0x40000000);
     open_fixture(&fixture);

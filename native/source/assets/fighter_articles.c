@@ -18,6 +18,7 @@ enum SlotKind {
     SLOT_FOX_WORDS = -4,
     SLOT_VISIBILITY = -5,
     SLOT_PURIN_PARTS = -6,
+    SLOT_HAND_UNUSED_ARTICLE = -7,
 };
 
 typedef struct FighterSlots {
@@ -111,6 +112,10 @@ static const FighterSlots fighter_slots[] = {
     { "ftDataZelda",
       2,
       { It_Kind_Zelda_DinFire, It_Kind_Zelda_DinFire_Explode } },
+    { "ftDataMasterhand",
+      3,
+      { It_Kind_MasterHand_Laser, It_Kind_MasterHand_Bullet,
+        SLOT_HAND_UNUSED_ARTICLE } },
     { "ftDataCrazyhand",
       3,
       { It_Kind_CrazyHand_Laser, It_Kind_CrazyHand_Bullet,
@@ -356,6 +361,12 @@ static void* read_slot(NativeFighterArticles* articles, int kind,
         return result;
     }
     switch (kind) {
+    case SLOT_HAND_UNUSED_ARTICLE:
+        /* Master Hand registers only the first two entries. The unused
+         * third entry has the same three scalar attribute words as Crazy
+         * Hand's bomb. This selects its archive schema, not an item kind
+         * to register with gameplay. */
+        return read_slot(articles, It_Kind_CrazyHand_Bomb, offset, error);
     case SLOT_JOINT: {
         struct HSD_Joint* result;
         if (NativeArchiveJoint(articles->graph, offset, &result, error) !=
