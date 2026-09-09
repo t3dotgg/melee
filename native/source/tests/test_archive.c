@@ -834,6 +834,77 @@ static void test_external_chains(void)
     reject_file(&fixture, fixture.size);
 }
 
+static Fixture shape_fixture(u16 mode)
+{
+    Fixture fixture = fixture_new(252);
+    reference(&fixture, 16, 64);
+    reference(&fixture, 64 + 12, 80);
+    word(&fixture, 80 + 12, POBJ_SHAPEANIM << 16);
+    reference(&fixture, 80 + 20, 104);
+    word(&fixture, 104, (u32) mode << 16 | 2);
+    word(&fixture, 108, 1);
+    reference(&fixture, 112, 132);
+    reference(&fixture, 116, 180);
+    word(&fixture, 132, GX_VA_POS);
+    word(&fixture, 136, GX_INDEX16);
+    word(&fixture, 140, GX_POS_XYZ);
+    word(&fixture, 144, GX_F32);
+    word(&fixture, 148, 12);
+    reference(&fixture, 152, 216);
+    word(&fixture, 156, GX_VA_NULL);
+    reference(&fixture, 180, 192);
+    reference(&fixture, 184, 200);
+    if (mode == SHAPESET_ADDITIVE) reference(&fixture, 188, 208);
+    word(&fixture, 200, 1u << 16);
+    word(&fixture, 208, 2u << 16);
+    word(&fixture, 216, 0x3fc00000); /* 1.5 */
+    word(&fixture, 220, 0xc0000000); /* -2 */
+    word(&fixture, 224, 0x40400000); /* 3 */
+    return fixture;
+}
+
+static void test_shape_sets(void)
+{
+    const u16 modes[] = { SHAPESET_AVERAGE, SHAPESET_ADDITIVE };
+    for (size_t i = 0; i < sizeof(modes) / sizeof(*modes); ++i) {
+        Fixture fixture = shape_fixture(modes[i]);
+        NativeArchive* archive = open_fixture(&fixture);
+        NativeArchiveGraph* graph = open_graph(archive);
+        NativeArchiveError error = { 0 };
+        HSD_Joint* joint = NULL;
+        CHECK(NativeArchiveJoint(graph, 0, &joint, &error) == NATIVE_ARCHIVE_OK);
+        HSD_ShapeSetDesc* shape = joint->u.dobjdesc->pobjdesc->u.shape_set;
+        CHECK(shape != NULL && shape->flags == modes[i] && shape->nb_shape == 2);
+        CHECK(shape->nb_vertex_index == 1 && shape->nb_normal_index == 0);
+        CHECK(shape->normal_desc == NULL && shape->normal_idx_list == NULL);
+        CHECK(shape->vertex_desc->stride == 12);
+        CHECK(shape->vertex_desc->comp_type == GX_F32);
+        CHECK(shape->vertex_idx_list[0][1] == 0);
+        CHECK(shape->vertex_idx_list[1][1] == 1);
+        if (modes[i] == SHAPESET_ADDITIVE) {
+            CHECK(shape->vertex_idx_list[2][1] == 2);
+        }
+        const unsigned char* vertex = shape->vertex_desc->vertex;
+        CHECK(vertex[0] == 0x3f && vertex[1] == 0xc0);
+        check_host_pointer(&fixture, shape);
+        check_host_pointer(&fixture, shape->vertex_desc);
+        check_host_pointer(&fixture, shape->vertex_idx_list);
+        check_host_pointer(&fixture, shape->vertex_idx_list[0]);
+        NativeArchiveGraphClose(graph);
+        NativeArchiveClose(archive);
+    }
+    Fixture fixture = shape_fixture(SHAPESET_AVERAGE);
+    word(&fixture, 200, 3u << 16);
+    NativeArchive* archive = open_fixture(&fixture);
+    NativeArchiveGraph* graph = open_graph(archive);
+    NativeArchiveError error = { 0 };
+    HSD_Joint* joint = NULL;
+    CHECK(NativeArchiveJoint(graph, 0, &joint, &error) == NATIVE_ARCHIVE_BOUNDS);
+    CHECK(joint == NULL && error.offset == HEADER_SIZE + 200);
+    NativeArchiveGraphClose(graph);
+    NativeArchiveClose(archive);
+}
+
 static void test_envelope_graph(void)
 {
     Fixture fixture = fixture_new(224);
@@ -1203,6 +1274,7 @@ int main(void)
     test_bad_relocations();
     test_bad_symbols();
     test_external_chains();
+    test_shape_sets();
     test_envelope_graph();
     test_joint_constraints();
     test_unsupported_joint_fields();

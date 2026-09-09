@@ -32,6 +32,8 @@ typedef enum Schema {
     SCHEMA_POBJ,
     SCHEMA_ENVELOPETBL,
     SCHEMA_ENVELOPE,
+    SCHEMA_SHAPESET,
+    SCHEMA_SHAPEIDXTBL,
     SCHEMA_VTXLIST,
     SCHEMA_MATERIAL,
     SCHEMA_PEDESC,
@@ -277,7 +279,8 @@ static void* add_node(NativeArchiveGraph* graph, uint32_t offset,
     for (node = graph->buckets[bucket]; node != NULL; node = node->hash_next) {
         if (node->offset == offset) {
             if (node->schema != schema ||
-                (schema == SCHEMA_BYTES && node->length != length) ||
+                ((schema == SCHEMA_BYTES || schema == SCHEMA_VTXLIST ||
+                  schema == SCHEMA_SHAPEIDXTBL) && node->length != length) ||
                 ((schema == SCHEMA_IMAGETBL || schema == SCHEMA_TLUTTBL) &&
                  node->length / 4 != length)) {
                 graph_fail(graph, NATIVE_ARCHIVE_TYPE_CONFLICT, offset,
@@ -307,6 +310,19 @@ static void* add_node(NativeArchiveGraph* graph, uint32_t offset,
     case SCHEMA_POBJ:
         disk_size = 24;
         host_size = sizeof(HSD_PObjDesc);
+        break;
+    case SCHEMA_SHAPESET:
+        disk_size = 28;
+        host_size = sizeof(HSD_ShapeSetDesc);
+        break;
+    case SCHEMA_SHAPEIDXTBL:
+        if (length == 0 || length % 4 != 0) {
+            graph_fail(graph, NATIVE_ARCHIVE_INVALID, offset,
+                       "shape index table has an invalid length");
+            return NULL;
+        }
+        disk_size = length;
+        host_size = (length / 4) * sizeof(u8*);
         break;
     case SCHEMA_ENVELOPETBL:
         if (!terminated_reference_length(graph, offset, 4, &disk_size)) {
@@ -557,6 +573,107 @@ static void* link_node(NativeArchiveGraph* graph, uint32_t field,
     return add_node(graph, target, schema, length);
 }
 
+/* Shape vertices stay in GPU byte order. The CPU shape reader decodes their
+ * components. Shape data uses the first descriptor and a table of index data. */
+static bool link_shape_arrays(NativeArchiveGraph* graph, uint32_t field,
+                               size_t shape_count, int32_t index_count,
+                               bool normal, HSD_VtxDescList** descriptor,
+                               u8*** indices)
+{
+    uint32_t vertex_offset, table_offset, data_offset;
+    bool present;
+    *descriptor = NULL;
+    *indices = NULL;
+    if (!read_reference(graph, field, &vertex_offset, &present)) return false;
+    if (!present) {
+        if (index_count != 0) {
+            graph_fail(graph, NATIVE_ARCHIVE_INVALID, field,
+                       "shape indices require a vertex descriptor");
+            return false;
+        }
+        if (!read_reference(graph, field + 4, &table_offset, &present)) return false;
+        if (present) {
+            graph_fail(graph, NATIVE_ARCHIVE_INVALID, field + 4,
+                       "shape index table has no vertex descriptor");
+            return false;
+        }
+        return true;
+    }
+    size_t descriptor_length;
+    if (!vtxlist_length(graph, vertex_offset, &descriptor_length)) return false;
+    *descriptor = add_node(graph, vertex_offset, SCHEMA_VTXLIST, descriptor_length);
+    if (*descriptor == NULL) return false;
+    const uint8_t* vertex = graph->archive->data + vertex_offset;
+    uint32_t attr = NativeArchiveBE32(vertex);
+    uint32_t attr_type = NativeArchiveBE32(vertex + 4);
+    uint32_t comp_count = NativeArchiveBE32(vertex + 8);
+    uint32_t comp_type = NativeArchiveBE32(vertex + 12);
+    size_t stride = ((size_t) vertex[18] << 8) | vertex[19];
+    size_t components = normal && attr == GX_VA_NBT ? 9 : 3;
+    size_t width;
+    switch (comp_type) {
+    case GX_U8:
+    case GX_S8: width = 1; break;
+    case GX_U16:
+    case GX_S16: width = 2; break;
+    case GX_F32: width = 4; break;
+    default:
+        graph_fail(graph, NATIVE_ARCHIVE_UNSUPPORTED, vertex_offset + 12,
+                   "shape vertex component type is not supported");
+        return false;
+    }
+    if ((normal ? attr != GX_VA_NRM && attr != GX_VA_NBT : attr != GX_VA_POS) ||
+        comp_count != (normal ? GX_NRM_XYZ : GX_POS_XYZ) ||
+        (attr_type != GX_INDEX8 && attr_type != GX_INDEX16) ||
+        stride < components * width ||
+        (comp_type != GX_F32 && vertex[16] > 31)) {
+        graph_fail(graph, NATIVE_ARCHIVE_UNSUPPORTED, vertex_offset,
+                   "shape vertex format is not supported");
+        return false;
+    }
+    if (!read_reference(graph, vertex_offset + 20, &data_offset, &present)) return false;
+    size_t data_length;
+    if (!present || !next_target_length(graph->archive, data_offset, &data_length)) {
+        graph_fail(graph, NATIVE_ARCHIVE_INVALID, vertex_offset + 20,
+                   "shape vertex data is missing");
+        return false;
+    }
+    if (!read_reference(graph, field + 4, &table_offset, &present)) return false;
+    if (!present) {
+        graph_fail(graph, NATIVE_ARCHIVE_INVALID, field + 4,
+                   "shape vertex descriptor requires an index table");
+        return false;
+    }
+    *indices = add_node(graph, table_offset, SCHEMA_SHAPEIDXTBL, shape_count * 4);
+    if (*indices == NULL) return false;
+    for (size_t shape = 0; shape < shape_count; ++shape) {
+        uint32_t index_offset;
+        size_t index_length;
+        size_t index_width = attr_type == GX_INDEX16 ? 2 : 1;
+        uint32_t entry = table_offset + (uint32_t) shape * 4;
+        if (!read_reference(graph, entry, &index_offset, &present)) return false;
+        if (!present || !next_target_length(graph->archive, index_offset, &index_length) ||
+            (size_t) index_count > index_length / index_width) {
+            graph_fail(graph, NATIVE_ARCHIVE_BOUNDS, entry,
+                       "shape index data is missing or truncated");
+            return false;
+        }
+        const uint8_t* source = graph->archive->data + index_offset;
+        for (size_t i = 0; i < (size_t) index_count; ++i) {
+            size_t index = index_width == 1 ? source[i]
+                : ((size_t) source[i * 2] << 8) | source[i * 2 + 1];
+            if (data_length < components * width ||
+                index > (data_length - components * width) / stride) {
+                graph_fail(graph, NATIVE_ARCHIVE_BOUNDS,
+                           index_offset + (uint32_t) (i * index_width),
+                           "shape index exceeds the vertex data");
+                return false;
+            }
+        }
+    }
+    return true;
+}
+
 static bool unsupported_link(NativeArchiveGraph* graph, uint32_t field,
                               const char* message)
 {
@@ -725,9 +842,12 @@ static bool convert_node(NativeArchiveGraph* graph, Node* node)
             pobj->u.joint = link_node(graph, offset + 20, SCHEMA_JOINT, 0);
             break;
         case POBJ_SHAPEANIM:
-            /* Shape animation data has no host-safe representation yet. Keep
-             * the polygon descriptor usable for scene roots that only need
-             * their joints and cameras. */
+            pobj->u.shape_set = link_node(graph, offset + 20, SCHEMA_SHAPESET, 0);
+            if (pobj->u.shape_set == NULL) {
+                graph_fail(graph, NATIVE_ARCHIVE_INVALID, offset + 20,
+                           "shape polygon requires a shape set");
+                return false;
+            }
             break;
         case POBJ_ENVELOPE:
             pobj->u.envelope_p =
@@ -737,6 +857,37 @@ static bool convert_node(NativeArchiveGraph* graph, Node* node)
             graph_fail(graph, NATIVE_ARCHIVE_INVALID, offset + 12,
                        "polygon descriptor has invalid type flags");
             return false;
+        }
+        break;
+    }
+    case SCHEMA_SHAPESET: {
+        HSD_ShapeSetDesc* shape = node->value;
+        shape->flags = (u16) ((bytes[0] << 8) | bytes[1]);
+        shape->nb_shape = (u16) ((bytes[2] << 8) | bytes[3]);
+        shape->nb_vertex_index = (int32_t) NativeArchiveBE32(bytes + 4);
+        shape->nb_normal_index = (int32_t) NativeArchiveBE32(bytes + 16);
+        u16 mode = shape->flags & (SHAPESET_AVERAGE | SHAPESET_ADDITIVE);
+        if ((mode != SHAPESET_AVERAGE && mode != SHAPESET_ADDITIVE) ||
+            shape->nb_shape == 0 || shape->nb_vertex_index < 0 ||
+            shape->nb_normal_index < 0) {
+            graph_fail(graph, NATIVE_ARCHIVE_INVALID, offset,
+                       "shape set has an invalid mode or count");
+            return false;
+        }
+        size_t count = (size_t) shape->nb_shape + (mode == SHAPESET_ADDITIVE);
+        if (!link_shape_arrays(graph, offset + 8, count, shape->nb_vertex_index,
+                                false, &shape->vertex_desc, &shape->vertex_idx_list) ||
+            !link_shape_arrays(graph, offset + 20, count, shape->nb_normal_index,
+                                true, &shape->normal_desc, &shape->normal_idx_list)) {
+            return false;
+        }
+        break;
+    }
+    case SCHEMA_SHAPEIDXTBL: {
+        u8** indices = node->value;
+        for (size_t i = 0; i < node->length / 4; ++i) {
+            if (!link_tail(graph, offset + (uint32_t) i * 4,
+                           (void**) &indices[i])) return false;
         }
         break;
     }
@@ -1501,6 +1652,7 @@ NativeArchiveStatus NativeArchiveFigaTree(NativeArchiveGraph* graph,
     }
 
 ROOT_READER(NativeArchiveJoint, HSD_Joint, SCHEMA_JOINT)
+ROOT_READER(NativeArchiveMObj, HSD_MObjDesc, SCHEMA_MOBJ)
 ROOT_READER(NativeArchiveMatAnimJoint, HSD_MatAnimJoint,
             SCHEMA_MATANIMJOINT)
 ROOT_READER(NativeArchiveShapeAnimJoint, HSD_ShapeAnimJoint,
