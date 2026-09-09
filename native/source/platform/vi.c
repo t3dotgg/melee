@@ -1,9 +1,12 @@
 #include <dolphin/vi.h>
 
 #include "scheduler.h"
+#include "pad.h"
 
 #if defined(MELEE_NATIVE_DISPLAY)
 #include "display.h"
+#include "audio_output.h"
+extern void NativeAudioTick(void) __attribute__((weak_import));
 #endif
 
 #include <string.h>
@@ -67,6 +70,15 @@ void VIWaitForRetrace(void)
     NativeSchedulerPump(NativeSchedulerGetTime());
     ++s_vi.retrace_count;
     s_vi.next_field ^= 1;
+
+#if defined(MELEE_NATIVE_DISPLAY)
+    /* Audio mixing is optional in headless builds and may be absent from
+     * small platform tests. */
+    if (NativeAudioTick != NULL) {
+        NativeAudioTick();
+    }
+#endif
+    NativePADAdvanceFrame(s_vi.retrace_count);
 
     /* Hardware invokes these callbacks around each vertical retrace. A
      * synchronous call gives headless builds the same ordering without
