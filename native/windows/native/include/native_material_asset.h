@@ -1,9 +1,11 @@
 #pragma once
 
 #include "native_archive.h"
+#include "native_dat_archive.h"
 #include "native_material.h"
 
 #include <cstdint>
+#include <cstddef>
 #include <span>
 #include <string_view>
 
@@ -21,6 +23,13 @@ constexpr std::size_t kHsdMaterialRecordSize = 20;
 // containing HSD_MObjDesc, so callers provide it explicitly rather than
 // guessing a value from adjacent bytes.
 NativeMaterial decode_hsd_material(std::span<const std::byte> record,
+                                   std::uint32_t render_mode = 0);
+
+// Decode a material record at a checked offset in a real HSD DAT archive.
+// The offset is supplied by a proven descriptor traversal; this function does
+// not infer pointer or descriptor meaning from adjacent bytes.
+NativeMaterial decode_hsd_material(const NativeDatArchive& archive,
+                                   std::size_t data_offset,
                                    std::uint32_t render_mode = 0);
 
 // Resolve a named MARC entry and decode it as an HSD_Material record. The

@@ -71,6 +71,10 @@ int main()
     assert(references.size() == 1 && references[0] == 4);
     assert(archive.external_reference_offsets("missing").empty());
     assert(archive.data_at(8, 4).size() == 4);
+    const auto copied_archive = archive;
+    assert(copied_archive.data().size() == archive.data().size());
+    assert(std::to_integer<unsigned>(copied_archive.data()[0]) ==
+           std::to_integer<unsigned>(archive.data()[0]));
     // The source remains untouched and the parsed archive owns its copy.
     assert(bytes == original);
     bytes[32] = std::byte{0xff};
@@ -89,7 +93,8 @@ int main()
     put32(bad, 52, 99); // symbol offset outside the string table.
     expect_invalid([&] { (void)NativeDatArchive::parse(bad); });
     bad = fixture();
-    bad[67] = std::byte{'x'}; // remove the public name terminator.
+    bad[67] = std::byte{'x'};
+    bad[71] = std::byte{'x'}; // remove both string-table terminators.
     expect_invalid([&] { (void)NativeDatArchive::parse(bad); });
     bad = fixture();
     put32(bad, 36, 4); // external chain loops back to itself.

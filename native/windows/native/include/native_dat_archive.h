@@ -39,7 +39,10 @@ public:
 
     const NativeDatHeader& header() const noexcept { return header_; }
     std::span<const std::byte> blob() const noexcept { return blob_; }
-    std::span<const std::byte> data() const noexcept { return data_; }
+    std::span<const std::byte> data() const noexcept
+    {
+        return std::span<const std::byte>(blob_).subspan(0x20, header_.data_size);
+    }
     const std::vector<std::uint32_t>& relocation_offsets() const noexcept
     {
         return relocation_offsets_;
@@ -74,7 +77,6 @@ public:
 private:
     NativeDatHeader header_{};
     std::vector<std::byte> blob_;
-    std::span<const std::byte> data_{};
     std::vector<std::uint32_t> relocation_offsets_;
     std::vector<NativeDatPublic> public_entries_;
     std::vector<NativeDatExternal> external_entries_;

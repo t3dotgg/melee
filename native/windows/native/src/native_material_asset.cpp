@@ -53,6 +53,14 @@ NativeMaterial decode_hsd_material(std::span<const std::byte> record,
     return material;
 }
 
+NativeMaterial decode_hsd_material(const NativeDatArchive& archive,
+                                   std::size_t data_offset,
+                                   std::uint32_t render_mode)
+{
+    return decode_hsd_material(archive.data_at(data_offset, kHsdMaterialRecordSize),
+                               render_mode);
+}
+
 NativeMaterial load_material_asset(const NativeArchive& archive,
                                    std::string_view entry_name,
                                    std::uint32_t render_mode)

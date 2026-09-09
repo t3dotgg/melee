@@ -87,7 +87,6 @@ NativeDatArchive NativeDatArchive::parse(std::span<const std::byte> input)
 
     std::size_t offset = kHeaderSize;
     require_range(input.size(), offset, archive.header_.data_size, "data block");
-    const std::size_t data_offset = offset;
     offset += archive.header_.data_size;
     const auto checked_table_bytes = [&](std::uint32_t count, std::size_t entry_size,
                                          const char* what) {
@@ -110,8 +109,6 @@ NativeDatArchive NativeDatArchive::parse(std::span<const std::byte> input)
     const std::size_t symbols_size = input.size() - symbols_offset;
 
     archive.blob_.assign(input.begin(), input.end());
-    archive.data_ = std::span<const std::byte>(archive.blob_).subspan(
-        data_offset, archive.header_.data_size);
 
     archive.relocation_offsets_.reserve(archive.header_.relocation_count);
     for (std::uint32_t i = 0; i < archive.header_.relocation_count; ++i) {
@@ -160,7 +157,7 @@ NativeDatArchive NativeDatArchive::parse(std::span<const std::byte> input)
                 throw std::invalid_argument("DAT external reference chain contains a cycle");
             }
             seen.push_back(current);
-            current = be32(archive.data_, current);
+            current = be32(archive.data(), current);
         }
     }
 
@@ -184,7 +181,11 @@ const NativeDatExternal* NativeDatArchive::find_external(std::string_view name) 
 std::optional<std::size_t> NativeDatArchive::relocation_target(std::size_t index) const noexcept
 {
     if (index >= relocation_offsets_.size()) return std::nullopt;
-    return static_cast<std::size_t>(be32(data_, relocation_offsets_[index]));
+    const auto slot = relocation_offsets_[index];
+    if (slot > data().size() || 4 > data().size() - slot) return std::nullopt;
+    const auto target = be32(data(), slot);
+    if (target > data().size()) return std::nullopt;
+    return static_cast<std::size_t>(target);
 }
 
 std::vector<std::size_t> NativeDatArchive::external_reference_offsets(
@@ -196,7 +197,7 @@ std::vector<std::size_t> NativeDatArchive::external_reference_offsets(
     auto current = external->first_reference_offset;
     while (current != kChainEnd) {
         references.push_back(current);
-        current = be32(data_, current);
+        current = be32(data(), current);
     }
     return references;
 }
@@ -204,10 +205,10 @@ std::vector<std::size_t> NativeDatArchive::external_reference_offsets(
 std::span<const std::byte> NativeDatArchive::data_at(std::size_t offset,
                                                       std::size_t size) const
 {
-    if (offset > data_.size() || size > data_.size() - offset) {
+    if (offset > data().size() || size > data().size() - offset) {
         throw std::out_of_range("DAT data range is outside data block");
     }
-    return data_.subspan(offset, size);
+    return data().subspan(offset, size);
 }
 
 } // namespace melee::native
