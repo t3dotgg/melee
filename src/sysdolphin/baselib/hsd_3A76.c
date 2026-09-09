@@ -323,7 +323,7 @@ void HSD_SisLib_803A8134(void* cursor, HSD_Text* text, f32* out_width,
                          f32* out_height)
 {
     SIS* sis;
-    TextGlyphTexture* glyph_tex;
+    TextGlyphTexture* glyph_tex = NULL;
     u8* default_kerning = HSD_SisLib_8040CB00;
     f32 line_height;
     f32 saved_scale_x;
