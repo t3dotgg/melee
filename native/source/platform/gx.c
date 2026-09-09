@@ -15,6 +15,7 @@ static f32 gx_projection[7]; static f32 gx_viewport[6]={0,0,640,480,0,1}; static
  * and rasterizes the common triangle primitives. */
 #define GX_SW_MAX_WIDTH 1024u
 #define GX_SW_MAX_HEIGHT 1024u
+#define GX_SW_MAX_VERTICES 4096u
 typedef struct GXSWVertex {
     f32 x, y, z;
     GXColor color;
@@ -24,7 +25,7 @@ static u32 gx_efb_width = 640, gx_efb_height = 480;
 static GXPrimitive gx_primitive;
 static u16 gx_expected_vertices, gx_vertex_count;
 static GXVtxFmt gx_vertex_format;
-static GXSWVertex gx_vertices[32];
+static GXSWVertex gx_vertices[GX_SW_MAX_VERTICES];
 static GXSWVertex gx_pending_vertex;
 static GXBool gx_pending_position;
 static GXColor gx_current_color = { 255, 255, 255, 255 };
