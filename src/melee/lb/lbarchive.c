@@ -4,7 +4,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "assets/events.h"
 #include "lbdvd.h"
 #include "lbfile.h"
 #include "lbheap.h"
@@ -18,6 +17,7 @@
 #include <sysdolphin/baselib/sobjlib.h>
 
 #ifdef MELEE_NATIVE
+#include "assets/events.h"
 #include "../../../native/source/assets/archive_internal.h"
 #include "../../../native/source/assets/effects.h"
 #include "../../../native/source/assets/fighters.h"
