@@ -1,6 +1,7 @@
 #include <dolphin/os.h>
 
 #include <stdint.h>
+#include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -25,6 +26,21 @@ static void* arena_lo;
 static void* arena_hi;
 volatile OSHeapHandle __OSCurrHeap = -1;
 
+static bool round_up_uintptr(uintptr_t value, size_t align, uintptr_t* result)
+{
+    uintptr_t mask;
+
+    if (align == 0 || (align & (align - 1)) != 0) {
+        return false;
+    }
+    mask = (uintptr_t) align - 1;
+    if (value > UINTPTR_MAX - mask) {
+        return false;
+    }
+    *result = (value + mask) & ~mask;
+    return true;
+}
+
 static NativeHeap* get_heap(int handle)
 {
     if (handle < 0 || handle >= heap_count || heaps[handle].first == NULL) {
@@ -47,8 +63,14 @@ static NativeBlock* find_block(NativeHeap* heap, void* pointer)
 void* OSInitAlloc(void* start, void* end, int max_heaps)
 {
     NativeHeap* next;
-    if ((uintptr_t) start > UINTPTR_MAX - 31 ||
-        OSRoundUp32B(start) >= OSRoundDown32B(end) || max_heaps <= 0) {
+    uintptr_t low;
+    uintptr_t high;
+    if (max_heaps <= 0 || (uintptr_t) start >= (uintptr_t) end ||
+        !round_up_uintptr((uintptr_t) start, 32, &low)) {
+        return NULL;
+    }
+    high = (uintptr_t) end & ~(uintptr_t) 31;
+    if (low >= high) {
         return NULL;
     }
     next = calloc((size_t) max_heaps, sizeof(*next));
@@ -59,9 +81,9 @@ void* OSInitAlloc(void* start, void* end, int max_heaps)
     heaps = next;
     heap_count = max_heaps;
     __OSCurrHeap = -1;
-    arena_lo = (void*) OSRoundUp32B(start);
-    arena_hi = (void*) OSRoundDown32B(end);
-    return (void*) OSRoundUp32B(start);
+    arena_lo = (void*) low;
+    arena_hi = (void*) high;
+    return (void*) low;
 }
 
 int OSCreateHeap(void* start, void* end)
@@ -230,18 +252,17 @@ void* OSAllocFromArenaLo(size_t size, size_t align)
 {
     uintptr_t low = (uintptr_t) arena_lo;
     uintptr_t high = (uintptr_t) arena_hi;
-    if (align == 0 || (align & (align - 1)) != 0 ||
-        low > UINTPTR_MAX - (align - 1)) {
+    uintptr_t next;
+    if (!round_up_uintptr(low, align, &low)) {
         return NULL;
     }
-    low = (low + align - 1) & ~((uintptr_t) align - 1);
     if (low > high || size > high - low) {
         return NULL;
     }
-    if (low > UINTPTR_MAX - size || low + size > high) {
+    if (!round_up_uintptr(low + size, align, &next) || next > high) {
         return NULL;
     }
-    arena_lo = (void*) OSRoundUp32B(low + size);
+    arena_lo = (void*) next;
     return (void*) low;
 }
 
@@ -249,11 +270,17 @@ void* OSAllocFromArenaHi(size_t size, size_t align)
 {
     uintptr_t low = (uintptr_t) arena_lo;
     uintptr_t high = (uintptr_t) arena_hi;
-    if (align == 0 || (align & (align - 1)) != 0 || low > high ||
-        size > high - low) {
+    uintptr_t mask;
+    if (align == 0 || (align & (align - 1)) != 0 || low > high) {
         return NULL;
     }
-    high = (high - size) & ~((uintptr_t) align - 1);
+    mask = (uintptr_t) align - 1;
+    high &= ~mask;
+    if (high < low || size > high - low) {
+        return NULL;
+    }
+    high -= size;
+    high &= ~mask;
     if (high < low) {
         return NULL;
     }

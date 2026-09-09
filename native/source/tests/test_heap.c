@@ -27,6 +27,7 @@ static void visit(void* pointer, size_t size)
 int main(void)
 {
     u8* arena;
+    u8* outside;
     void* slots[128] = { 0 };
     size_t lengths[128] = { 0 };
     uint32_t random = 7;
@@ -38,8 +39,11 @@ int main(void)
 
     CHECK(sizeof(void*) == 8 && sizeof(u32) == 4 && sizeof(s32) == 4);
     CHECK(posix_memalign((void**) &arena, 32, 65536) == 0);
+    CHECK(posix_memalign((void**) &outside, 32, 1024) == 0);
     CHECK((uintptr_t) arena > UINT32_MAX);
     CHECK(OSInitAlloc(arena, arena + 65536, 4) == arena);
+    CHECK(OSGetArenaLo() == arena && OSGetArenaHi() == arena + 65536);
+    CHECK(OSCreateHeap(outside, outside + 1024) == -1);
     heap = OSCreateHeap(arena, arena + 32768);
     other = OSCreateHeap(arena + 32768, arena + 65536);
     CHECK(heap >= 0 && other >= 0 && heap != other);
@@ -93,7 +97,12 @@ int main(void)
     OSSetArenaLo(arena + 1);
     OSSetArenaHi(arena + 65535);
     CHECK(OSAllocFromArenaLo(16, 32) == arena + 32);
+    CHECK(OSGetArenaLo() == arena + 64);
     CHECK(OSAllocFromArenaHi(32, 32) == arena + 65472);
+    OSSetArenaLo(arena + 1);
+    OSSetArenaHi(arena + 65535);
+    CHECK(OSAllocFromArenaLo(1, 64) == arena + 64);
+    CHECK(OSGetArenaLo() == arena + 128);
     CHECK(OSAllocFromArenaLo(SIZE_MAX, 32) == NULL);
     CHECK(OSAllocFromArenaHi(1, 3) == NULL);
 
@@ -101,6 +110,7 @@ int main(void)
     for (i = 0; i < ARRAY_SIZE(random_values); i++) {
         CHECK((u32) HSD_Rand() == random_values[i]);
     }
+    free(outside);
     free(arena);
     puts("Native heap and game integer tests passed.");
     return 0;
