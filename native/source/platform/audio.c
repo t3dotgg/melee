@@ -10,7 +10,12 @@
 #include <dolphin/ax.h>
 #include <dolphin/axfx.h>
 
+#ifdef MELEE_NATIVE
+#include "audio_output.h"
+#endif
+
 #include <stdbool.h>
+#include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -51,7 +56,24 @@ void AIInitDMA(uptr start_addr, u32 length)
 
 BOOL AIGetDMAEnableFlag(void) { return ai_dma_enabled ? TRUE : FALSE; }
 
-void AIStartDMA(void) { ai_dma_enabled = true; }
+void AIStartDMA(void)
+{
+    ai_dma_enabled = true;
+#ifdef MELEE_NATIVE
+    /* GameCube AI buffers contain interleaved signed 16-bit stereo samples.
+     * The host queue consumes the same format. Native DMA completes
+     * synchronously after the copy, which keeps callers deterministic. */
+    if (ai_dma_start != 0 && ai_dma_length >= 4 &&
+        (ai_dma_length & 3u) == 0) {
+        NativeAudioOutputSubmit((const int16_t*) (uintptr_t) ai_dma_start,
+                                 ai_dma_length / 4);
+        ai_dma_enabled = false;
+        if (ai_dma_callback != NULL) {
+            ai_dma_callback();
+        }
+    }
+#endif
+}
 
 void AIStopDMA(void) { ai_dma_enabled = false; }
 
@@ -105,6 +127,11 @@ void AIInit(u8* stack)
     ai_dma_enabled = false;
     ai_stream_sample_count = 0;
     ai_stream_play_state = AI_STREAM_STOP;
+#ifdef MELEE_NATIVE
+    /* Start the output device when available. Headless machines simply
+     * continue with the state-only implementation. */
+    (void) NativeAudioOutputStart(32000);
+#endif
 }
 
 void AIReset(void)
@@ -114,6 +141,9 @@ void AIReset(void)
     ai_dma_start = 0;
     ai_dma_length = 0;
     ai_stream_sample_count = 0;
+#ifdef MELEE_NATIVE
+    NativeAudioOutputStop();
+#endif
 }
 
 static AXVPB ax_voices[AX_MAX_VOICES];
