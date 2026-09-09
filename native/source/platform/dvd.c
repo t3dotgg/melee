@@ -165,8 +165,22 @@ static int dvd_load_iso(void)
         if (name_len == strings_size - name_offset) {
             continue;
         }
-        u32 parent = directory ? parent_or_offset : 0;
+        u32 parent = 0;
+        if (directory) {
+            parent = parent_or_offset;
+        } else {
+            // File entries store their byte offset. Find the deepest directory
+            // whose FST range contains this entry.
+            u32 best = 0;
+            for (u32 d = 0; d < i; d++) {
+                u32 d_type = be32(fst + d * 12);
+                u32 d_next = be32(fst + d * 12 + 8);
+                if ((d_type & 0xff000000) != 0 && d_next > i && d >= best) best = d;
+            }
+            parent = best;
+        }
         const char* parent_path = paths[parent < i ? parent : 0];
+        if (parent_path == NULL) parent_path = "/";
         char path[PATH_MAX];
         snprintf(path, sizeof(path), "%s%s%s", parent_path, strcmp(parent_path, "/") == 0 ? "" : "/", name);
         paths[i] = strdup(path);
