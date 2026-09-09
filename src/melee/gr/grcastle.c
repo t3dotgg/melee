@@ -1271,8 +1271,8 @@ void grCastle_801CF0F4(Ground_GObj* gobj)
     f32 scale;
 
     Ground_801C2ED0(jobj, gp->map_id);
-    gp->u.castle7.xC4 = 0;
-    gp->u.castle7.xD8 = 0;
+    gp->u.castle_blink.xC4 = 0;
+    gp->u.castle_blink.xD8 = 0;
     HSD_JObjSetFlagsAll(jobj, JOBJ_HIDDEN);
     scale = 1.5f * Ground_801C0498();
     HSD_JObjSetScaleX(jobj, scale);
@@ -1281,13 +1281,13 @@ void grCastle_801CF0F4(Ground_GObj* gobj)
 
     switch (gp->map_id) {
     case Gr_Kind_Onett:
-        gp->u.castle7.xD0 = grCastle_801CD4D0(0x11);
+        gp->u.castle_blink.xD0 = grCastle_801CD4D0(0x11);
         return;
     case Gr_Kind_BigBlue:
-        gp->u.castle7.xD0 = grCastle_801CD4D0(7);
+        gp->u.castle_blink.xD0 = grCastle_801CD4D0(7);
         return;
     case Gr_Kind_MuteCity:
-        gp->u.castle7.xD0 = grCastle_801CD4D0(5);
+        gp->u.castle_blink.xD0 = grCastle_801CD4D0(5);
         return;
     default:
         break;
