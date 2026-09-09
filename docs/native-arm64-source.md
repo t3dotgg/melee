@@ -41,14 +41,16 @@ is 1005/1005 ARM64 files. It returns a failure status if any file fails. The
 JSON report and compiler logs are under `build/native-source`.
 It requires no game image and does not fetch or run a translator.
 
-The forced-load link check verifies every compiled object:
+The forced-load link check verifies every compiled C object:
 
 ```sh
 python3 native/source/archive.py --build-dir build/native-source
 ```
 
-The checked report has `linked: true` and `undefined_symbol_count: 0`. The
-native executable still imports normal macOS system frameworks at runtime.
+The report records unresolved host entry points. With only the C objects, the
+current report contains the three `NativeAudioOutput*` entry points. The full
+launcher link below adds `audio_output.m` and AudioToolbox and resolves them.
+The native executable still imports normal macOS system frameworks at runtime.
 
 To check a changed directory:
 
