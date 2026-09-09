@@ -23,7 +23,8 @@ psGenerateParticle0(HSD_Particle** head, int linkNo, int bank, u32 kind,
                     u16 texGroup, u8* list, int life, int palflag, f32 x,
                     f32 y, f32 z, f32 vx, f32 vy, f32 vz, f32 size, f32 grav,
                     f32 fric, HSD_Generator* gp, int flgInterpret);
-/* 398F0C */ void hsd_80398F0C(s32, s32, s32, u16, s32, s32, s32, s32, f32,
+/* 398F0C */ void hsd_80398F0C(s32, s32, s32, u16, uintptr_t, s32, s32,
+                               uintptr_t, f32,
                                f32, f32, f32, f32, f32, f32, f32, f32);
 /* 398F8C */ void hsd_80398F8C(HSD_Particle*, f32);
 /* 3991D8 */ s32 hsd_803991D8(HSD_Generator*, HSD_JObj*, f32, f32);
@@ -39,9 +40,9 @@ psGenerateParticle0(HSD_Particle** head, int linkNo, int bank, u32 kind,
 /* 4D78DA */ extern u16 hsd_804D78DA;
 /* 4D78DE */ extern u16 hsd_804D78DE;
 /* 4D78E0 */ extern u16 hsd_804D78E0;
-/* 4D78E8 */ extern u32 hsd_804D78E8;
-/* 4D78EC */ extern u32 hsd_804D78EC;
+/* 4D78E8 */ extern uintptr_t hsd_804D78E8;
+/* 4D78EC */ extern uintptr_t hsd_804D78EC;
 /* 4D78F0 */ extern HSD_CObj* psCamera;
-/* 4D78F4 */ extern u32 hsd_804D78F4;
+/* 4D78F4 */ extern uintptr_t hsd_804D78F4;
 
 #endif

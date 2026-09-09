@@ -297,8 +297,7 @@ void hsd_80391E18(const u8* list, f32 x1, f32 y1, f32 x2, f32 y2)
 
         GXBegin(0xA8, 0, 2);
 
-        GXWGFifo.f32 = prev_x;
-        GXWGFifo.f32 = prev_y;
+        GXPosition2f32(prev_x, prev_y);
 
         prev_x = t * dx + x1;
         prev_y = t * dy + y1;
@@ -417,7 +416,11 @@ GlyphEntry lbl_80408898[4] = {
 };
 
 DebugFontGlyph HSD_DebugFontAtlas[] = {
+#ifdef MELEE_NATIVE
+    [0 ... 127] = { { 0 } },
+#else
 #include <sysdolphin/baselib/debug_font.inc>
+#endif
 };
 
 void hsd_803921B8(void* bitmap, s32 x, s32 y, s32 dst, s32 w, s32 h,
@@ -468,7 +471,8 @@ void hsd_803921B8(void* bitmap, s32 x, s32 y, s32 dst, s32 w, s32 h,
             while (bit_off < 16 && (u32) col < max_x) {
                 val = (word >> ((15 - bit_off) * 2)) & 3;
                 entry = &table[val];
-                entry->callback((u8*) shift, col, y, val, (const u8*) entry);
+                entry->callback((u8*) (uintptr_t) shift, col, y, val,
+                                (const u8*) entry);
                 bit_off++;
                 bit_x++;
                 shift += 2;
@@ -535,7 +539,8 @@ void hsd_803922FC(void* bitmap, s32 x, s32 y, s32 parity, s32 dst, s32 w,
             while (bit_off < 16 && (u32) col < max_x) {
                 val = (word >> ((15 - bit_off) * 2)) & 3;
                 entry = &((GlyphEntry*) tbl)[val];
-                entry->callback((u8*) shift, col, y, val, (const u8*) entry);
+                entry->callback((u8*) (uintptr_t) shift, col, y, val,
+                                (const u8*) entry);
                 bit_off++;
                 bit_x++;
                 shift += 2;

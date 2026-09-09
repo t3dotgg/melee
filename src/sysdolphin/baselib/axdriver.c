@@ -26,6 +26,13 @@ void* AXDriverAlloc(size_t size)
 
 void AXDriverFree(void* ptr) {}
 
+#ifdef MELEE_NATIVE
+static void* AXDriverAlloc32(u32 size)
+{
+    return AXDriverAlloc((size_t) size);
+}
+#endif
+
 void AXDriverUnlink(HSD_SM* v, HSD_SM** head)
 {
     HSD_SM* p;
@@ -858,7 +865,8 @@ void AXDriver_8038DA70(const char* path, void (*callback)(void))
     j = i;
     while (i < AXDriver_804D77A8) {
         i++;
-        *(u32*) ((u8*) AXDriver_804D77AC + j) += (u32) AXDriver_804D7798 & ~3u;
+        *(u32*) ((u8*) AXDriver_804D77AC + j) +=
+            (u32) ((uintptr_t) AXDriver_804D7798 & ~3u);
         j += 4;
     }
 
@@ -882,7 +890,8 @@ void AXDriver_8038DA70(const char* path, void (*callback)(void))
     i = j;
     while (j < AXDriver_804D77B8) {
         j++;
-        *(u32*) ((u8*) AXDriver_804D77BC + i) += (u32) AXDriver_804D7798 & ~3u;
+        *(u32*) ((u8*) AXDriver_804D77BC + i) +=
+            (u32) ((uintptr_t) AXDriver_804D7798 & ~3u);
         i += 4;
     }
 
@@ -899,7 +908,8 @@ void AXDriver_8038DA70(const char* path, void (*callback)(void))
     i = j;
     while (j < AXDriver_804D77C0) {
         j++;
-        *(u32*) ((u8*) AXDriver_804D77C4 + i) += (u32) AXDriver_804D7798 & ~3u;
+        *(u32*) ((u8*) AXDriver_804D77C4 + i) +=
+            (u32) ((uintptr_t) AXDriver_804D7798 & ~3u);
         i += 4;
     }
 }
@@ -1168,7 +1178,11 @@ void AXDriver_8038E498(int voices, int priority, int sample_rate,
     AXDriver_804D77D4 = NULL;
     axfxmaxsize = 0;
     AXDriverSetupAux(1, AXDRIVER_AUX_OFF, NULL);
+#ifdef MELEE_NATIVE
+    AXFXSetHooks(AXDriverAlloc32, AXDriverFree);
+#else
     AXFXSetHooks(AXDriverAlloc, AXDriverFree);
+#endif
 }
 
 int AXDriver_8038E5D4(void)

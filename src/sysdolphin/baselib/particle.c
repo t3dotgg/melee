@@ -44,10 +44,10 @@ typedef struct {
 /* 4D78E4 */ static u16 hsd_804D78E4 = 0;
 #pragma pop
 #endif
-/* 4D78E8 */ u32 hsd_804D78E8 = 0;
-/* 4D78EC */ u32 hsd_804D78EC = 0;
+/* 4D78E8 */ uintptr_t hsd_804D78E8 = 0;
+/* 4D78EC */ uintptr_t hsd_804D78EC = 0;
 /* 4D78F0 */ HSD_CObj* psCamera = NULL;
-/* 4D78F4 */ u32 hsd_804D78F4 = 0;
+/* 4D78F4 */ uintptr_t hsd_804D78F4 = 0;
 static HSD_JObj* hsd_804D08E8[8];
 /* 4D0908 */ HSD_Particle* hsd_804D0908[16];
 /* 4D0948 */ u32* hsd_804D0948[65];
@@ -159,6 +159,14 @@ void psInitDataBankLoad(int bank, const int* cmdBank, const int* texBank,
 void psInitDataBankLocate(HSD_Archive* cmdBank, HSD_Archive* texBank,
                           int* formBank)
 {
+#ifdef MELEE_NATIVE
+    // Native DAT decoding resolves archive pointers before particle setup.
+    (void) cmdBank;
+    (void) texBank;
+    (void) formBank;
+    return;
+}
+#else
     s32 num;
     s32* ptr;
     s32* group;
@@ -322,6 +330,7 @@ done_cmd:
         }
     }
 }
+#endif
 
 void psInitDataBank(int bank, int* cmdBank, int* texBank, u32* ref,
                     int* formBank)
@@ -502,8 +511,9 @@ HSD_Particle* psGenerateParticle0(HSD_Particle** head, int linkNo, int bank,
 #pragma push
 #pragma dont_inline on
 #endif
-void hsd_80398F0C(s32 linkNo, s32 bank, s32 kind, u16 texGroup, s32 cmdList,
-                  s32 life, s32 zero, s32 gen, f32 pos_x, f32 pos_y, f32 pos_z,
+void hsd_80398F0C(s32 linkNo, s32 bank, s32 kind, u16 texGroup,
+                  uintptr_t cmdList, s32 life, s32 zero, uintptr_t gen,
+                  f32 pos_x, f32 pos_y, f32 pos_z,
                   f32 vel_x, f32 vel_y, f32 vel_z, f32 fric, f32 rate,
                   f32 angle3)
 {

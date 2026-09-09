@@ -5,6 +5,46 @@
 
 #include "hsd_3A94.h"
 
+#ifdef MELEE_NATIVE
+
+// GameCube memory-card command queues have no host equivalent. Keep these
+// entry points linkable so callers can report an unavailable card operation.
+int hsd_803B27F4(const s32* a, const char* b, int c, int d,
+                 void (*e)(int, int))
+{
+    (void) a; (void) b; (void) c; (void) d; (void) e;
+    return -1;
+}
+int hsd_803B286C(const s32* a, UNK_T b, const char* c, int d, int e,
+                 void (*f)(int, int))
+{
+    (void) a; (void) b; (void) c; (void) d; (void) e; (void) f;
+    return -1;
+}
+int hsd_803B2928(const s32* a, const char* b, int c, int d,
+                 void (*e)(int, int))
+{
+    (void) a; (void) b; (void) c; (void) d; (void) e;
+    return -1;
+}
+int hsd_803B29D8(const s32* a, int b, const u8* c, UNK_T d)
+{
+    (void) a; (void) b; (void) c; (void) d;
+    return -1;
+}
+int hsd_803B2A4C(const s32* a, int b, const u8* c, void (*d)(int, int))
+{
+    (void) a; (void) b; (void) c; (void) d;
+    return -1;
+}
+int hsd_803B2ADC(s32* a, UNK_T b)
+{
+    (void) a; (void) b;
+    return -1;
+}
+
+#else
+
 typedef struct {
     s32 type;
     s32 f1;
@@ -172,3 +212,5 @@ int hsd_803B2ADC(s32* ctx, UNK_T data)
     state->x24 = hsd_803AC340(&state->x3B0);
     return 0;
 }
+
+#endif

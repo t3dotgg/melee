@@ -1,3 +1,11 @@
+#ifdef MELEE_NATIVE
+#include "hsd_3B34.h"
+void hsd_803B5C2C(s32 a) { (void)a; }
+s32 hsd_803B5C4C(s32 a) { (void)a; return 0; }
+s32 hsd_803B5D70(s32 a, s32 b) { (void)a; (void)b; return 0; }
+void hsd_803B5EA0(s32 a) { (void)a; }
+s32 hsd_803B6BE4(char* a, s32 b, void* c) { (void)a; (void)b; (void)c; return -1; }
+#else
 #include <placeholder.h>
 #include <setjmp.h>
 
@@ -909,3 +917,4 @@ u8 lbl_80431690[0xC] = { 2, 3, 3, 3, 3, 3, 4, 5, 6, 7, 8, 9 };
 u16 lbl_8043169C[0xC] = { 0,    1,    2,    6,     0xE,   0x1E,
                           0x3E, 0x7E, 0xFE, 0x1FE, 0x3FE, 0x7FE };
 u8 lbl_804316B4[0xC] = { 2, 2, 2, 3, 4, 5, 6, 7, 8, 9, 0xA, 0xB };
+#endif // MELEE_NATIVE

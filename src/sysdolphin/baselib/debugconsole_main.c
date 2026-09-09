@@ -668,11 +668,11 @@ void hsd_80394544(s32 col, s32 row, u32 num_cols, u32 num_rows, s32 x, s32 y,
                 break;
             }
             if (mode != 0) {
-                hsd_803922FC(&((DebugFontGlyph*) font_data)[ch & 0x7F],
+                hsd_803922FC(&((DebugFontGlyph*) (uintptr_t) font_data)[ch & 0x7F],
                              x + c * 11, y, interlace, xfb_buf, xfb_w, xfb_h,
                              xfb_stride, color_data);
             } else {
-                hsd_803921B8(&((DebugFontGlyph*) font_data)[ch & 0x7F],
+                hsd_803921B8(&((DebugFontGlyph*) (uintptr_t) font_data)[ch & 0x7F],
                              x + c * 11, y, xfb_buf, xfb_w, xfb_h, xfb_stride,
                              color_data);
             }
@@ -698,7 +698,7 @@ void hsd_80394668(void)
         struct ParticleScreenBuffer* src;
 
         src = (struct ParticleScreenBuffer*) sp->x2C;
-        if ((u32) src != 0) {
+        if ((u32) (uintptr_t) src != 0) {
             /* Copy XFB data with brightness adjustment */
             dst_base = (s32*) sp + sp->x34;
             dst = (struct ParticleScreenBuffer*) dst_base[9];
@@ -832,12 +832,12 @@ void Exception_ReportStackTrace(OSContext* ctx, int max_depth)
     sp = (u32*) ctx->gpr[1];
     i = 0;
 
-    while (sp != NULL && (u32) (sp + 0x4000) != 0xFFFF && i < (u32) max_depth)
+    while (sp != NULL && (u32) (sp + 0x4000) != 0xFFFF && i < (u32) (uintptr_t) max_depth)
     {
-        if ((u32) sp < 0x80000000u) {
+        if ((u32) (uintptr_t) sp < 0x80000000u) {
             break;
         }
-        if ((s64) (u32) sp >= (s64) OSGetPhysicalMemSize() + 0x800000000) {
+        if ((s64) (u32) (uintptr_t) sp >= (s64) OSGetPhysicalMemSize() + 0x800000000) {
             break;
         }
         OSReport("%08X:   %08X   %08X\n", sp, sp[0], sp[1]);
@@ -1438,7 +1438,7 @@ bool hsd_80395A78(void)
         case 0x2:
             new_col = hsd_804CF810.x0C;
             new_scroll = hsd_804CF810.x18;
-            if ((u32) new_col < (u32) (hsd_804CF810.x20 - 1)) {
+            if ((u32) (uintptr_t) new_col < (u32) (hsd_804CF810.x20 - 1)) {
                 new_col += 1;
             } else {
                 new_scroll += 1;
@@ -1793,7 +1793,7 @@ s32 hsd_803962A8(void* data)
             }
             i = 0;
             do {
-                OSReport(lbl_804D62DC, (u32) addr);
+                OSReport(lbl_804D62DC, (u32) (uintptr_t) addr);
                 j = 0;
                 do {
                     OSReport(lbl_804D62E4);
@@ -1815,7 +1815,7 @@ s32 hsd_803962A8(void* data)
             hsd_804CF810.x14 = 0;
             return 1;
         case 0x100:
-            lbl_8040BC3C.x10 = (s32) lbl_8040BAF0.x10;
+            lbl_8040BC3C.x10 = (s32) (uintptr_t) lbl_8040BAF0.x10;
             lbl_8040BC3C.x18 = &lbl_8040BAF0;
 #ifdef MUST_MATCH
             if (&lbl_8040BC3C != NULL)
@@ -2733,7 +2733,7 @@ void* fn_80397814(void* arg)
                      hsd_804CF810.x1C, 20, hsd_804CF810.x40 - 40,
                      (&hsd_804CF810.x24)[hsd_804CF810.x34], hsd_804CF810.x3C,
                      hsd_804CF810.x40, hsd_804CF810.x44,
-                     (s32) HSD_DebugFontAtlas, NULL);
+                     (s32) (uintptr_t) HSD_DebugFontAtlas, NULL);
 
         hsd_804CF810.xC8 = 0;
         hsd_804CF810.xCC = hsd_804CF810.x1C - 1;
@@ -2811,7 +2811,7 @@ void* fn_80397814(void* arg)
                     hsd_804CF810.x18, hsd_804CF810.x14, hsd_804CF810.x20,
                     hsd_804CF810.x1C, 20, hsd_804CF810.x40 - 40,
                     (&sp->x24)[hsd_804CF810.x34], hsd_804CF810.x3C,
-                    hsd_804CF810.x40, hsd_804CF810.x44, (s32) lbl_ptr, NULL);
+                    hsd_804CF810.x40, hsd_804CF810.x44, (s32) (uintptr_t) lbl_ptr, NULL);
 
                 hsd_804CF810.xC8 = 0;
                 hsd_804CF810.xCC = hsd_804CF810.x1C - 1;

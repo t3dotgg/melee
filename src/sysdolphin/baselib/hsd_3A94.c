@@ -1,5 +1,76 @@
 #include "hsd_3A94.h"
 
+#ifdef MELEE_NATIVE
+
+// The native runtime does not expose the GameCube memory-card controller.
+// Keep the ABI entry points available and fail card requests cleanly.
+u8 hsd_804D1138[0x10];
+u8 hsd_804D2E70[2084];
+s32 hsd_804D7990;
+s32 hsd_804D7994;
+u8* hsd_804D79A0;
+u8* hsd_804D79A4;
+s32 hsd_804D79A8;
+u8 hsd_804D79B0[8];
+u8* hsd_804D79B8;
+u8* hsd_804D79BC;
+s32 hsd_804D79C0;
+s32 hsd_804D79C4;
+u8 hsd_804D79C8;
+
+s32 fn_803AA790(void) { return -1; }
+void hsd_803AAA48(void) {}
+s32 fn_803AC168(s32* a) { (void) a; return -1; }
+s32 fn_803AC258(CardState* a, s32 b) { (void) a; (void) b; return -1; }
+s32 fn_803AC2A4(CardState* a) { (void) a; return -1; }
+UNK_RET fn_803AC2D4(UNK_PARAMS) {}
+void fn_803AC2E0(void) {}
+UNK_RET fn_803AC334(UNK_PARAMS) {}
+int hsd_803AC340(void* a) { (void) a; return -1; }
+void hsd_803AC3E0(CardState* a, int b, int c, int d, u8* e)
+{ (void) a; (void) b; (void) c; (void) d; (void) e; }
+void fn_803AC3F8(void* a, u8* b, s32 c) { (void) a; (void) b; (void) c; }
+void hsd_803AC558(CardState* a, u8* b) { (void) a; (void) b; }
+u32 fn_803AC634(CardState* a, s32 b) { (void) a; (void) b; return 0; }
+s32 fn_803AC6B8(CardState* a, s32 b) { (void) a; (void) b; return -1; }
+s32 fn_803AC7DC(CardState* a) { (void) a; return -1; }
+s32 fn_803ACBE8(CardState* a, s32 b) { (void) a; (void) b; return -1; }
+s32 fn_803ACC0C(CardState* a, s32 b, s32 c, s32 d, void* e, s32 f)
+{ (void) a; (void) b; (void) c; (void) d; (void) e; (void) f; return -1; }
+s32 fn_803ACD58(CardState* a, void* b, void* c)
+{ (void) a; (void) b; (void) c; return -1; }
+s32 fn_803ACF30(CardState* a, s32 b, s32 c, s32 d)
+{ (void) a; (void) b; (void) c; (void) d; return -1; }
+s32 fn_803ACFC0(CardState* a, s32 b, s32 c, s32 d, void* e, s32 f, s32 g)
+{ (void) a; (void) b; (void) c; (void) d; (void) e; (void) f; (void) g; return -1; }
+s32 fn_803AD16C(CardState* a) { (void) a; return -1; }
+s32 fn_803ADE4C(s32 a, s32 b, s32 c) { (void) a; (void) b; (void) c; return -1; }
+s32 fn_803ADF90(CardState* a, s32 b, u8* c, s32 d, void (*e)(s32, s32))
+{ (void) a; (void) b; (void) c; (void) d; (void) e; return -1; }
+s32 fn_803AE7F8(CardState* a, s32 b, s32 c, s32 d, s32 e)
+{ (void) a; (void) b; (void) c; (void) d; (void) e; return -1; }
+s32 fn_803AF3F0(CardState* a, s32 b, s32 c, s32 d, s32 e)
+{ (void) a; (void) b; (void) c; (void) d; (void) e; return -1; }
+s32 fn_803B0120(CardState* a, s32 b, s32 c, s32 d, s32 e)
+{ (void) a; (void) b; (void) c; (void) d; (void) e; return -1; }
+s32 fn_803B0E9C(CardState* a, s32 b, s32 c, s32 d, s32 e)
+{ (void) a; (void) b; (void) c; (void) d; (void) e; return -1; }
+s32 fn_803B1338(CardState* a, s32 b) { (void) a; (void) b; return -1; }
+s32 fn_803B1F78(CardState* a, s32 b, s32 c, s32 d, s32 e)
+{ (void) a; (void) b; (void) c; (void) d; (void) e; return -1; }
+s32 fn_803B21E8(s32 a, s32 b, s32 c, s32 d)
+{ (void) a; (void) b; (void) c; (void) d; return -1; }
+void hsd_803B2374(void) {}
+void hsd_803B24E4(s32* a, int b, int c, void* d)
+{ (void) a; (void) b; (void) c; (void) d; }
+int hsd_803B2550(s32* a, const char* b, void (*c)(int, int))
+{ (void) a; (void) b; (void) c; return -1; }
+s32 hsd_803B2674(CardState* a) { (void) a; return -1; }
+s32 fn_803B26CC(CardState* a, s32 b, s32 c, s32 d, void (*e)(s32, s32))
+{ (void) a; (void) b; (void) c; (void) d; (void) e; return -1; }
+
+#else
+
 #include "hsd_3B2B.h"
 #include "hsd_3B2E.h"
 
@@ -5389,3 +5460,5 @@ s32 fn_803B26CC(CardState* state, s32 file_id, s32 seq_num, s32 version,
     hsd_804D7998 = -1;
     return 0;
 }
+
+#endif // MELEE_NATIVE
