@@ -285,7 +285,7 @@ s32 hsd_803941E8(void* xfb_out_ptr, void* xfb_cur_ptr)
     last_draw = HSD_VIGetXFBLastDrawDone();
 
     if (last_draw != -1) {
-        *xfb_cur = (u32) HSD_VIData.xfb[last_draw].buffer;
+        *xfb_cur = (u32) (uintptr_t) HSD_VIData.xfb[last_draw].buffer;
     }
 
     vi_base = (u8*) &HSD_VIData;
