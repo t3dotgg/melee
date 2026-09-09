@@ -204,6 +204,13 @@ int HSD_SynthSFXLoad(const char* filename, int bankID, void (*cb)(int, int),
                      "invalid bankID = %d; filename = %s\n", bankID, filename);
 
     entrynum = DVDConvertPathToEntrynum(filename);
+#ifdef MELEE_NATIVE
+    /* Do not queue a missing asset. Native DVD has no completion callback for
+     * an invalid entry, so the load wait would otherwise never finish. */
+    if (entrynum < 0) {
+        return -1;
+    }
+#endif
 
     while (HSD_Synth_804D772C >= 6) {
     }
