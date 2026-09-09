@@ -22,6 +22,7 @@ typedef struct GXSWVertex {
     GXColor color;
     GXColor color1;
     f32 texcoord[8][2];
+    f32 tex_q[8];
     f32 clip[4];
     f32 inv_w;
     GXBool projected;
