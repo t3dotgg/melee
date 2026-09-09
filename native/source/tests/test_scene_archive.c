@@ -100,7 +100,7 @@ static void test_scene_records(void)
     assert(scene->models[2] == NULL);
     size_t count;
     DynamicModelDesc** models =
-        native_scene_models(&binding, 264, &count, &error);
+        native_scene_models(&binding, 264, 0, &count, &error);
     assert(models != NULL && count == 2 && models[2] == NULL);
     assert(models[0]->joint == scene->models[0]->joint);
     close_binding(&binding);
@@ -137,7 +137,7 @@ static size_t test_real_scene(const char* path)
         } else if (native_name_ends_with(symbol.name, "_scene_modelset")) {
             size_t count;
             root =
-                native_scene_models(&binding, symbol.offset, &count, &error);
+                native_scene_models(&binding, symbol.offset, 0, &count, &error);
             assert(root == NULL || count > 0);
         } else {
             continue;

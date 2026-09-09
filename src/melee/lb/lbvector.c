@@ -368,7 +368,11 @@ Vec3* lbVector_WorldToScreen(HSD_CObj* cobj, const Vec3* pos3d,
 {
     u8 _[16];
 
+#ifdef MELEE_NATIVE
+    Mtx44 projMtx;
+#else
     Mtx projMtx;
+#endif
     float projection[7]; // projection params
     float viewport[6];   // viewport params
     Mtx m;

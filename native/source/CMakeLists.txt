@@ -67,6 +67,12 @@ add_executable(test_scene_bytecode tests/test_scene_bytecode.c
 target_link_libraries(test_scene_bytecode PRIVATE melee_host_options)
 add_test(NAME scene_bytecode COMMAND test_scene_bytecode)
 
+add_executable(test_scene_archive tests/test_scene_archive.c
+    assets/archive.c assets/descriptors.c platform/report.c)
+target_link_libraries(test_scene_archive PRIVATE melee_host_options)
+target_link_options(test_scene_archive PRIVATE -Wl,-dead_strip)
+add_test(NAME scene_archive COMMAND test_scene_archive)
+
 add_executable(test_fighter_dynamic tests/test_fighter_dynamic.c)
 target_link_libraries(test_fighter_dynamic PRIVATE melee_host_options)
 add_test(NAME fighter_dynamic COMMAND test_fighter_dynamic)

@@ -3228,6 +3228,21 @@ void hsd_8039D048(void* particle)
 
 void hsd_8039D0A0(HSD_Generator* gen)
 {
+#ifdef MELEE_NATIVE
+    HSD_Particle* prev;
+    HSD_Particle* prt;
+    HSD_Particle* next;
+    HSD_Particle** head;
+    u16 idnum;
+
+    if (gen->linkNo >= 16) {
+        return;
+    }
+    prev = NULL;
+    idnum = gen->idnum;
+    head = &hsd_804D0908[gen->linkNo];
+    prt = *head;
+#else
     typedef struct {
         HSD_JObj* jobj[8];
         HSD_Particle* particle[146];
@@ -3245,6 +3260,7 @@ void hsd_8039D0A0(HSD_Generator* gen)
     idnum = gen->idnum;
     head = &data->particle[gen->linkNo];
     prt = *head;
+#endif
 
     while (prt != NULL) {
         next = prt->next;
@@ -3271,13 +3287,24 @@ void hsd_8039D0A0(HSD_Generator* gen)
 
             if (prt->kind & 0x8000) {
                 s32 jidx = (prt->kind >> 12) & 7;
+#ifdef MELEE_NATIVE
+                if (hsd_804D08E8[jidx] != NULL) {
+                    HSD_JObjUnref(hsd_804D08E8[jidx]);
+                    hsd_804D08E8[jidx] = NULL;
+                }
+#else
                 if (data->jobj[jidx] != NULL) {
                     HSD_JObjUnref(data->jobj[jidx]);
                     data->jobj[jidx] = NULL;
                 }
+#endif
             }
 
+#ifdef MELEE_NATIVE
+            HSD_ObjFree(&hsd_804D0F60.alloc_data, prt);
+#else
             HSD_ObjFree(&data->alloc_data, prt);
+#endif
             hsd_804D78E2--;
         } else {
             prev = prt;

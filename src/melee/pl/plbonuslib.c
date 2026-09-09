@@ -589,15 +589,30 @@ void pl_8003E70C(Item_GObj* igobj)
 
     temp_r31 = Player_GetStaleMoveTableIndexPtr2(ftLib_80086BE0(temp_r30));
     temp_r3 = itGetKind(igobj);
+#ifdef MELEE_NATIVE
+    {
+        u32* count = (u32*) ((u8*) &temp_r31->x0_staleMoveTable
+                             .total_attack_count_struct.x598[0] +
+                             (size_t) temp_r3 * sizeof(u32));
+        *count += 1;
+    }
+#else
     temp_r31->x0_staleMoveTable.total_attack_count_struct.x598[temp_r3] += 1;
+#endif
 }
 
 u32 pl_8003E7D4(int arg0, int kind)
 {
     HSD_ASSERT(649, It_PKind_Start <= kind && kind < It_PKind_Terminate);
 
+#ifdef MELEE_NATIVE
+    return *(u32*) ((u8*) &Player_GetStaleMoveTableIndexPtr2(arg0)
+                         ->x0_staleMoveTable.total_attack_count_struct.x598[0] +
+                     (size_t) kind * sizeof(u32));
+#else
     return Player_GetStaleMoveTableIndexPtr2(arg0)
         ->x0_staleMoveTable.total_attack_count_struct.x598[kind];
+#endif
 }
 
 void pl_8003E854(int arg0, int arg1, Item_GObj* arg2)

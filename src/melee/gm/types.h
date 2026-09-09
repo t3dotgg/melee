@@ -651,7 +651,11 @@ struct MatchPlayerData {
     u16 self_destructs;
     u16 percent;
     u16 xE;
+#ifdef MELEE_NATIVE
+    u16 kills[GM_MAX_PLAYERS];
+#else
     u16 kills[4];
+#endif
     u16 x18;
     s32 x1C;
     s32 x20;

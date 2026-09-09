@@ -85,42 +85,56 @@ native_audio_load_data(NativeArchiveBinding* binding, uint32_t offset,
         return NULL;
     }
     for (size_t group = 0; group < 4; ++group) {
-        uint32_t target;
-        bool present;
+        uint32_t table_offset = 0;
+        bool table_present = false;
         int** values;
-        size_t count = 0;
         if (NativeArchiveReference(binding->archive, offset + group * 4,
-                                   &target, &present,
+                                   &table_offset, &table_present,
                                    error) != NATIVE_ARCHIVE_OK ||
-            !present || !NativeArchiveDataRange(binding->archive, target, 4))
-        {
-            fprintf(
-                stderr, "audio group %zu raw=%08x target=%u present=%d\\n",
-                group,
-                NativeArchiveBE32(binding->archive->data + offset + group * 4),
-                target, present);
-            return NULL;
-        }
-        while (
-            count < 0x1000 &&
-            NativeArchiveDataRange(binding->archive, target + count * 4, 4) &&
-            NativeArchiveBE32(binding->archive->data + target + count * 4) !=
-                0x83D60)
-        {
-            ++count;
-        }
-        if (count == 0x1000 ||
-            !NativeArchiveDataRange(binding->archive, target, (count + 1) * 4))
+            !table_present ||
+            !NativeArchiveDataRange(binding->archive, table_offset, 30 * 4))
         {
             return NULL;
         }
-        values = native_scene_alloc(binding, (count + 1) * sizeof(*values));
+        values = native_scene_alloc(binding, 30 * sizeof(*values));
         if (values == NULL) {
             return NULL;
         }
-        for (size_t i = 0; i <= count; ++i) {
-            values[i] = (int*) (uintptr_t) NativeArchiveBE32(
-                binding->archive->data + target + i * 4);
+        for (size_t entry = 0; entry < 30; ++entry) {
+            uint32_t list_offset = 0;
+            bool list_present = false;
+            size_t count = 0;
+            if (NativeArchiveReference(
+                    binding->archive, table_offset + entry * 4,
+                    &list_offset, &list_present, error) !=
+                    NATIVE_ARCHIVE_OK ||
+                !list_present ||
+                !NativeArchiveDataRange(binding->archive, list_offset, 4))
+            {
+                return NULL;
+            }
+            while (count < 0x1000 &&
+                   NativeArchiveDataRange(binding->archive,
+                                           list_offset + count * 4, 4) &&
+                   NativeArchiveBE32(binding->archive->data + list_offset +
+                                     count * 4) != 0x83D60)
+            {
+                ++count;
+            }
+            if (count == 0x1000 ||
+                !NativeArchiveDataRange(binding->archive, list_offset,
+                                        (count + 1) * 4))
+            {
+                return NULL;
+            }
+            values[entry] = native_scene_alloc(binding, (count + 1) * 4);
+            if (values[entry] == NULL) {
+                return NULL;
+            }
+            for (size_t i = 0; i <= count; ++i) {
+                values[entry][i] = (int) NativeArchiveBE32(
+                    binding->archive->data + list_offset + i * 4);
+            }
         }
         ((int***) root)[group] = values;
     }
@@ -529,18 +543,22 @@ static DynamicModelDesc** native_scene_models(NativeArchiveBinding* binding,
     size_t limit = fixed_count != 0
                        ? fixed_count
                        : native_scene_pointer_limit(binding, offset);
-    for (i = 0; fixed_count == 0 && i < limit; ++i) {
-        uint32_t target;
-        bool present;
-        if (!native_scene_reference(binding, offset + (uint32_t) (i * 4u),
-                                    &target, &present, error))
-        {
-            return NULL;
+    if (fixed_count != 0) {
+        *count = limit;
+    } else {
+        for (i = 0; i < limit; ++i) {
+            uint32_t target;
+            bool present;
+            if (!native_scene_reference(binding, offset + (uint32_t) (i * 4u),
+                                        &target, &present, error))
+            {
+                return NULL;
+            }
+            if (!present) {
+                break;
+            }
+            ++*count;
         }
-        if (!present) {
-            break;
-        }
-        ++*count;
     }
     if (*count == 0) {
         return NULL;
@@ -981,6 +999,10 @@ void* HSD_ArchiveNativePublicAddress(HSD_Archive* archive, const char* symbol)
     if (strcmp(symbol, "lbRumbleData") == 0) {
         return native_rumble_root(binding, offset, &error);
     }
+    if (strcmp(symbol, "lbBgFlashColAnimData") == 0) {
+        /* LbBf stores an eight-byte header before its animation records. */
+        return native_rumble_root(binding, offset + 8, &error);
+    }
     if (strcmp(symbol, "MemCardIconData") == 0 ||
         strcmp(symbol, "MemSnapIconData") == 0)
     {
@@ -1080,7 +1102,11 @@ void* HSD_ArchiveNativePublicAddress(HSD_Archive* archive, const char* symbol)
         return slot;
     }
     if (strcmp(symbol, "ScInfCnt_scene_models") == 0 ||
-        native_name_ends_with(symbol, "_scene_modelset"))
+        strcmp(symbol, "Stc_scemdls") == 0 ||
+        strcmp(symbol, "Stc_rarwmdls") == 0 ||
+        strcmp(symbol, "lupe") == 0 || strcmp(symbol, "tdsce") == 0 ||
+        native_name_ends_with(symbol, "_scene_modelset") ||
+        native_name_ends_with(symbol, "_scene_models"))
     {
         size_t count;
         root = native_scene_models(

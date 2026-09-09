@@ -694,8 +694,16 @@ void Ground_801C0FB8(StageIdPair* pair)
 {
     struct {
         void* unk0;
+#ifdef MELEE_NATIVE
+        HSD_GObj* unk4;
+#else
         s32 unk4;
+#endif
+#ifdef MELEE_NATIVE
+        HSD_GObjEvent unk8;
+#else
         void (*unk8)(s32);
+#endif
     }* cur;
     void* next;
     stage_datas[pair->grkind]->on_start();

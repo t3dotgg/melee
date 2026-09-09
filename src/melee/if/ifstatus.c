@@ -276,13 +276,13 @@ static inline void ifStatus_UpdateDamageDisplay(IfDamageState* state,
                 clamped_damage = 0;
             }
             factor = 1.0F - ((f32) clamped_damage / 100.0F);
-            stamina_color->r = (s8) (factor * (f32) (ifStatus_804D57AC[0] -
+            stamina_color->r = (u8) (factor * (f32) (ifStatus_804D57AC[0] -
                                                      ifStatus_804D57A8[0]) +
                                      (f32) ifStatus_804D57A8[0]);
-            stamina_color->g = (s8) (factor * (f32) (ifStatus_804D57AC[1] -
+            stamina_color->g = (u8) (factor * (f32) (ifStatus_804D57AC[1] -
                                                      ifStatus_804D57A8[1]) +
                                      (f32) ifStatus_804D57A8[1]);
-            stamina_color->b = (s8) (factor * (f32) (ifStatus_804D57AC[2] -
+            stamina_color->b = (u8) (factor * (f32) (ifStatus_804D57AC[2] -
                                                      ifStatus_804D57A8[2]) +
                                      (f32) ifStatus_804D57A8[2]);
             stamina_color->a = 255;
@@ -295,13 +295,13 @@ static inline void ifStatus_UpdateDamageDisplay(IfDamageState* state,
                 clamped_damage = 0;
             }
             factor = (f32) clamped_damage / 300.0F;
-            normal_color->r = (s8) (factor * (f32) (ifStatus_804D57AC[0] -
+            normal_color->r = (u8) (factor * (f32) (ifStatus_804D57AC[0] -
                                                     ifStatus_804D57A8[0]) +
                                     (f32) ifStatus_804D57A8[0]);
-            normal_color->g = (s8) (factor * (f32) (ifStatus_804D57AC[1] -
+            normal_color->g = (u8) (factor * (f32) (ifStatus_804D57AC[1] -
                                                     ifStatus_804D57A8[1]) +
                                     (f32) ifStatus_804D57A8[1]);
-            normal_color->b = (s8) (factor * (f32) (ifStatus_804D57AC[2] -
+            normal_color->b = (u8) (factor * (f32) (ifStatus_804D57AC[2] -
                                                     ifStatus_804D57A8[2]) +
                                     (f32) ifStatus_804D57A8[2]);
             normal_color->a = 255;
@@ -716,6 +716,17 @@ HSD_GObj* ifStatus_802F5EC0(IfDamageState* state, s32 player_idx)
 
 HSD_GObj* ifStatus_802F6194(HSD_GObj* node, s32 n)
 {
+#ifdef MELEE_NATIVE
+    HSD_JObj* current;
+    if (node == NULL || n < 0) {
+        return NULL;
+    }
+    current = ((HSD_JObj*) node)->child;
+    while (current != NULL && n-- > 0) {
+        current = current->next;
+    }
+    return (HSD_GObj*) current;
+#else
     HSD_GObj* gx_head;
     HSD_GObj* gx_next;
     HSD_GObj* gx_cur;
@@ -749,6 +760,7 @@ check_done:
         goto advance_node;
     }
     return gx_cur;
+#endif
 }
 
 static inline void ifStatus_CreateMarkGObj(HSD_GObj** gobj)

@@ -19,6 +19,34 @@
 #include <sysdolphin/baselib/robj.h>
 #include <sysdolphin/baselib/tobj.h>
 
+#ifdef MELEE_NATIVE
+static HSD_AnimJoint* native_anim_joint_at(HSD_AnimJoint* root, s32 index)
+{
+    while (root != NULL && index-- > 0) {
+        root = root->next;
+    }
+    return root;
+}
+
+static HSD_MatAnimJoint* native_mat_anim_joint_at(HSD_MatAnimJoint* root,
+                                                  s32 index)
+{
+    while (root != NULL && index-- > 0) {
+        root = root->next;
+    }
+    return root;
+}
+
+static HSD_ShapeAnimJoint* native_shape_anim_joint_at(HSD_ShapeAnimJoint* root,
+                                                      s32 index)
+{
+    while (root != NULL && index-- > 0) {
+        root = root->next;
+    }
+    return root;
+}
+#endif
+
 /* 1C6620 */ static void grAnime_801C6620(HSD_PObj* arg0, HSD_ShapeAnim* arg1);
 /* 1C6710 */ static void grAnime_801C6710(HSD_TObj* tobj,
                                           HSD_TexAnim* texanim);
@@ -47,7 +75,12 @@
                                           u32 type, void* param, int arg5);
 ///* 1C7B24 */ static void grAnime_801C7B24(HSD_GObj* gobj, int arg1, u32 arg2,
 ///                                          f32 arg8);
-/* 1C82E8 */ static void fn_801C82E8(int arg0, int* arg1);
+/* 1C82E8 */
+#ifdef MELEE_NATIVE
+static void fn_801C82E8(HSD_AObj* arg0, void* arg1);
+#else
+static void fn_801C82E8(int arg0, int* arg1);
+#endif
 /* 4D6958 */ static float grAnime_804D6958;
 /* 4D695C */ static float grAnime_804D695C;
 
@@ -913,7 +946,11 @@ void grAnime_801C7C1C(HSD_JObj* jobj, s32 map_id, s32 arg2, s32 arg3, s32 arg4,
     if ((arg3 & 1) && (ajp = archive->unk4->unk8[map_id].unk4, ajp != NULL) &&
         ((aj = ajp[arg4]) != NULL))
     {
+#ifdef MELEE_NATIVE
+        aj = native_anim_joint_at(aj, arg2);
+#else
         aj = &aj[arg2];
+#endif
         req_flags |= 0x81;
         anim_flags |= 0x220;
     } else {
@@ -922,7 +959,11 @@ void grAnime_801C7C1C(HSD_JObj* jobj, s32 map_id, s32 arg2, s32 arg3, s32 arg4,
     if ((arg3 & 2) && (mjp = archive->unk4->unk8[map_id].unk8, mjp != NULL) &&
         ((mj = mjp[arg4]) != NULL))
     {
+#ifdef MELEE_NATIVE
+        mj = native_mat_anim_joint_at(mj, arg2);
+#else
         mj = &mj[arg2];
+#endif
         req_flags |= 0x416;
         anim_flags |= 0x7484;
     } else {
@@ -931,7 +972,11 @@ void grAnime_801C7C1C(HSD_JObj* jobj, s32 map_id, s32 arg2, s32 arg3, s32 arg4,
     if ((arg3 & 4) && (sjp = archive->unk4->unk8[map_id].unkC, sjp != NULL) &&
         ((sj = sjp[arg4]) != NULL))
     {
+#ifdef MELEE_NATIVE
+        sj = native_shape_anim_joint_at(sj, arg2);
+#else
         sj = &sj[arg2];
+#endif
         req_flags |= 8;
         anim_flags |= 0x100;
     } else {
@@ -1051,9 +1096,15 @@ void grAnime_801C8138(HSD_GObj* gobj, enum_t arg1, bool arg2)
     HSD_JObjAnimAll(jobj);
 }
 
+#ifdef MELEE_NATIVE
+void fn_801C82E8(HSD_AObj* arg0, void* arg1)
+{
+    *(HSD_AObj**) arg1 = arg0;
+#else
 void fn_801C82E8(int arg0, int* arg1)
 {
     *arg1 = arg0;
+#endif
 #ifdef MELEE_NATIVE
     longjmp(grAnime_8049EE40.buf, 1);
 #else
