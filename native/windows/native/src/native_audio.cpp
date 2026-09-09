@@ -171,17 +171,32 @@ void NativeWindowsAudioBackend::start(const AudioVoice& voice)
     if (state_->open(&buffer.handle, kWaveMapper, &format, 0, 0, 0) != 0) {
         return;
     }
-    if (state_->prepare(buffer.handle, &buffer.header,
-                        static_cast<UINT>(sizeof(WaveHeader))) != 0 ||
-        state_->write(buffer.handle, &buffer.header,
-                      static_cast<UINT>(sizeof(WaveHeader))) != 0)
-    {
-        state_->reset(buffer.handle);
-        state_->close(buffer.handle);
+    std::lock_guard lock(state_->mutex);
+    // Insert before handing the header to waveOut: waveOut retains this
+    // pointer until playback completes, so a stack or moved-from header would
+    // be invalid while the device thread is active.
+    auto [iterator, inserted] = state_->voices.emplace(voice.id,
+                                                        std::move(buffer));
+    if (!inserted) {
+        state_->close(iterator->second.handle);
         return;
     }
-    std::lock_guard lock(state_->mutex);
-    state_->voices.emplace(voice.id, std::move(buffer));
+    auto& queued = iterator->second;
+    const auto prepared = state_->prepare(
+        queued.handle, &queued.header, static_cast<UINT>(sizeof(WaveHeader)));
+    const auto written = prepared == 0
+                             ? state_->write(queued.handle, &queued.header,
+                                             static_cast<UINT>(sizeof(WaveHeader)))
+                             : 1U;
+    if (prepared != 0 || written != 0) {
+        state_->reset(queued.handle);
+        if (prepared == 0) {
+            state_->unprepare(queued.handle, &queued.header,
+                              static_cast<UINT>(sizeof(WaveHeader)));
+        }
+        state_->close(queued.handle);
+        state_->voices.erase(iterator);
+    }
 #else
     (void) voice;
 #endif
