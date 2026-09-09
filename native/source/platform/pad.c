@@ -46,7 +46,6 @@ static size_t s_script_event_index;
 static bool s_script_event_valid;
 static bool s_script_enabled;
 static bool s_script_trace_enabled;
-static bool s_script_trace_pending;
 
 /* US keyboard key codes from NSEvent. Keeping these values here means the
  * controller shim remains a plain C module and can also be driven by tests
@@ -178,6 +177,8 @@ static int compare_script_events(const void* left, const void* right)
 static void apply_script_frame(void)
 {
     NativePADScriptEvent* event = NULL;
+    size_t previous_index = s_script_event_index;
+    bool previous_valid = s_script_event_valid;
     size_t i;
 
     if (!s_script_enabled) return;
@@ -203,13 +204,12 @@ static void apply_script_frame(void)
         s_status[0].analogA = event->analog_a;
         s_status[0].analogB = event->analog_b;
     }
-    if (s_script_trace_enabled && s_script_trace_pending &&
-        s_script_event_valid) {
+    if (s_script_trace_enabled && s_script_event_valid &&
+        (!previous_valid || previous_index != s_script_event_index)) {
         fprintf(stderr, "[native-pad] frame %u event %zu buttons=0x%04x stick=(%d,%d) cstick=(%d,%d)\n",
                 s_script_frame, s_script_event_index,
                 s_status[0].button, s_status[0].stickX, s_status[0].stickY,
                 s_status[0].substickX, s_status[0].substickY);
-        s_script_trace_pending = false;
     }
 }
 
@@ -273,7 +273,6 @@ BOOL NativePADSetScript(const char* script)
     s_script_frame = 0;
     s_script_event_index = 0;
     s_script_event_valid = false;
-    s_script_trace_pending = false;
     if (script == NULL || script[0] == '\0') {
         return TRUE;
     }
@@ -305,7 +304,6 @@ BOOL NativePADSetScript(const char* script)
 void NativePADSetTrace(BOOL enabled)
 {
     s_script_trace_enabled = enabled != FALSE;
-    s_script_trace_pending = s_script_trace_enabled;
 }
 
 void NativePADAdvanceFrame(u32 frame)
@@ -313,7 +311,6 @@ void NativePADAdvanceFrame(u32 frame)
     if (!s_script_enabled) return;
     if (frame == s_script_frame) return;
     s_script_frame = frame;
-    s_script_trace_pending = true;
     apply_script_frame();
 }
 
