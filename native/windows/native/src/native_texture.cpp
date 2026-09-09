@@ -1,6 +1,7 @@
 #include "native_texture.h"
 
 #include <algorithm>
+#include <array>
 #include <stdexcept>
 
 namespace melee::native {
@@ -20,14 +21,15 @@ NativeRgba8 decode_gx_texture(GxTextureFormat format, std::uint16_t width,
                               std::uint16_t height, std::span<const std::byte> source)
 {
     if (width == 0 || height == 0) throw std::invalid_argument("texture dimensions must be nonzero");
-    const std::size_t block_w = (format == GxTextureFormat::I4 || format == GxTextureFormat::I8 || format == GxTextureFormat::IA4) ? 8 : 4;
-    const std::size_t block_h = (format == GxTextureFormat::I4) ? 8 : 4;
+    const std::size_t block_w = (format == GxTextureFormat::I4 || format == GxTextureFormat::I8 || format == GxTextureFormat::IA4 || format == GxTextureFormat::CMPR) ? 8 : 4;
+    const std::size_t block_h = (format == GxTextureFormat::I4 || format == GxTextureFormat::CMPR) ? 8 : 4;
     std::size_t bytes_per_block = 0;
     switch (format) {
     case GxTextureFormat::I4: bytes_per_block = 32; break;
     case GxTextureFormat::I8: case GxTextureFormat::IA4: bytes_per_block = 32; break;
     case GxTextureFormat::IA8: case GxTextureFormat::RGB565: case GxTextureFormat::RGB5A3: bytes_per_block = 32; break;
     case GxTextureFormat::RGBA8: bytes_per_block = 64; break;
+    case GxTextureFormat::CMPR: bytes_per_block = 32; break;
     case GxTextureFormat::C4: case GxTextureFormat::C8: case GxTextureFormat::C14X2:
         throw std::invalid_argument("indexed texture requires a palette");
     }
@@ -42,7 +44,31 @@ NativeRgba8 decode_gx_texture(GxTextureFormat format, std::uint16_t width,
         const std::size_t ox = bx * block_w, oy = by * block_h;
         for (std::size_t y = 0; y < block_h; ++y) for (std::size_t x = 0; x < block_w; ++x) {
             std::uint8_t r = 0, g = 0, b = 0, a = 255;
-            if (format == GxTextureFormat::RGBA8) {
+            if (format == GxTextureFormat::CMPR) {
+                const std::size_t sub = (y / 4) * 2 + (x / 4);
+                const std::size_t sub_cursor = cursor + sub * 8;
+                const auto c0 = be16(source, sub_cursor);
+                const auto c1 = be16(source, sub_cursor + 2);
+                const auto expand565 = [](std::uint16_t value) {
+                    return std::array<std::uint8_t, 3>{
+                        static_cast<std::uint8_t>(((value >> 11) & 0x1F) * 255 / 31),
+                        static_cast<std::uint8_t>(((value >> 5) & 0x3F) * 255 / 63),
+                        static_cast<std::uint8_t>((value & 0x1F) * 255 / 31)};
+                };
+                const auto color0 = expand565(c0);
+                const auto color1 = expand565(c1);
+                const auto code = static_cast<std::uint8_t>(
+                    (at(source, sub_cursor + 4 + (y & 3)) >> (6 - 2 * (x & 3))) & 3);
+                if (code == 0) { r = color0[0]; g = color0[1]; b = color0[2]; }
+                else if (code == 1) { r = color1[0]; g = color1[1]; b = color1[2]; }
+                else if (code == 2) {
+                    if (c0 > c1) { r = static_cast<std::uint8_t>((2 * color0[0] + color1[0]) / 3); g = static_cast<std::uint8_t>((2 * color0[1] + color1[1]) / 3); b = static_cast<std::uint8_t>((2 * color0[2] + color1[2]) / 3); }
+                    else { r = static_cast<std::uint8_t>((color0[0] + color1[0]) / 2); g = static_cast<std::uint8_t>((color0[1] + color1[1]) / 2); b = static_cast<std::uint8_t>((color0[2] + color1[2]) / 2); }
+                } else {
+                    if (c0 > c1) { r = static_cast<std::uint8_t>((color0[0] + 2 * color1[0]) / 3); g = static_cast<std::uint8_t>((color0[1] + 2 * color1[1]) / 3); b = static_cast<std::uint8_t>((color0[2] + 2 * color1[2]) / 3); }
+                    else { r = g = b = 0; a = 0; }
+                }
+            } else if (format == GxTextureFormat::RGBA8) {
                 const std::size_t i = y * 4 + x;
                 a = at(source, cursor + i * 2); r = at(source, cursor + i * 2 + 1);
                 g = at(source, cursor + 32 + i * 2); b = at(source, cursor + 32 + i * 2 + 1);

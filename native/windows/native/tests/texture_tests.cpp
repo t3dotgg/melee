@@ -17,6 +17,15 @@ int main()
     try { (void)decode_gx_texture(GxTextureFormat::RGB565, 4, 4, std::span<const std::byte>(rgba.data(), 2)); }
     catch (const std::invalid_argument&) { rejected = true; }
     assert(rejected);
+    std::vector<std::byte> cmpr(32);
+    // Four DXT1 sub-blocks whose first endpoint is opaque red; all indices 0.
+    for (std::size_t sub = 0; sub < 4; ++sub) {
+        cmpr[sub * 8] = std::byte{0xF8};
+        cmpr[sub * 8 + 1] = std::byte{0x00};
+    }
+    const auto compressed = decode_gx_texture(GxTextureFormat::CMPR, 8, 8, cmpr);
+    assert(compressed.pixels[0] == 255 && compressed.pixels[1] == 0 && compressed.pixels[2] == 0);
+    assert(compressed.pixels[(7U * 8U + 7U) * 4U] == 255);
     std::vector<std::byte> c4(32);
     c4[0] = std::byte{0x12}; // first two texels use palette entries 1 and 2
     const NativePaletteEntry palette[] = {
