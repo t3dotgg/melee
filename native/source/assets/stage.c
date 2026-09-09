@@ -949,6 +949,16 @@ static void* stage_parameters(NativeStageArchive* stage, uint32_t offset)
         return kongo_parameters(stage, offset);
     case St_Kind_Corneria:
         return corneria_parameters(stage, offset);
+    case St_Kind_BigBlue:
+        return scalar_array(stage, offset, 0x144 / 4, 4);
+    case St_Kind_Garden:
+        return scalar_array(stage, offset, 0x20 / 4, 4);
+    case St_Kind_Flatzone:
+        return scalar_array(stage, offset, 0x40 / 4, 4);
+    case St_Kind_Onett:
+        return scalar_array(stage, offset, 0x68 / 4, 4);
+    case St_Kind_Greens:
+        return scalar_array(stage, offset, 0x7C / 4, 4);
     case St_Kind_Izumi:
         return scalar_array(stage, offset, 21, 4);
     case St_Kind_Story:
