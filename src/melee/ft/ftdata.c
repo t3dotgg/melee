@@ -1780,7 +1780,7 @@ void ftData_80085CD8(Fighter* fp, Fighter* arg1, int msid)
             fp->x590 = (FigaTree*) temp_r3_2;
             fp->x5A4 = (void*) temp_r3_2;
             return;
-#endif
+#else
             if (temp_r3_2 != 0) {
                 temp_r3_3 = ftData_80086060(fp);
                 if ((temp_r3_3 != NULL) &&
@@ -1815,6 +1815,7 @@ void ftData_80085CD8(Fighter* fp, Fighter* arg1, int msid)
                 fp->x590 = NULL;
             }
             fp->x5A4 = (void*) temp_r3->x14;
+#endif
         }
     }
 }
@@ -1838,7 +1839,7 @@ FigaTree* ftData_80085E50(Fighter* arg0, int msid)
             arg0->x598 = (FigaTree*) temp_r3_2;
             arg0->x5A8 = (void*) temp_r3_2;
             return arg0->x598;
-#endif
+#else
             if (temp_r3_2 != 0) {
                 temp_r3_3 = ftData_80086060(arg0);
                 if ((temp_r3_3 != NULL) &&
@@ -1873,6 +1874,7 @@ FigaTree* ftData_80085E50(Fighter* arg0, int msid)
                 arg0->x598 = 0;
             }
             arg0->x5A8 = (void*) temp_r3->x14;
+#endif
         }
         return arg0->x598;
     }
