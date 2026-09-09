@@ -1,6 +1,9 @@
 #include "ftdata.h"
 
 #include <Runtime/platform.h>
+#ifdef MELEE_NATIVE
+#include <assets/archive.h>
+#endif
 
 #include <sysdolphin/baselib/forward.h>
 
@@ -251,6 +254,11 @@ void ft_8008549C(void)
     { ftGk_CostumeList, ARRAY_SIZE(ftGk_CostumeList) },
     { ftSb_CostumeList, ARRAY_SIZE(ftSb_CostumeList) }
 };
+
+#ifdef MELEE_NATIVE
+static NativeArchive* ftData_native_archives[FTKIND_MAX];
+static NativeArchiveGraph* ftData_native_graphs[FTKIND_MAX];
+#endif
 
 ftData_UnkCountStruct ftData_Table_Unk0[FTKIND_MAX] = {
     { 0, 303 }, { 0, 327 }, { 0, 318 }, { 0, 337 }, { 0, 479 }, { 0, 316 },
@@ -1667,6 +1675,32 @@ void ftData_80085A14(FighterKind kind)
         lbFile_800168A0(1, ftData_803C23E4[kind], &sp18, &sp10);
         a_head = sp18;
         HSD_ASSERT(0x974, a_head);
+#ifdef MELEE_NATIVE
+        NativeArchiveError error;
+        NativeArchiveStatus status = NativeArchiveOpen(
+            a_head, sp10, &ftData_native_archives[kind], &error);
+        HSD_ASSERTREPORT(0x9A0, status == NATIVE_ARCHIVE_OK,
+                         "native fighter archive open failed at %zu: %s\n",
+                         error.offset, error.message);
+        status = NativeArchiveGraphOpen(ftData_native_archives[kind],
+                                        &ftData_native_graphs[kind], &error);
+        HSD_ASSERTREPORT(0x9A1, status == NATIVE_ARCHIVE_OK,
+                         "native fighter graph open failed at %zu: %s\n",
+                         error.offset, error.message);
+        for (i = 0; i < (u32) ftData_Table_Unk0[kind].count; i++) {
+            temp_r0 = temp_r27->xC[i].x8;
+            if (temp_r0 != 0) {
+                FigaTree* tree = NULL;
+                status = NativeArchiveFigaTree(
+                    ftData_native_graphs[kind], temp_r27->xC[i].x4, &tree,
+                    &error);
+                HSD_ASSERTREPORT(0x9AF, status == NATIVE_ARCHIVE_OK,
+                                 "native fighter figatree decode failed at %zu: %s\n",
+                                 error.offset, error.message);
+                temp_r27->xC[i].x14 = (uintptr_t) tree;
+            }
+        }
+#else
         for (i = 0; i < (u32) ftData_Table_Unk0[kind].count; i++) {
             temp_r0 = temp_r27->xC[i].x8;
             if (temp_r0 != 0) {
@@ -1678,6 +1712,7 @@ void ftData_80085A14(FighterKind kind)
                     (uintptr_t) ((u8*) a_head + temp_r27->xC[i].x4);
             }
         }
+#endif
         ftData_Table_Unk0[kind].data = a_head;
     }
 }
@@ -1741,6 +1776,11 @@ void ftData_80085CD8(Fighter* fp, Fighter* arg1, int msid)
         temp_r3 = (struct Fighter_WaitAnimData*) ftData_80085FD4(arg1, msid);
         temp_r3_2 = temp_r3->x14;
         if (temp_r3_2 != (uintptr_t) fp->x5A4) {
+#ifdef MELEE_NATIVE
+            fp->x590 = (FigaTree*) temp_r3_2;
+            fp->x5A4 = (void*) temp_r3_2;
+            return;
+#endif
             if (temp_r3_2 != 0) {
                 temp_r3_3 = ftData_80086060(fp);
                 if ((temp_r3_3 != NULL) &&
@@ -1794,6 +1834,11 @@ FigaTree* ftData_80085E50(Fighter* arg0, int msid)
         temp_r3 = ftData_80085FD4(arg0, msid);
         temp_r3_2 = temp_r3->x14;
         if (temp_r3_2 != (uintptr_t) arg0->x5A8) {
+#ifdef MELEE_NATIVE
+            arg0->x598 = (FigaTree*) temp_r3_2;
+            arg0->x5A8 = (void*) temp_r3_2;
+            return arg0->x598;
+#endif
             if (temp_r3_2 != 0) {
                 temp_r3_3 = ftData_80086060(arg0);
                 if ((temp_r3_3 != NULL) &&
