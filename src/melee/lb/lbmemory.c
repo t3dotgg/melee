@@ -384,9 +384,13 @@ void lbMemory_8001564C(void)
 
     _p(a_arenaLo) = (void*) (uintptr_t) ARAlloc(0x20);
     ARFree(&size[2]);
+#ifdef MELEE_NATIVE
+    _p(a_arenaHi) = (void*) (uintptr_t) ARGetSize();
+#else
     _p(a_arenaHi) =
         (void*) (uintptr_t) ((ARGetSize() > 0x01000000U) ? 0x01000000U
                                                          : ARGetSize());
+#endif
 
     _p(free_mem) = (Handle*) &_p(x8_mem)[0];
     for (i = 0; i < 0x82; i++) {

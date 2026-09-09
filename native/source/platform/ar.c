@@ -4,7 +4,9 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define NATIVE_ARAM_SIZE (16u * 1024u * 1024u)
+/* Host audio keeps all decoded SSM voices resident. A 32 MiB ARAM model
+ * leaves room for those voices and the game heaps that follow them. */
+#define NATIVE_ARAM_SIZE (32u * 1024u * 1024u)
 static unsigned char* g_aram;
 static u32 g_aram_top;
 static u32 g_aram_limit = NATIVE_ARAM_SIZE;
