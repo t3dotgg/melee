@@ -58,6 +58,10 @@ add_executable(test_scene_bytecode tests/test_scene_bytecode.c
 target_link_libraries(test_scene_bytecode PRIVATE melee_host_options)
 add_test(NAME scene_bytecode COMMAND test_scene_bytecode)
 
+add_executable(test_fighter_dynamic tests/test_fighter_dynamic.c)
+target_link_libraries(test_fighter_dynamic PRIVATE melee_host_options)
+add_test(NAME fighter_dynamic COMMAND test_fighter_dynamic)
+
 add_executable(test_effects tests/test_effects.c)
 target_sources(test_effects PRIVATE "${MELEE_ROOT}/src/melee/ef/eflib.c")
 target_link_libraries(test_effects PRIVATE melee_host_options)

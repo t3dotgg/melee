@@ -1379,8 +1379,7 @@ struct Fighter {
         /* +14 */ float x14;
         /* +18 */ Vec3 x18;
         /* +24 */ int x24;
-    } x1670[1]; ///< @todo figure out proper size
-    /* fp+1674 */ u8 filler_x1674[0x1828 - 0x1670 - 0x28];
+    } x1670[11]; ///< one entry for each dynamic-bone collision volume
     /* fp+1828 */ enum_t x1828;
     /* fp+182C */ struct dmg {
         /* fp+182C */ float x182c_behavior;
