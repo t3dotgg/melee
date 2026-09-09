@@ -24,6 +24,7 @@ add_library(melee_native_core STATIC
     src/native_audio.cpp
     src/native_collision.cpp
     src/native_match.cpp
+    src/native_windows_input.cpp
 )
 target_include_directories(melee_native_core PUBLIC include)
 target_compile_options(melee_native_core PRIVATE
@@ -84,4 +85,8 @@ add_test(NAME native_collision COMMAND melee_native_collision_tests)
 add_executable(melee_native_match_tests tests/match_tests.cpp)
 target_link_libraries(melee_native_match_tests PRIVATE melee_native_core)
 add_test(NAME native_match COMMAND melee_native_match_tests)
+
+add_executable(melee_native_windows_input_tests tests/windows_input_tests.cpp)
+target_link_libraries(melee_native_windows_input_tests PRIVATE melee_native_core)
+add_test(NAME native_windows_input COMMAND melee_native_windows_input_tests)
 
