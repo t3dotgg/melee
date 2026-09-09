@@ -21,8 +21,8 @@ follow their owners' object-list order, with `p_link` groups in ascending order.
 The scheduler uses two tables allocated in
 [`gobjinit.c`](../../src/sysdolphin/baselib/gobjinit.c):
 
-- `HSD_GObj_804D7840[s_link]` is the head of a scheduler list.
-- `HSD_GObj_804D7844` stores the last process for each `p_link` and `s_link` pair.
+- `HSD_GObj_GObjProcHead[s_link]` is the head of a scheduler list.
+- `HSD_GObj_ProcList` stores the last process for each `p_link` and `s_link` pair.
   The private `processTailSlot` helper selects this table entry.
 
 The tail-table index is `p_link + s_link * (p_link_max + 1)`.
@@ -30,8 +30,8 @@ An empty pair has a null entry.
 
 ## Insertion and removal
 
-`HSD_GObjProc_8038FAA8` first looks for a predecessor at the same `s_link` on
-the owner or preceding objects. If none exists, it checks the tails of lower
+`HSD_GObjProc_QueueProc` first looks for a predecessor at the same `s_link`
+on the owner or preceding objects. If none exists, it checks the tails of lower
 `p_link` groups. It inserts after the predecessor, or at the scheduler head
 if no predecessor exists. Finally, it adds the process to the owner's list.
 
@@ -42,12 +42,12 @@ was entered by a `goto`.
 | Function | Work |
 | --- | --- |
 | `HSD_GObj_SetupProc` | Allocate a process, set its callback and priority, and insert it into both lists. |
-| `HSD_GObjProc_8038FC18` | Unlink from the scheduler list and update its tail-table entry. Keep the owner list intact. |
-| `HSD_GObjProc_8038FCE4` | Unlink from both lists. |
-| `HSD_GObjProc_8038FE24` | Request process removal and return its storage to the object allocator when removal is allowed. |
-| `HSD_GObjProc_8038FED4` | Request removal of every process owned by a game object. |
+| `HSD_GObjProc_UnqueueProc` | Unlink from the scheduler list and update its tail-table entry. Keep the owner list intact. |
+| `HSD_GObjProc_UnlinkProcFromGObj` | Unlink from both lists. |
+| `HSD_GObjProc_RemoveProc` | Request process removal and return its storage to the object allocator when removal is allowed. |
+| `HSD_GObjProc_RemoveAllProcs` | Request removal of every process owned by a game object. |
 
-`HSD_GObjPLink_8039032C` in
+`HSD_GObjPLink_ChangeGObjPri_Unk` in
 [`gobjplink.c`](../../src/sysdolphin/baselib/gobjplink.c) uses scheduler-only
 unlinking when it moves an owner between object lists. It then reinserts the
 owner's processes. Keep the distinction between scheduler-only removal and
@@ -55,18 +55,19 @@ removal from both lists.
 
 ## Changes during a callback
 
-The scheduler stores the active process in `HSD_GObj_804D7838` and the next
-process in `HSD_GObj_804D7830`. It also stores the active owner in
-`HSD_GObj_804D781C`.
+The scheduler stores the active process in `HSD_GObj_CurrentInvokedProc`
+and the next process in `HSD_GObj_NextInvokedProc`. It stores the active owner in
+`HSD_GObj_CurrentInvokedProcGObj`.
 
-A callback can request its own removal. `HSD_GObjProc_8038FE24` records this in
-`HSD_GObj_804CE3E4.b2` and leaves the process allocated until the callback
-returns. Owner removal and owner reordering have similar deferred paths in
-`gobjplink.c`.
+A callback can request its own removal. `HSD_GObjProc_RemoveProc` records
+this in `HSD_GObj_DelayedProcInfo.delay_remove_proc` and leaves the process
+allocated until the callback returns. Owner removal and owner reordering
+have similar deferred paths in `gobjplink.c`.
 
-After the callback returns, the scheduler sets `HSD_GObj_804CE3E4.b0` while it
-applies the pending changes. During this phase, process insertion and removal
-can repair the saved next-process pointer. Removing that logic can leave the
+After the callback returns, the scheduler sets
+`HSD_GObj_DelayedProcInfo.in_delayed_proc` while it applies the pending changes.
+During this phase, process insertion and removal can repair the saved
+next-process pointer. Removing that logic can leave the
 traversal pointing at a freed process or skip a newly inserted one.
 
 The scheduler also uses `flags_3` with a tag that cycles through zero, one,
