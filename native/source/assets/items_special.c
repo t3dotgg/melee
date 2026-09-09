@@ -216,6 +216,12 @@ static NativeArchiveStatus warpStar(NativeItemArchive* items, uint32_t offset,
     itWstarAttributes* value;
     TRY_READ(bounds(items, offset, 0x28, error));
     TRY_READ(words(items, offset + 0x24, &count, 4, error));
+    /* The game builds a seven-entry list and excludes its previous choice. */
+    if (count < 2 || count > 7) {
+        return NativeArchiveFail(error, NATIVE_ARCHIVE_INVALID,
+                                 32U + offset + 0x24,
+                                 "warp star needs two to seven animations");
+    }
     if (count > (NativeItemArchiveSpan(items, offset) - 0x28) / 8) {
         return NativeArchiveFail(
             error, NATIVE_ARCHIVE_BOUNDS, 32U + offset + 0x24,
