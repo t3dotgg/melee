@@ -39,6 +39,9 @@ typedef enum Schema {
     SCHEMA_TEXANIM,
     SCHEMA_MATANIMJOINT,
     SCHEMA_MATANIM,
+    SCHEMA_SHAPEANIMJOINT,
+    SCHEMA_SHAPEANIMDOBJ,
+    SCHEMA_SHAPEANIM,
     SCHEMA_ANIMATION,
     SCHEMA_AOBJ,
     SCHEMA_FOBJ,
@@ -318,6 +321,18 @@ static void* add_node(NativeArchiveGraph* graph, uint32_t offset,
     case SCHEMA_MATANIM:
         disk_size = 16;
         host_size = sizeof(HSD_MatAnim);
+        break;
+    case SCHEMA_SHAPEANIMJOINT:
+        disk_size = 12;
+        host_size = sizeof(HSD_ShapeAnimJoint);
+        break;
+    case SCHEMA_SHAPEANIMDOBJ:
+        disk_size = 8;
+        host_size = sizeof(HSD_ShapeAnimDObj);
+        break;
+    case SCHEMA_SHAPEANIM:
+        disk_size = 8;
+        host_size = sizeof(HSD_ShapeAnim);
         break;
     case SCHEMA_ANIMATION:
         disk_size = 20;
@@ -772,6 +787,29 @@ static bool convert_node(NativeArchiveGraph* graph, Node* node)
         }
         break;
     }
+    case SCHEMA_SHAPEANIMJOINT: {
+        HSD_ShapeAnimJoint* animation = node->value;
+        animation->child = link_node(graph, offset,
+                                     SCHEMA_SHAPEANIMJOINT, 0);
+        animation->next = link_node(graph, offset + 4,
+                                    SCHEMA_SHAPEANIMJOINT, 0);
+        animation->shapeanimdobj = link_node(graph, offset + 8,
+                                             SCHEMA_SHAPEANIMDOBJ, 0);
+        break;
+    }
+    case SCHEMA_SHAPEANIMDOBJ: {
+        HSD_ShapeAnimDObj* animation = node->value;
+        animation->next = link_node(graph, offset, SCHEMA_SHAPEANIMDOBJ, 0);
+        animation->shapeanim = link_node(graph, offset + 4,
+                                          SCHEMA_SHAPEANIM, 0);
+        break;
+    }
+    case SCHEMA_SHAPEANIM: {
+        HSD_ShapeAnim* animation = node->value;
+        animation->next = link_node(graph, offset, SCHEMA_SHAPEANIM, 0);
+        animation->aobjdesc = link_node(graph, offset + 4, SCHEMA_AOBJ, 0);
+        break;
+    }
     case SCHEMA_TEXANIM: {
         HSD_TexAnim* animation = node->value;
         uint32_t table_offset;
@@ -1216,6 +1254,8 @@ NativeArchiveStatus NativeArchiveFigaTree(NativeArchiveGraph* graph,
 ROOT_READER(NativeArchiveJoint, HSD_Joint, SCHEMA_JOINT)
 ROOT_READER(NativeArchiveMatAnimJoint, HSD_MatAnimJoint,
             SCHEMA_MATANIMJOINT)
+ROOT_READER(NativeArchiveShapeAnimJoint, HSD_ShapeAnimJoint,
+            SCHEMA_SHAPEANIMJOINT)
 ROOT_READER(NativeArchiveAnimation, HSD_AnimJoint, SCHEMA_ANIMATION)
 ROOT_READER(NativeArchiveAObj, HSD_AObjDesc, SCHEMA_AOBJ)
 ROOT_READER(NativeArchiveWObj, HSD_WObjDesc, SCHEMA_WOBJ)
@@ -1254,6 +1294,8 @@ static NativeArchiveStatus find_named_root(NativeArchiveGraph* graph,
 NAMED_ROOT_READER(NativeArchiveJointByName, HSD_Joint, NativeArchiveJoint)
 NAMED_ROOT_READER(NativeArchiveMatAnimJointByName, HSD_MatAnimJoint,
                   NativeArchiveMatAnimJoint)
+NAMED_ROOT_READER(NativeArchiveShapeAnimJointByName, HSD_ShapeAnimJoint,
+                  NativeArchiveShapeAnimJoint)
 NAMED_ROOT_READER(NativeArchiveAnimationByName, HSD_AnimJoint,
                   NativeArchiveAnimation)
 NAMED_ROOT_READER(NativeArchiveAObjByName, HSD_AObjDesc, NativeArchiveAObj)

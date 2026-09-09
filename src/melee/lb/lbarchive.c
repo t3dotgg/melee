@@ -467,6 +467,11 @@ void* HSD_ArchiveNativePublicAddress(HSD_Archive* archive, const char* symbol)
         if (NativeArchiveCObj(binding->graph, offset,
                               (HSD_CObjDesc**) &root, &error) ==
             NATIVE_ARCHIVE_OK) return root;
+    } else if (native_name_ends_with(symbol, "_shapeanim_joint")) {
+        if (NativeArchiveShapeAnimJoint(
+                binding->graph, offset, (HSD_ShapeAnimJoint**) &root,
+                &error) == NATIVE_ARCHIVE_OK)
+            return root;
     } else if (native_name_ends_with(symbol, "_joint")) {
         if (NativeArchiveJoint(binding->graph, offset, (HSD_Joint**) &root,
                                &error) == NATIVE_ARCHIVE_OK)

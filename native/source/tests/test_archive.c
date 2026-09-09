@@ -6,6 +6,7 @@
 #include <sysdolphin/baselib/jobj.h>
 #include <sysdolphin/baselib/mobj.h>
 #include <sysdolphin/baselib/pobj.h>
+#include <sysdolphin/baselib/robj.h>
 #include <sysdolphin/baselib/wobj.h>
 
 #include <stdio.h>
@@ -307,6 +308,42 @@ static void test_joint_graph(void)
     CHECK(NativeArchiveJoint(graph, 0, &repeated, &error) == NATIVE_ARCHIVE_OK);
     CHECK(repeated == root);
     NativeArchiveGraphClose(other_graph);
+    NativeArchiveGraphClose(graph);
+    NativeArchiveClose(archive);
+}
+
+static void test_shape_animation_graph(void)
+{
+    Fixture fixture = fixture_new(40);
+    NativeArchive* archive;
+    NativeArchiveGraph* graph;
+    NativeArchiveError error = { 0 };
+    HSD_ShapeAnimJoint* root = NULL;
+
+    /* Shape animation roots are three pointer words on disk. The child points
+     * to another joint, which owns one shape animation DObj and one shape
+     * animation record. Each record widens its serialized pointers on host. */
+    reference(&fixture, 0, 12);
+    reference(&fixture, 8, 24);
+    reference(&fixture, 28, 32);
+    public_symbol(&fixture, 0, "shapeanim_joint");
+    archive = open_fixture(&fixture);
+    graph = open_graph(archive);
+    CHECK(NativeArchiveShapeAnimJoint(graph, 0, &root, &error) ==
+          NATIVE_ARCHIVE_OK);
+    CHECK(root != NULL && root->child != NULL && root->next == NULL);
+    CHECK(root->shapeanimdobj != NULL);
+    CHECK(root->shapeanimdobj->shapeanim != NULL);
+    CHECK(root->shapeanimdobj->shapeanim->aobjdesc == NULL);
+    HSD_ShapeAnimJoint* named = NULL;
+    CHECK(NativeArchiveShapeAnimJointByName(graph, "shapeanim_joint", &named,
+                                            &error) == NATIVE_ARCHIVE_OK);
+    CHECK(named == root);
+    CHECK(root->child->child == NULL && root->child->next == NULL);
+    check_host_pointer(&fixture, root);
+    check_host_pointer(&fixture, root->child);
+    check_host_pointer(&fixture, root->shapeanimdobj);
+    check_host_pointer(&fixture, root->shapeanimdobj->shapeanim);
     NativeArchiveGraphClose(graph);
     NativeArchiveClose(archive);
 }
@@ -998,6 +1035,7 @@ int main(void)
     _Static_assert(sizeof(void*) == 8, "These tests require native 64-bit pointers");
     test_archive_symbols_and_copy();
     test_joint_graph();
+    test_shape_animation_graph();
     test_joint_display_descriptor_graph();
     test_animation_graph();
     test_texture_animation_graph();
