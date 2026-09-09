@@ -143,3 +143,6 @@ events, and damage ordering. It is a foundation for replacing the original
 collision and stage geometry routines; it is not yet Melee-complete geometry.
 `NativeTrainingMatch` composes two typed fighters, hitbox generation, stage
 collision, and render snapshots into a deterministic training-mode slice.
+The Windows input boundary now dynamically loads XInput 1.4/1.3 and converts
+real controller packets into the typed mapper, while cleanly handling systems
+with no XInput DLL or connected controller.
