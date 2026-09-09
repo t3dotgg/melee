@@ -129,52 +129,47 @@ For timing and input checks that do not need a rendered image, set
 `MELEE_SKIP_RENDER=1`. This keeps the software GX state updates but skips the
 CPU rasterizer, so scripted frames advance at host speed.
 
-For headless startup checks, `MELEE_SKIP_CARD=1` bypasses the unimplemented
-memory card device and `MELEE_SKIP_INTRO=1` bypasses the unavailable THP intro
-movie decoder.
+For isolated startup checks, `MELEE_SKIP_CARD=1` skips the memory card screen.
+`MELEE_SKIP_INTRO=1` skips the unavailable THP intro movie decoder. Save tests
+must set `MELEE_SAVE_ROOT` to an ignored build directory.
 
-The latest launcher build reaches title mode and VS scene setup with the card,
-intro, and renderer skips above. The native archive bridge decodes effect
-particle banks, fog and SObj descriptors, refraction data, and the player
-common table. Stage roots still need typed conversion, so the VS scene cannot
-start a playable match yet.
+The game reaches the title screen and starts VS scene setup. A playable match
+is not verified yet. Use the complete match lifecycle in the completion
+requirements to judge the port.
 
 ## Current state
 
-The full direct-source target now links successfully after the forced-load
-check reports no missing game symbols. The host services include 64-bit heap
-and context storage, typed archive loading for the supported descriptor
-schemas, filesystem or ISO disc reads, ARAM, controller state, headless 60 Hz
-retraces with OS alarm
-callbacks, a software GX EFB for direct vertices and common display lists,
-cache operations, card stubs, and an explicit unavailable THP decoder. The
-scheduler uses the host monotonic clock by default. Tests can advance a
-deterministic clock without sleeping.
+The complete game builds as an ARM64 executable. The integrated compile check
+passed all 1011 C sources at commit `030ba2535`. The focused sanitizer suite
+passed all 26 tests before the fighter parts tests were added. These checks do
+not prove that a match works.
 
-The native archive bridge now loads `lbRumbleData`, `SIS_MessageData`, and
-`MemCardIconData` from the real image. It also converts the camera animation
-used by `ScNtcCommon_scene_data`, effect particle banks, fog and SObj
-descriptors, refraction data, and the player common table. The typed archive
-graph covers common joint display descriptors, materials, texture metadata,
-skin polygon descriptors, vertex descriptor lists, animations, cameras, and
-world objects. Remaining archive work includes the full scene roots, stage
-and menu roots, shape and envelope polygon descriptors, and other callers.
-The graph can decode material and texture metadata, but the renderer does not
-yet apply those materials or sample those textures.
+The port has native heap and context storage, filesystem and ISO disc reads,
+ARAM, controller input, audio output, alarm callbacks, and 60 Hz retraces.
+The scheduler uses the host monotonic clock. Tests can use a deterministic
+clock. The THP intro movie decoder remains unavailable.
 
-The software GX EFB rasterizes direct vertex calls and `GXCopyDisp` copies the
-result to an RGB565 XFB. Its display-list decoder handles common big-endian
-streams with direct or 8-bit and 16-bit indexed position, color, and texture
-attributes, including NBT normal and binormal data. It recognizes common GX
-state commands and skips their payload safely. Other vertex-array paths,
-display-list commands, texture sampling, and material and TEV effects remain
-unsupported. The Cocoa XFB preview only presents the resulting buffer.
+The archive bridge converts typed records with host pointers. It loads five
+stage graphs, 24 of 25 scene roots, effect tables, command streams, item data,
+and common fighter data. Real item tests cover both common regional archives
+and all 71 extracted stage archives. Fighter loading and other runtime callers
+are still being integrated. A decoded archive alone does not prove its game
+code uses the converted records correctly.
 
-Native SFX loading now keeps the big-endian voice payload separate from widened
-host metadata, decodes voice address and ADPCM fields, rebases sample
-addresses, and writes source ratios in host order. This removes the previous
-LP64 overlay and endian failures, but full sound playback still needs runtime
-validation in a real match.
+The software GX renderer applies matrix palettes, skinning, lighting, texture
+sampling, TEV materials, fog, clipping, depth tests, and framebuffer copies.
+It renders a visible native title screen. Its speed is too low for a playable
+match in the current sanitizer build. A native Metal backend is in progress.
+
+Native audio decodes SFX and HPS music and sends stereo PCM to AudioToolbox.
+An independent HPS decoder check matched all 1920000 samples from a 30-second
+music extract. The output device consumed a one-second test. DSP resampling
+uses linear interpolation. Sound during a real match remains unverified.
+
+Persistent native card storage and HSD save/load now pass focused tests,
+including process restart, corruption, full capacity, and queued callbacks.
+Normal startup exposed a filename overread in the memory card screen. That
+runtime path still needs a fix and another test.
 
 The host PAD shim maps keyboard events to controller 0. Arrow keys provide the
 D-pad, `A`/`D` and `W`/`S` provide the main stick, `F`/`H` and `G`/`T` provide
@@ -182,23 +177,15 @@ the C-stick, `J`/`K`/`U`/`I` provide A/B/X/Y, `O` provides Z, `Q` and `E`
 provide L/R, Shift and Control provide the analog triggers, and Return or
 Space provides Start. `C` and `V` provide the analog A and B buttons.
 
-AI DMA stereo PCM is now queued to a macOS AudioToolbox output unit when the
-device is available. Headless runs keep the state-only fallback. Persistent
-card storage and complete archive and font handling from the disc image remain.
 Do not treat a successful link as playable behavior.
 
-## Work order
+## Remaining validation
 
-1. Complete the scene, stage, menu, shape, envelope, effects, and font archive
-   schemas and their callers.
-2. Load a real model and animation from the supplied Melee image.
-3. Complete GX support beyond the common display-list streams, including
-   remaining vertex-array paths and the texture, material, and TEV state used
-   by the game, then present the result through the Cocoa XFB path.
-4. Validate sound playback and add persistent card storage.
-5. Boot menus, enter a match, check controls and match end, and return to the
-   menu.
+1. Complete fighter archive loading and fix faults in actual game callers.
+2. Finish and check native rendering at playable speed.
+3. Test normal startup, controls, sound, match end, and return to the menu.
+4. Repeat save creation and loading through the game screens.
 
-Separate agent worktrees isolate SDK headers, allocation and IDs, scene
-objects, archive data, and host math. Integration happens on
-`native-arm64-build`. Keep this record current as each stage is verified.
+Agent worktrees isolate each subsystem. The integrated changes are published
+to the fork's `native-arm64-build` branch. Keep this record current as each
+step is verified.
