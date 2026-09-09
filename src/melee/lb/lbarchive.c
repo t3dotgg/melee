@@ -309,39 +309,75 @@ static DynamicModelDesc* native_scene_model(NativeArchiveBinding* binding,
     if (present && NativeArchiveJoint(binding->graph, target, &model->joint,
                                       error) != NATIVE_ARCHIVE_OK)
         return NULL;
-    /* Dynamic model descriptors store a terminated array of animation roots.
-     * The array itself is a DAT object, so widen each entry separately. */
-    if (!native_scene_reference(binding, offset + 4, &target, &present, error))
-        return NULL;
-    if (present) {
+    /* Each animation channel is a terminated array of typed roots. */
+    for (size_t channel = 0; channel < 3; ++channel) {
         size_t count = 0;
-        size_t i;
-        HSD_AnimJoint** animations;
-        for (i = 0; i < 256; ++i) {
+        void** animations;
+        if (!native_scene_reference(binding, offset + 4 + channel * 4, &target,
+                                    &present, error))
+        {
+            return NULL;
+        }
+        if (!present) {
+            continue;
+        }
+        size_t limit = (NativeArchiveDataSize(binding->archive) - target) / 4;
+        for (; count < limit; ++count) {
             uint32_t animation_offset;
             bool animation_present;
-            if (!native_scene_reference(binding, target + (uint32_t) (i * 4u),
+            if (!native_scene_reference(binding, target + count * 4,
                                         &animation_offset, &animation_present,
                                         error))
+            {
                 return NULL;
+            }
             if (!animation_present) break;
-            ++count;
         }
-        if (count == 0) return NULL;
+        if (count == limit) {
+            NativeArchiveFail(error, NATIVE_ARCHIVE_BOUNDS, target,
+                              "unterminated scene animation list");
+            return NULL;
+        }
         animations = native_scene_alloc(binding, (count + 1) * sizeof(*animations));
         if (animations == NULL) return NULL;
-        for (i = 0; i < count; ++i) {
+        for (size_t i = 0; i < count; ++i) {
             uint32_t animation_offset;
             bool animation_present;
-            if (!native_scene_reference(binding, target + (uint32_t) (i * 4u),
+            NativeArchiveStatus status;
+            if (!native_scene_reference(binding, target + i * 4,
                                         &animation_offset, &animation_present,
-                                        error) || !animation_present ||
-                NativeArchiveAnimation(binding->graph, animation_offset,
-                                       &animations[i], error) !=
-                    NATIVE_ARCHIVE_OK)
+                                        error))
+            {
                 return NULL;
+            }
+            switch (channel) {
+            case 0:
+                status = NativeArchiveAnimation(
+                    binding->graph, animation_offset,
+                    (HSD_AnimJoint**) &animations[i], error);
+                break;
+            case 1:
+                status = NativeArchiveMatAnimJoint(
+                    binding->graph, animation_offset,
+                    (HSD_MatAnimJoint**) &animations[i], error);
+                break;
+            default:
+                status = NativeArchiveShapeAnimJoint(
+                    binding->graph, animation_offset,
+                    (HSD_ShapeAnimJoint**) &animations[i], error);
+                break;
+            }
+            if (status != NATIVE_ARCHIVE_OK) {
+                return NULL;
+            }
         }
-        model->anims = animations;
+        if (channel == 0) {
+            model->anims = (HSD_AnimJoint**) animations;
+        } else if (channel == 1) {
+            model->matanims = (HSD_MatAnimJoint**) animations;
+        } else {
+            model->shapeanims = (HSD_ShapeAnimJoint**) animations;
+        }
     }
     return model;
 }
