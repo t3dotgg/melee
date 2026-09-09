@@ -129,4 +129,3 @@ if (WIN32)
     target_link_libraries(melee_native_swapchain_tests PRIVATE d3d12 dxgi)
 endif()
 add_test(NAME native_swapchain COMMAND melee_native_swapchain_tests)
-
