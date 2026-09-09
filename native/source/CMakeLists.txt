@@ -48,6 +48,10 @@ add_executable(test_gobjplink tests/test_gobjplink.c)
 target_link_libraries(test_gobjplink PRIVATE melee_host_options)
 add_test(NAME gobjplink COMMAND test_gobjplink)
 
+add_executable(test_particle_tag tests/test_particle_tag.c platform/report.c)
+target_link_libraries(test_particle_tag PRIVATE melee_host_options)
+add_test(NAME particle_tag COMMAND test_particle_tag)
+
 add_executable(test_math tests/test_math.c platform/math.c)
 target_link_libraries(test_math PRIVATE melee_host_options)
 add_test(NAME math COMMAND test_math)

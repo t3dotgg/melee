@@ -13,7 +13,35 @@
 #include <sysdolphin/baselib/pobj.h>
 #include <sysdolphin/baselib/spline.h>
 
+#ifdef MELEE_NATIVE
+/*
+ * The GameCube stores the static-particle active bit in the high bit of a
+ * 32-bit pointer word.  Host pointers can be above 4 GiB, so using the old
+ * 0x7fffffff mask would destroy the pointer when the bit is cleared.  Apple
+ * Silicon user pointers are canonical with bit 63 clear.  Keep the marker in
+ * that otherwise unavailable bit and preserve every address bit below it.
+ */
+#define JOBJ_PTCL_ACTIVE ((uintptr_t) 1 << (sizeof(uintptr_t) * 8 - 1))
+#define JOBJ_PTCL_DATA_MASK (~JOBJ_PTCL_ACTIVE)
+
+static inline bool HSD_JObjNativeParticleIsActive(const void* data)
+{
+    return data != NULL &&
+           (((uintptr_t) data & JOBJ_PTCL_ACTIVE) != (uintptr_t) 0);
+}
+
+static inline void* HSD_JObjNativeParticleActivate(void* data)
+{
+    return (void*) ((uintptr_t) data | JOBJ_PTCL_ACTIVE);
+}
+
+static inline void* HSD_JObjNativeParticleClear(void* data)
+{
+    return (void*) ((uintptr_t) data & JOBJ_PTCL_DATA_MASK);
+}
+#else
 #define JOBJ_PTCL_ACTIVE 0x7FFFFFFF
+#endif
 #define JOBJ_PTCL_OFFSET_MASK 0xFFFFFF
 #define JOBJ_PTCL_OFFSET_SHIFT 6
 #define JOBJ_PTCL_BANK_MASK 0x3F

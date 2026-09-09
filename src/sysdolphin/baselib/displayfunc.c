@@ -485,6 +485,16 @@ void HSD_JObjDisp(HSD_JObj* jobj, MtxPtr vmtx, HSD_TrspMask trsp_mask,
         } else if (union_type_ptcl(jobj) && sptcl_callback != NULL) {
             HSD_SList* sp;
             for (sp = jobj->u.ptcl; sp != NULL; sp = sp->next) {
+#ifdef MELEE_NATIVE
+                if (HSD_JObjNativeParticleIsActive(sp->data)) {
+                    uintptr_t encoded = (uintptr_t) sp->data;
+                    u32 bank = JOBJ_PTCL_BANK_MASK & encoded;
+                    u32 offset = (encoded >> JOBJ_PTCL_OFFSET_SHIFT) &
+                                 JOBJ_PTCL_OFFSET_MASK;
+                    (*sptcl_callback)(0, bank, offset, jobj);
+                }
+                sp->data = HSD_JObjNativeParticleClear(sp->data);
+#else
                 if ((((uintptr_t) sp->data) & 0x80000000) != 0) {
                     u32 bank = JOBJ_PTCL_BANK_MASK & ((uintptr_t) sp->data);
                     u32 offset =
@@ -493,6 +503,7 @@ void HSD_JObjDisp(HSD_JObj* jobj, MtxPtr vmtx, HSD_TrspMask trsp_mask,
                     (*sptcl_callback)(0, bank, offset, jobj);
                 }
                 sp->data = (void*) ((uintptr_t) sp->data & JOBJ_PTCL_ACTIVE);
+#endif
             }
         }
     }

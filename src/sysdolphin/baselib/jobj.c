@@ -642,7 +642,7 @@ s32 JObjLoad(HSD_JObj* jobj, HSD_Joint* joint, HSD_JObj* parent)
         slist = joint->u.ptcl;
         while (slist != NULL) {
 #ifdef MELEE_NATIVE
-            slist->data = (void*) ((uintptr_t) slist->data | 0x80000000);
+            slist->data = HSD_JObjNativeParticleActivate(slist->data);
 #else
             *(u32*) &slist->data |= 0x80000000;
 #endif
