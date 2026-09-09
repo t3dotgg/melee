@@ -74,6 +74,9 @@ def main() -> int:
     failed_sources = [entry.get("source", "") for entry in sources if not entry.get("success")]
 
     archive.parent.mkdir(parents=True, exist_ok=True)
+    # ``ar -rcs`` keeps old members. Remove the previous archive so a changed
+    # source list cannot leave duplicate platform objects behind.
+    archive.unlink(missing_ok=True)
     if missing:
         report = {
             "architecture": "arm64",
