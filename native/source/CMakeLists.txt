@@ -103,7 +103,7 @@ add_test(NAME fighter_parts COMMAND test_fighter_parts)
 
 add_executable(test_fighter_articles tests/test_fighter_articles.c
     assets/fighter_articles.c assets/fighter_parts.c assets/items.c
-    assets/items_special.c assets/archive.c assets/descriptors.c
+    assets/items_special.c assets/items_fighter_special.c assets/archive.c assets/descriptors.c
     platform/report.c)
 target_link_libraries(test_fighter_articles PRIVATE melee_host_options)
 add_test(NAME fighter_articles COMMAND test_fighter_articles)
@@ -111,7 +111,7 @@ add_test(NAME fighter_articles COMMAND test_fighter_articles)
 add_executable(test_fighter_archive tests/test_fighter_archive.c
     assets/fighters.c assets/fighter_attributes.c assets/fighter_common.c
     assets/fighter_parts.c assets/fighter_articles.c assets/items.c
-    assets/items_special.c assets/archive.c assets/descriptors.c
+    assets/items_special.c assets/items_fighter_special.c assets/archive.c assets/descriptors.c
     platform/report.c)
 target_link_libraries(test_fighter_archive PRIVATE melee_host_options)
 add_test(NAME fighter_archive COMMAND test_fighter_archive)
@@ -144,9 +144,16 @@ target_link_libraries(test_effect_archive PRIVATE melee_host_options)
 add_test(NAME effect_archive COMMAND test_effect_archive)
 
 add_executable(test_items tests/test_items.c assets/items.c assets/items_special.c
+    assets/items_fighter_special.c
     assets/archive.c assets/descriptors.c platform/report.c)
 target_link_libraries(test_items PRIVATE melee_host_options)
 add_test(NAME items COMMAND test_items)
+
+add_executable(test_items_fighter_special tests/test_items_fighter_special.c
+    assets/items.c assets/items_special.c assets/items_fighter_special.c
+    assets/archive.c assets/descriptors.c platform/report.c)
+target_link_libraries(test_items_fighter_special PRIVATE melee_host_options)
+add_test(NAME items_fighter_special COMMAND test_items_fighter_special)
 
 add_executable(test_stage tests/test_stage.c assets/stage.c assets/archive.c
     assets/descriptors.c platform/report.c)

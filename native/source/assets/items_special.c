@@ -3,6 +3,7 @@
 #include <string.h>
 
 #include "archive_internal.h"
+#include "items_fighter_special.h"
 #include "items_internal.h"
 #include <melee/it/itCommonItems.h>
 #include <melee/it/kinds/itkinoko.h>
@@ -546,7 +547,10 @@ NativeArchiveStatus NativeItemSpecialRead(NativeItemArchive* items, int kind,
         size = 0x10 + 5 * 0x1c;
         break;
     default:
-        if (kind >= It_Kind_Capsule && kind <= It_Kind_EvYoshiEgg) {
+        if (kind >= It_Kind_Mario_Fire && kind <= It_Kind_Kirby_YoshiEggLay) {
+            return NativeItemFighterSpecialRead(items, kind, offset, output,
+                                                error);
+        } else if (kind >= It_Kind_Capsule && kind <= It_Kind_EvYoshiEgg) {
             size = common_sizes[kind];
         } else if (kind >= It_PKind_Start && kind <= It_Kind_Pokemon_Unk) {
             size = pokemon_sizes[kind - It_PKind_Start];
