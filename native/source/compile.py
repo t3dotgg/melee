@@ -10,6 +10,12 @@ import subprocess
 
 
 ROOT = Path(__file__).resolve().parents[2]
+DEFAULT_SOURCES = [
+    "src/melee",
+    "src/sysdolphin",
+    "native/source/platform",
+    "native/source/assets",
+]
 
 
 def main():
@@ -25,7 +31,7 @@ def main():
     output = args.output.resolve()
     output.mkdir(parents=True, exist_ok=True)
     sources = set()
-    for name in args.source or ["src/melee", "src/sysdolphin"]:
+    for name in args.source or DEFAULT_SOURCES:
         path = ROOT / name
         if path.is_file() and path.suffix == ".c":
             sources.add(path)
@@ -54,6 +60,7 @@ def main():
         log.write_text(result.stdout + result.stderr)
         return {
             "source": str(relative), "success": result.returncode == 0,
+            "group": "game" if relative.parts[0] == "src" else "native-support",
             "object": str(obj.relative_to(output)), "log": str(log.relative_to(output)),
             "errors": [line for line in result.stderr.splitlines() if "error:" in line],
             "command": command,
@@ -62,7 +69,18 @@ def main():
     with ThreadPoolExecutor(max_workers=args.jobs) as pool:
         results = list(pool.map(compile_source, sorted(sources)))
     passed = sum(result["success"] for result in results)
-    report = {"architecture": "arm64", "compiled": passed, "total": len(results), "sources": results}
+    game_results = [result for result in results if result["group"] == "game"]
+    support_results = [result for result in results if result["group"] == "native-support"]
+    report = {
+        "architecture": "arm64",
+        "compiled": passed,
+        "total": len(results),
+        "game_compiled": sum(result["success"] for result in game_results),
+        "game_total": len(game_results),
+        "support_compiled": sum(result["success"] for result in support_results),
+        "support_total": len(support_results),
+        "sources": results,
+    }
     (output / "compile-report.json").write_text(json.dumps(report, indent=2) + "\n")
     (output / "compile_commands.json").write_text(json.dumps([
         {"directory": str(ROOT), "file": result["source"], "arguments": result["command"]}
