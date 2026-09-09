@@ -544,8 +544,15 @@ static void order_data_0(void)
 static inline void HSD_SynthSFXUnloadBank_inline(
     struct NativeSfxBankNode* node)
 {
-    for (int i = 0; i < node->xC; i++) {
-        HSD_Synth_80388DC8(node->x8 + i);
+    struct NativeSfxEntryNode* entry;
+    for (entry = node->entries; entry != NULL; entry = entry->alloc_next) {
+        void** pcur = &HSD_Synth_804C29E0[entry->unk4 & 0x1F];
+        while (*pcur != NULL && *pcur != entry) {
+            pcur = (void**) &((struct NativeSfxEntryNode*) *pcur)->next;
+        }
+        if (*pcur == entry) {
+            *pcur = entry->next;
+        }
     }
 }
 
