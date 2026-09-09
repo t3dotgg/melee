@@ -1263,10 +1263,11 @@ static char efAsync_803C0248[] = "effEmblemDataTable";
 
 void efAsync_LoadAsync(int index)
 {
-    EF_DAT_Entry* entry = &efAsync_DatEntries[index];
+    EF_DAT_Entry* entry;
     if (index >= 50 || index < 0) {
         return;
     }
+    entry = &efAsync_DatEntries[index];
 
     if (entry->ef_DAT_file == NULL) {
         return;
@@ -1282,6 +1283,9 @@ void efAsync_OnLoad(HSD_Archive* archive, u8* data, u32 length, int index)
     lbArchive_InitializeDAT(archive, data, length);
     result = HSD_ArchiveGetPublicAddress(
         archive, efAsync_DatEntries[index].effDataTable_name);
+    if (result == NULL) {
+        return;
+    }
 #ifdef MELEE_NATIVE
     if (result->ef_DAT_file != NULL || result->effDataTable_name != NULL) {
 #else
@@ -1296,11 +1300,11 @@ void efAsync_LoadSync(int idx)
 {
     EF_DAT_Entry* spC;
     EF_DAT_Entry* lookup;
-    lookup = &efAsync_DatEntries[idx];
 
     if (idx >= 50 || idx < 0) {
         return;
     }
+    lookup = &efAsync_DatEntries[idx];
     if (!lookup->ef_DAT_file) {
         return;
     }

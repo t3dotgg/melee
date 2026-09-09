@@ -13,6 +13,7 @@
 #include <sysdolphin/baselib/archive.h>
 #include <sysdolphin/baselib/debug.h>
 #include <sysdolphin/baselib/mobj.h>
+#include <sysdolphin/baselib/sobjlib.h>
 
 #ifdef MELEE_NATIVE
 #include <sysdolphin/baselib/sislib.h>
@@ -45,6 +46,18 @@ struct NativeArchiveBinding {
 struct NativeSceneAllocation {
     void* pointer;
     NativeSceneAllocation* next;
+};
+
+struct NativeRefractionData {
+    u8 count;
+    u8 padding[7];
+    f32* values;
+};
+
+struct NativeEffectDataEntry {
+    char* file;
+    char* table;
+    void* data;
 };
 
 static NativeArchiveBinding* native_archive_bindings;
@@ -108,34 +121,42 @@ static SIS* native_sis_root(NativeArchiveBinding* binding, uint32_t offset,
     size_t record_count;
     size_t i;
     bool saw_entry = false;
-    const size_t max_words = NativeArchiveDataSize(binding->archive) / 4u;
+    const size_t data_size = NativeArchiveDataSize(binding->archive);
+    const size_t max_words =
+        offset <= data_size ? (data_size - offset) / 4u : 0;
 
-    for (i = 0; i < max_words; ++i) {
-        uint32_t target = 0;
-        bool present = false;
+    /* A SIS record has two serialized pointer words.  Require both words to
+     * be relocated before adding the record.  Accepting a trailing single
+     * relocation can consume the first field of the next archive object and
+     * produce a host table whose indexing no longer matches the file. */
+    for (i = 0; i + 1 < max_words; i += 2) {
+        uint32_t targets[2] = { 0, 0 };
+        bool present[2] = { false, false };
         size_t field = (size_t) offset + i * 4u;
-        NativeArchiveStatus status;
-        if (field > UINT32_MAX) return NULL;
-        status = NativeArchiveReference(binding->archive, (uint32_t) field,
-                                        &target, &present, error);
-        if (status != NATIVE_ARCHIVE_OK) {
+        NativeArchiveStatus status0;
+        NativeArchiveStatus status1;
+        status0 = NativeArchiveReference(binding->archive, (uint32_t) field,
+                                          &targets[0], &present[0], error);
+        status1 = NativeArchiveReference(binding->archive,
+                                          (uint32_t) (field + 4u),
+                                          &targets[1], &present[1], error);
+        if (status0 != NATIVE_ARCHIVE_OK || status1 != NATIVE_ARCHIVE_OK) {
             if (!saw_entry) return NULL;
-            if (getenv("MELEE_TRACE_SIS") != NULL)
-                OSReport("SIS scan end i=%zu status=%d msg=%s\n", i,
-                         status, error == NULL ? "" : error->message);
             break;
         }
-        if (!present) {
+        if (!present[0] || !present[1]) {
             if (saw_entry) break;
             return NULL;
         }
-        if (target > NativeArchiveDataSize(binding->archive)) return NULL;
+        /* A target equal to data_size is the archive's end sentinel. Keep
+         * the table slot, but expose it as NULL below. */
+        if (targets[0] > data_size || targets[1] > data_size) return NULL;
         saw_entry = true;
-        word_count = i + 1;
+        word_count = i + 2;
     }
-    if (word_count == 0 || word_count > SIZE_MAX / 4u) return NULL;
-    if (getenv("MELEE_TRACE_SIS") != NULL)
-        OSReport("SIS words=%zu offset=%u\n", word_count, offset);
+    if (word_count == 0 || word_count > SIZE_MAX / 4u) {
+        return NULL;
+    }
     record_count = (word_count + 1u) / 2u;
     if (record_count > SIZE_MAX / sizeof(*table)) return NULL;
     table = calloc(record_count, sizeof(*table));
@@ -153,9 +174,6 @@ static SIS* native_sis_root(NativeArchiveBinding* binding, uint32_t offset,
         if (NativeArchiveReference(binding->archive, offset + (uint32_t) (i * 4u),
                                    &target, &present, error) !=
                 NATIVE_ARCHIVE_OK || !present) {
-            if (getenv("MELEE_TRACE_SIS") != NULL)
-                OSReport("SIS fill failed i=%zu target=%u present=%d\n", i,
-                         target, present);
             free(table);
             return NULL;
         }
@@ -539,6 +557,100 @@ void* HSD_ArchiveNativePublicAddress(HSD_Archive* archive, const char* symbol)
         NativeArchiveDataRange(binding->archive, offset, 1)) {
         return (void*) (binding->archive->data + offset);
     }
+    if (strcmp(symbol, "lbRefData") == 0) {
+        struct NativeRefractionData* data;
+        uint32_t values_offset;
+        bool values_present;
+        size_t count;
+        if (!NativeArchiveDataRange(binding->archive, offset, 8))
+            return NULL;
+        count = binding->archive->data[offset];
+        if (NativeArchiveReference(binding->archive, offset + 4,
+                                   &values_offset, &values_present, &error) !=
+                NATIVE_ARCHIVE_OK ||
+            (count != 0 && (!values_present ||
+                            !NativeArchiveDataRange(binding->archive,
+                                                    values_offset,
+                                                    count * 8))))
+            return NULL;
+        data = native_scene_alloc(binding, sizeof(*data));
+        if (data == NULL) return NULL;
+        data->count = (u8) count;
+        data->values = count == 0 ? NULL :
+            native_scene_alloc(binding, count * 2 * sizeof(*data->values));
+        if (count != 0 && data->values == NULL) return NULL;
+        for (size_t i = 0; i < count * 2; ++i) {
+            uint32_t bits = ((uint32_t) binding->archive->data[values_offset + i * 4] << 24) |
+                            ((uint32_t) binding->archive->data[values_offset + i * 4 + 1] << 16) |
+                            ((uint32_t) binding->archive->data[values_offset + i * 4 + 2] << 8) |
+                            binding->archive->data[values_offset + i * 4 + 3];
+            memcpy(&data->values[i], &bits, sizeof(bits));
+        }
+        return data;
+    }
+    if (strcmp(symbol, "plLoadCommonData") == 0) {
+        /* PdPm.dat exports a pointer field. Its target is the first 0x188
+         * bytes of the archive, which are big-endian scalar values. */
+        uint32_t target;
+        bool present;
+        void** slot;
+        uint8_t* converted;
+        if (NativeArchiveReference(binding->archive, offset, &target,
+                                   &present, &error) != NATIVE_ARCHIVE_OK ||
+            !present || !NativeArchiveDataRange(binding->archive, target,
+                                                0x188))
+            return NULL;
+        slot = native_scene_alloc(binding, sizeof(*slot));
+        converted = native_scene_alloc(binding, 0x188);
+        if (slot == NULL || converted == NULL) return NULL;
+        for (size_t i = 0; i < 0x188; i += 4) {
+            uint32_t bits = ((uint32_t) binding->archive->data[target + i]
+                             << 24) |
+                            ((uint32_t) binding->archive->data[target + i + 1]
+                             << 16) |
+                            ((uint32_t) binding->archive->data[target + i + 2]
+                             << 8) |
+                            binding->archive->data[target + i + 3];
+            memcpy(converted + i, &bits, sizeof(bits));
+        }
+        *slot = converted;
+        return slot;
+    }
+    if (native_name_ends_with(symbol, "DataTable")) {
+        struct NativeEffectDataEntry* table;
+        /* Each effect archive exports one EF_DAT_Entry. */
+        size_t count = 1;
+        if (!NativeArchiveDataRange(binding->archive, offset, count * 12))
+            return NULL;
+        table = native_scene_alloc(binding,
+                                   (count + 1) * sizeof(*table));
+        if (table == NULL) return NULL;
+        for (size_t i = 0; i < count; ++i) {
+            uint32_t target;
+            bool present;
+            if (!native_scene_reference(binding, offset + (uint32_t) (i * 12),
+                                        &target, &present, &error))
+                return NULL;
+            table[i].file = present
+                                ? (char*) (binding->archive->data + target)
+                                : NULL;
+            if (!native_scene_reference(binding,
+                                        offset + (uint32_t) (i * 12 + 4),
+                                        &target, &present, &error))
+                return NULL;
+            table[i].table = present
+                                 ? (char*) (binding->archive->data + target)
+                                 : NULL;
+            if (!native_scene_reference(binding,
+                                        offset + (uint32_t) (i * 12 + 8),
+                                        &target, &present, &error))
+                return NULL;
+            table[i].data = present
+                                ? (void*) (binding->archive->data + target)
+                                : NULL;
+        }
+        return table;
+    }
     if (native_name_ends_with(symbol, "_scene_data")) {
         root = native_scene_root(binding, offset, &error);
         if (root != NULL) return root;
@@ -574,6 +686,16 @@ void* HSD_ArchiveNativePublicAddress(HSD_Archive* archive, const char* symbol)
     } else if (native_name_ends_with(symbol, "_light")) {
         if (NativeArchiveLight(binding->graph, offset,
                                (HSD_LightDesc**) &root, &error) ==
+            NATIVE_ARCHIVE_OK)
+            return root;
+    } else if (native_name_ends_with(symbol, "_fog")) {
+        if (NativeArchiveFog(binding->graph, offset,
+                             (HSD_FogDesc**) &root, &error) ==
+            NATIVE_ARCHIVE_OK)
+            return root;
+    } else if (native_name_ends_with(symbol, "_sobjdesc")) {
+        if (NativeArchiveSObj(binding->graph, offset,
+                              (HSD_SObjDesc**) &root, &error) ==
             NATIVE_ARCHIVE_OK)
             return root;
     } else if (native_name_ends_with(symbol, "_wobj")) {

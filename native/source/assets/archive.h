@@ -79,6 +79,8 @@ struct HSD_WObjDesc;
 struct HSD_CameraAnim;
 struct HSD_LightDesc;
 struct HSD_LightAnim;
+struct HSD_FogDesc;
+struct HSD_SObjDesc;
 union HSD_CObjDesc;
 struct FigaTree;
 NativeArchiveStatus NativeArchiveJoint(NativeArchiveGraph* graph,
@@ -148,6 +150,22 @@ NativeArchiveStatus NativeArchiveLightAnimation(
 NativeArchiveStatus NativeArchiveLightAnimationByName(
     NativeArchiveGraph* graph, const char* name,
     struct HSD_LightAnim** output, NativeArchiveError* error);
+NativeArchiveStatus NativeArchiveFog(NativeArchiveGraph* graph,
+                                    uint32_t offset,
+                                    struct HSD_FogDesc** output,
+                                    NativeArchiveError* error);
+NativeArchiveStatus NativeArchiveFogByName(NativeArchiveGraph* graph,
+                                          const char* name,
+                                          struct HSD_FogDesc** output,
+                                          NativeArchiveError* error);
+NativeArchiveStatus NativeArchiveSObj(NativeArchiveGraph* graph,
+                                     uint32_t offset,
+                                     struct HSD_SObjDesc** output,
+                                     NativeArchiveError* error);
+NativeArchiveStatus NativeArchiveSObjByName(NativeArchiveGraph* graph,
+                                           const char* name,
+                                           struct HSD_SObjDesc** output,
+                                           NativeArchiveError* error);
 NativeArchiveStatus NativeArchiveFigaTree(NativeArchiveGraph* graph,
                                          uint32_t offset,
                                          struct FigaTree** output,

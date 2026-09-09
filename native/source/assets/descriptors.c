@@ -10,6 +10,8 @@
 #include <sysdolphin/baselib/robj.h>
 #include <sysdolphin/baselib/tobj.h>
 #include <sysdolphin/baselib/wobj.h>
+#include <sysdolphin/baselib/fog.h>
+#include <sysdolphin/baselib/sobjlib.h>
 #include <melee/lb/lbanim.h>
 
 #include <stdlib.h>
@@ -56,6 +58,9 @@ typedef enum Schema {
     SCHEMA_LIGHTPOINT,
     SCHEMA_LIGHTSPOT,
     SCHEMA_LIGHTATTN,
+    SCHEMA_FOG,
+    SCHEMA_FOGADJ,
+    SCHEMA_SOBJ,
     SCHEMA_VECTOR,
     SCHEMA_MATRIX,
     SCHEMA_STRING,
@@ -393,6 +398,18 @@ static void* add_node(NativeArchiveGraph* graph, uint32_t offset,
     case SCHEMA_LIGHTATTN:
         disk_size = 24;
         host_size = sizeof(HSD_LightAttn);
+        break;
+    case SCHEMA_FOG:
+        disk_size = 20;
+        host_size = sizeof(HSD_FogDesc);
+        break;
+    case SCHEMA_FOGADJ:
+        disk_size = 68;
+        host_size = sizeof(HSD_FogAdjDesc);
+        break;
+    case SCHEMA_SOBJ:
+        disk_size = 8;
+        host_size = sizeof(HSD_SObjDesc);
         break;
     case SCHEMA_VECTOR:
         disk_size = 12;
@@ -1086,6 +1103,33 @@ static bool convert_node(NativeArchiveGraph* graph, Node* node)
         attenuation->k2 = read_float(bytes + 20);
         break;
     }
+    case SCHEMA_FOG: {
+        HSD_FogDesc* fog = node->value;
+        fog->type = NativeArchiveBE32(bytes);
+        fog->fogadjdesc = link_node(graph, offset + 4, SCHEMA_FOGADJ, 0);
+        fog->start = read_float(bytes + 8);
+        fog->end = read_float(bytes + 12);
+        memcpy(&fog->color, bytes + 16, sizeof(fog->color));
+        break;
+    }
+    case SCHEMA_FOGADJ: {
+        HSD_FogAdjDesc* adjustment = node->value;
+        adjustment->center = (u16) ((bytes[0] << 8) | bytes[1]);
+        adjustment->width = (u16) ((bytes[2] << 8) | bytes[3]);
+        for (size_t row = 0; row < 4; ++row) {
+            for (size_t column = 0; column < 4; ++column) {
+                adjustment->mtx[row][column] =
+                    read_float(bytes + 4 + (row * 4 + column) * 4);
+            }
+        }
+        break;
+    }
+    case SCHEMA_SOBJ: {
+        HSD_SObjDesc* descriptor = node->value;
+        descriptor->image = link_node(graph, offset, SCHEMA_IMAGE, 0);
+        descriptor->tlut = link_node(graph, offset + 4, SCHEMA_TLUT, 0);
+        break;
+    }
     case SCHEMA_VECTOR: {
         Vec3* vector = node->value;
         *vector = read_vec(bytes);
@@ -1362,6 +1406,8 @@ ROOT_READER(NativeArchiveCObj, HSD_CObjDesc, SCHEMA_COBJ)
 ROOT_READER(NativeArchiveCameraAnimation, HSD_CameraAnim, SCHEMA_CANIM)
 ROOT_READER(NativeArchiveLight, HSD_LightDesc, SCHEMA_LIGHT)
 ROOT_READER(NativeArchiveLightAnimation, HSD_LightAnim, SCHEMA_LIGHTANIM)
+ROOT_READER(NativeArchiveFog, HSD_FogDesc, SCHEMA_FOG)
+ROOT_READER(NativeArchiveSObj, HSD_SObjDesc, SCHEMA_SOBJ)
 
 static NativeArchiveStatus find_named_root(NativeArchiveGraph* graph,
                                            const char* name, uint32_t* offset,
@@ -1406,4 +1452,6 @@ NAMED_ROOT_READER(NativeArchiveLightByName, HSD_LightDesc,
                   NativeArchiveLight)
 NAMED_ROOT_READER(NativeArchiveLightAnimationByName, HSD_LightAnim,
                   NativeArchiveLightAnimation)
+NAMED_ROOT_READER(NativeArchiveFogByName, HSD_FogDesc, NativeArchiveFog)
+NAMED_ROOT_READER(NativeArchiveSObjByName, HSD_SObjDesc, NativeArchiveSObj)
 NAMED_ROOT_READER(NativeArchiveFigaTreeByName, FigaTree, NativeArchiveFigaTree)

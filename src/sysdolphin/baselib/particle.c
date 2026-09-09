@@ -21,6 +21,9 @@ typedef struct {
 
 #include <math.h>
 #include <string.h>
+#ifdef MELEE_NATIVE
+#include <stdlib.h>
+#endif
 
 #include "cobj.h"
 #include "gobjobject.h"
@@ -70,6 +73,103 @@ typedef union {
 } ParticleFloatBytes;
 
 static volatile const f32 particle_zero = 0.0F;
+
+#ifdef MELEE_NATIVE
+static u16 particle_be16(const void* p)
+{
+    const u8* b = p;
+    return (u16) ((u16) b[0] << 8 | b[1]);
+}
+
+static u32 particle_be32(const void* p)
+{
+    const u8* b = p;
+    return (u32) b[0] << 24 | (u32) b[1] << 16 | (u32) b[2] << 8 |
+           b[3];
+}
+
+static f32 particle_be_float(const void* p)
+{
+    u32 bits = particle_be32(p);
+    f32 value;
+    memcpy(&value, &bits, sizeof(value));
+    return value;
+}
+
+/* Particle banks store offsets relative to each bank. Convert their small
+ * fixed headers to host objects before the normal particle code reads them. */
+static void particle_native_load(int bank, const u8* cmdBank,
+                                 const u8* texBank)
+{
+    u32 cmd_count = particle_be32(cmdBank + 8);
+    HSD_PSCmdList** commands = calloc((size_t) cmd_count + 1,
+                                      sizeof(*commands));
+    u32 tex_count = particle_be32(texBank);
+    HSD_PSTexGroup** textures = calloc((size_t) tex_count + 1,
+                                       sizeof(*textures));
+    u32 i;
+    if (commands == NULL || textures == NULL) {
+        free(commands);
+        free(textures);
+        OSPanic(__FILE__, 130, "cannot allocate native particle bank\n");
+        return;
+    }
+    for (i = 0; i < cmd_count; ++i) {
+        u32 target = particle_be32(cmdBank + 12 + i * 4);
+        HSD_PSCmdList* src;
+        HSD_PSCmdList* dst;
+        if (target == 0) continue;
+        src = (HSD_PSCmdList*) (cmdBank + target);
+        dst = calloc(1, 0x100);
+        if (dst == NULL) continue;
+        dst->type = particle_be16((u8*) src);
+        dst->texGroup = particle_be16((u8*) src + 2);
+        dst->genLife = particle_be16((u8*) src + 4);
+        dst->life = particle_be16((u8*) src + 6);
+        dst->kind = particle_be32((u8*) src + 8);
+        dst->grav = particle_be_float((u8*) src + 12);
+        dst->fric = particle_be_float((u8*) src + 16);
+        dst->vx = particle_be_float((u8*) src + 20);
+        dst->vy = particle_be_float((u8*) src + 24);
+        dst->vz = particle_be_float((u8*) src + 28);
+        dst->radius = particle_be_float((u8*) src + 32);
+        dst->angle = particle_be_float((u8*) src + 36);
+        dst->random = particle_be_float((u8*) src + 40);
+        dst->size = particle_be_float((u8*) src + 44);
+        dst->param1 = particle_be_float((u8*) src + 48);
+        dst->param2 = particle_be_float((u8*) src + 52);
+        dst->param3 = particle_be_float((u8*) src + 56);
+        memcpy(dst->cmdList, (u8*) src + 60, 0x40);
+        commands[i] = dst;
+    }
+    for (i = 0; i < tex_count; ++i) {
+        u32 target = particle_be32(texBank + 4 + i * 4);
+        HSD_PSTexGroup* src;
+        HSD_PSTexGroup* dst;
+        u32 j;
+        if (target == 0) continue;
+        src = (HSD_PSTexGroup*) (texBank + target);
+        dst = calloc(1, sizeof(*dst) + 4 * 64);
+        if (dst == NULL) continue;
+        dst->num = particle_be32((u8*) src);
+        dst->fmt = particle_be32((u8*) src + 4);
+        dst->tlutfmt = particle_be32((u8*) src + 8);
+        dst->width = particle_be32((u8*) src + 12);
+        dst->height = particle_be32((u8*) src + 16);
+        dst->palnum = particle_be16((u8*) src + 20);
+        dst->palflag = particle_be16((u8*) src + 22);
+        if (dst->num > 64) dst->num = 64;
+        for (j = 0; j < dst->num; ++j) {
+            u32 image = particle_be32((u8*) src + 24 + j * 4);
+            dst->texTable[j] = image == 0 ? NULL : (u8*) (texBank + image);
+        }
+        textures[i] = dst;
+    }
+    psCmdListArray[bank] = (int) cmd_count;
+    ptclref_804D0E5C[bank] = commands;
+    psTexGroupArray[bank] = textures;
+}
+#endif
 
 void hsd_803983A4(HSD_Generator* gen)
 {
@@ -136,7 +236,16 @@ void psInitDataBankLoad(int bank, const int* cmdBank, const int* texBank,
         psNumCmdList[bank] = NULL;
     }
 
-    version = *(u16*) cmdBank;
+    version =
+#ifdef MELEE_NATIVE
+        particle_be16(cmdBank);
+#else
+        *(u16*) cmdBank;
+#endif
+#ifdef MELEE_NATIVE
+    particle_native_load(bank, (const u8*) cmdBank, (const u8*) texBank);
+    return;
+#endif
     switch (version) {
     case 0:
         psCmdListArray[bank] = cmdBank[1];

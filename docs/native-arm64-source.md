@@ -83,7 +83,7 @@ cmake --build build/native-source/tests --parallel 8
 ctest --test-dir build/native-source/tests --output-on-failure
 ```
 
-The current run passes all 13 tests: heap, memory, GObj links, math, scene
+The current run passes all 15 tests: heap, memory, GObj links, math, scene
 sorting and bytecode, fighter storage, effects, both archive readers,
 scheduler, controller input, and GX.
 
@@ -121,11 +121,19 @@ build/native-source/game/melee-native --disc "$IMAGE" \
 `MELEE_PAD_SCRIPT` and `MELEE_PAD_TRACE` provide the same settings through the
 environment.
 
-The latest launcher build starts the native game loop and stays alive during
-an eight-second run with this image. It prints the game startup banner without
-an archive error. Stop it with Control-C. A longer AddressSanitizer startup
-run also stays alive without a sanitizer report. These runs have not yet
-reached a playable menu or a real match.
+For timing and input checks that do not need a rendered image, set
+`MELEE_SKIP_RENDER=1`. This keeps the software GX state updates but skips the
+CPU rasterizer, so scripted frames advance at host speed.
+
+For headless startup checks, `MELEE_SKIP_CARD=1` bypasses the unimplemented
+memory card device and `MELEE_SKIP_INTRO=1` bypasses the unavailable THP intro
+movie decoder.
+
+The latest launcher build reaches title mode and VS scene setup with the card,
+intro, and renderer skips above. The native archive bridge decodes effect
+particle banks, fog and SObj descriptors, refraction data, and the player
+common table. Stage roots still need typed conversion, so the VS scene cannot
+start a playable match yet.
 
 ## Current state
 
@@ -141,15 +149,14 @@ deterministic clock without sleeping.
 
 The native archive bridge now loads `lbRumbleData`, `SIS_MessageData`, and
 `MemCardIconData` from the real image. It also converts the camera animation
-used by `ScNtcCommon_scene_data`. An AddressSanitizer startup run reaches this
-typed scene conversion without a sanitizer report. It has not yet entered a
-real match. The typed archive graph covers common joint display
-descriptors, materials, texture metadata, skin polygon descriptors, vertex
-descriptor lists, animations, cameras, and world objects. Remaining archive
-work includes the full scene roots, stage and menu roots, shape and envelope
-polygon descriptors, effects, and other callers. The graph can decode material
-and texture metadata, but the renderer does not yet apply those materials or
-sample those textures.
+used by `ScNtcCommon_scene_data`, effect particle banks, fog and SObj
+descriptors, refraction data, and the player common table. The typed archive
+graph covers common joint display descriptors, materials, texture metadata,
+skin polygon descriptors, vertex descriptor lists, animations, cameras, and
+world objects. Remaining archive work includes the full scene roots, stage
+and menu roots, shape and envelope polygon descriptors, and other callers.
+The graph can decode material and texture metadata, but the renderer does not
+yet apply those materials or sample those textures.
 
 The software GX EFB rasterizes direct vertex calls and `GXCopyDisp` copies the
 result to an RGB565 XFB. Its display-list decoder handles common big-endian

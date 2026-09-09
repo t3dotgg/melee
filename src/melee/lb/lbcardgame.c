@@ -16,6 +16,10 @@
 #include <sysdolphin/baselib/gobjproc.h>
 #include <sysdolphin/baselib/jobj.h>
 
+#ifdef MELEE_NATIVE
+#include <stdlib.h>
+#endif
+
 #define _p(x) (lb_80433318.x)
 
 static struct {
@@ -136,6 +140,17 @@ void lb_8001CBAC(int arg0)
 enum_t lb_8001CBBC(void)
 {
     enum_t temp_r3;
+
+#ifdef MELEE_NATIVE
+    /* Native hosts do not have a card device yet. Let headless boot tests
+     * continue when the caller explicitly opts out of the card prompt. */
+    {
+        const char* skip_card = getenv("MELEE_SKIP_CARD");
+        if (skip_card != NULL && skip_card[0] != '\0' && skip_card[0] != '0') {
+            return 0;
+        }
+    }
+#endif
 
     if (lb_8001CAF4() != 0) {
         return 0xD;

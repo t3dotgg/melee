@@ -88,7 +88,6 @@ add_test(NAME archive_legacy COMMAND test_archive_legacy)
 add_executable(test_scheduler tests/test_scheduler.c platform/os.c
     platform/scheduler.c platform/vi.c platform/heap.c platform/report.c)
 target_sources(test_scheduler PRIVATE platform/pad.c)
-target_sources(test_scheduler PRIVATE platform/pad.c)
 target_link_libraries(test_scheduler PRIVATE melee_host_options)
 add_test(NAME scheduler COMMAND test_scheduler)
 

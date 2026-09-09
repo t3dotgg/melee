@@ -4,6 +4,10 @@
 
 #include <placeholder.h>
 
+#ifdef MELEE_NATIVE
+#include <stdlib.h>
+#endif
+
 #include "forward.h"
 #include "gm_unsplit.h"
 #include "gmhomerun.h"
@@ -1373,6 +1377,14 @@ void gmMainLib_8015FCC0(void)
 {
     struct gmMainLib_8046B0F0_t* tmp = &gmMainLib_8046B0F0;
     tmp->skip_intro = OSGetResetCode() == 0x80000000 ? true : false;
+#ifdef MELEE_NATIVE
+    {
+        const char* skip_intro = getenv("MELEE_SKIP_INTRO");
+        if (skip_intro != NULL && skip_intro[0] != '\0' && skip_intro[0] != '0') {
+            tmp->skip_intro = true;
+        }
+    }
+#endif
     tmp->resetting = false;
     tmp->progressive = false;
     tmp->xC = 0;

@@ -42,7 +42,14 @@ static f32 gx_pos_mtx[3][4] = {
 static GXBool gx_have_pos_mtx, gx_have_projection;
 static u16 gx_copy_left, gx_copy_top, gx_copy_width, gx_copy_src_height;
 static u16 gx_copy_dst_width;
+static GXBool gx_skip_raster;
 static void gx_position(f32 x, f32 y, f32 z);
+
+static GXBool gx_should_skip_raster(void)
+{
+    const char* value = getenv("MELEE_SKIP_RENDER");
+    return value != NULL && value[0] != '\0' && value[0] != '0';
+}
 
 /* GX display lists contain the vertex stream in the GameCube wire format.
  * The original GX FIFO reads all multi-byte values as big endian, while the
@@ -778,12 +785,12 @@ GXRenderModeObj GXNtsc480IntDf = { .fbWidth = 640, .efbHeight = 480,
 GXRenderModeObj GXNtsc480Prog = { .viTVmode = 2, .fbWidth = 640,
                                   .efbHeight = 480, .xfbHeight = 480,
                                   .viWidth = 640, .viHeight = 480 };
-GXFifoObj *GXInit(void *b,u32 s){(void)b;(void)s;memset(&gx_fifo,0,sizeof gx_fifo);gx_cpu_fifo=gx_gp_fifo=&gx_fifo;free(gx_efb);gx_efb=NULL;gx_ensure_efb();memset(gx_projection,0,sizeof gx_projection);memset(gx_scissor,0,sizeof gx_scissor);memset(gx_vtx_state,0,sizeof gx_vtx_state);memset(gx_textures,0,sizeof gx_textures);memset(gx_tluts,0,sizeof gx_tluts);memset(gx_tev_mode,0,sizeof gx_tev_mode);memset(gx_tev_coord,0xff,sizeof gx_tev_coord);memset(gx_tev_map,0xff,sizeof gx_tev_map);gx_num_tev_stages=0;for (u32 format = 0; format < GX_MAX_VTXFMT; format++) { for (u32 attr = 0; attr < GX_VA_MAX_ATTR; attr++) { gx_vtx_state[format][attr].cnt = GX_POS_XYZ; gx_vtx_state[format][attr].type = GX_F32; } } gx_active_vtxfmt=GX_VTXFMT0;gx_have_projection=GX_FALSE;gx_have_pos_mtx=GX_FALSE;gx_copy_width=640;gx_copy_src_height=480;gx_copy_dst_width=640;gx_copy_height=480;gx_color_update=GX_TRUE;gx_copy_clear_color=(GXColor){0,0,0,255};return &gx_fifo;}
+GXFifoObj *GXInit(void *b,u32 s){(void)b;(void)s;memset(&gx_fifo,0,sizeof gx_fifo);gx_cpu_fifo=gx_gp_fifo=&gx_fifo;free(gx_efb);gx_efb=NULL;gx_ensure_efb();gx_skip_raster=gx_should_skip_raster();memset(gx_projection,0,sizeof gx_projection);memset(gx_scissor,0,sizeof gx_scissor);memset(gx_vtx_state,0,sizeof gx_vtx_state);memset(gx_textures,0,sizeof gx_textures);memset(gx_tluts,0,sizeof gx_tluts);memset(gx_tev_mode,0,sizeof gx_tev_mode);memset(gx_tev_coord,0xff,sizeof gx_tev_coord);memset(gx_tev_map,0xff,sizeof gx_tev_map);gx_num_tev_stages=0;for (u32 format = 0; format < GX_MAX_VTXFMT; format++) { for (u32 attr = 0; attr < GX_VA_MAX_ATTR; attr++) { gx_vtx_state[format][attr].cnt = GX_POS_XYZ; gx_vtx_state[format][attr].type = GX_F32; } } gx_active_vtxfmt=GX_VTXFMT0;gx_have_projection=GX_FALSE;gx_have_pos_mtx=GX_FALSE;gx_copy_width=640;gx_copy_src_height=480;gx_copy_dst_width=640;gx_copy_height=480;gx_color_update=GX_TRUE;gx_copy_clear_color=(GXColor){0,0,0,255};return &gx_fifo;}
 GXDrawDoneCallback GXSetDrawDoneCallback(GXDrawDoneCallback c){GXDrawDoneCallback o=gx_done_cb;gx_done_cb=c;return o;}
 GXDrawSyncCallback GXSetDrawSyncCallback(GXDrawSyncCallback c){GXDrawSyncCallback o=gx_sync_cb;gx_sync_cb=c;return o;}
 void GXSetDrawSync(u16 t){gx_draw_token=t;if(gx_sync_cb)gx_sync_cb(t);} u16 GXReadDrawSync(void){return gx_draw_token;}
 void GXSetDrawDone(void){if(gx_done_cb)gx_done_cb();} void GXWaitDrawDone(void){} void GXDrawDone(void){GXSetDrawDone();}
-void GXBegin(GXPrimitive t,GXVtxFmt f,u16 n){gx_ensure_efb();gx_primitive=t;gx_vertex_format=f;gx_active_vtxfmt=f;gx_expected_vertices=n;gx_vertex_count=0;gx_pending_position=GX_FALSE;gx_in_begin=GX_TRUE;} void GXEnd(void){if (!gx_in_begin) return;gx_rasterize();gx_in_begin=GX_FALSE;}
+void GXBegin(GXPrimitive t,GXVtxFmt f,u16 n){gx_ensure_efb();gx_primitive=t;gx_vertex_format=f;gx_active_vtxfmt=f;gx_expected_vertices=n;gx_vertex_count=0;gx_pending_position=GX_FALSE;gx_in_begin=GX_TRUE;} void GXEnd(void){if (!gx_in_begin) return;if (!gx_skip_raster) gx_rasterize(); else { gx_commit_vertex(); gx_vertex_count=0; } gx_in_begin=GX_FALSE;}
 #define V1(n,t) void n##1##t(t x){(void)x;}
 #define V2(n,t) void n##2##t(t x,t y){(void)x;(void)y;}
 #define V3(n,t) void n##3##t(t x,t y,t z){(void)x;(void)y;(void)z;}
