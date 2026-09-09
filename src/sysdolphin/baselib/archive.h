@@ -58,4 +58,11 @@ char* HSD_ArchiveGetExtern(HSD_Archive* archive, int extern_index);
 void HSD_ArchiveLocateExtern(HSD_Archive* archive, const char* symbol_name,
                              void* address);
 
+#ifdef MELEE_NATIVE
+/* The legacy archive handle is only an API token on the native host.  The
+ * loader keeps the serialized file and its typed graph in a side table. */
+void* HSD_ArchiveNativePublicAddress(HSD_Archive*, const char*);
+void HSD_ArchiveNativeRelease(HSD_Archive*);
+#endif
+
 #endif

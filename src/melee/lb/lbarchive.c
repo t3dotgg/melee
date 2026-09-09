@@ -1,14 +1,285 @@
 #include "lbarchive.h"
 
 #include <stdarg.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include "lbdvd.h"
 #include "lbfile.h"
 #include "lbheap.h"
+#include "types.h"
 #include <dolphin/os.h>
 #include <sysdolphin/baselib/archive.h>
 #include <sysdolphin/baselib/debug.h>
+
+#ifdef MELEE_NATIVE
+#include <sysdolphin/baselib/sislib.h>
+#include "../../../native/source/assets/archive_internal.h"
+#endif
+
+#ifdef MELEE_NATIVE
+typedef struct NativeArchiveBinding NativeArchiveBinding;
+typedef struct NativeSisRoot NativeSisRoot;
+
+struct NativeSisRoot {
+    SIS* table;
+    size_t count;
+    NativeSisRoot* next;
+};
+
+struct NativeArchiveBinding {
+    HSD_Archive* legacy;
+    void* input;
+    NativeArchive* archive;
+    NativeArchiveGraph* graph;
+    NativeSisRoot* sis_roots;
+    NativeArchiveBinding* next;
+};
+
+static NativeArchiveBinding* native_archive_bindings;
+
+static NativeArchiveBinding* native_binding(HSD_Archive* archive)
+{
+    NativeArchiveBinding* binding;
+    for (binding = native_archive_bindings; binding != NULL;
+         binding = binding->next) {
+        if (binding->legacy == archive) return binding;
+    }
+    return NULL;
+}
+
+static bool native_name_ends_with(const char* name, const char* suffix)
+{
+    size_t name_len;
+    size_t suffix_len;
+    if (name == NULL || suffix == NULL) return false;
+    name_len = strlen(name);
+    suffix_len = strlen(suffix);
+    return name_len >= suffix_len &&
+           strcmp(name + name_len - suffix_len, suffix) == 0;
+}
+
+static void native_archive_error(const char* operation,
+                                 const NativeArchiveError* error)
+{
+    OSReport("native archive %s failed at %zu: %s\n", operation,
+             error == NULL ? 0 : error->offset,
+             error == NULL || error->message == NULL ? "unknown error"
+                                                      : error->message);
+}
+
+/* SIS roots are arrays of two serialized four-byte offsets.  Convert the
+ * pointer-bearing table while retaining immutable byte ranges in the archive
+ * owned copy.  A pair of null entries terminates the table. */
+static SIS* native_sis_root(NativeArchiveBinding* binding, uint32_t offset,
+                            NativeArchiveError* error)
+{
+    NativeSisRoot* root;
+    SIS* table;
+    size_t count = 0;
+    size_t i;
+    bool saw_entry = false;
+    const size_t max_entries = NativeArchiveDataSize(binding->archive) / 8u;
+
+    for (i = 0; i < max_entries; ++i) {
+        uint32_t field0 = offset + (uint32_t) (i * 8u);
+        uint32_t field1 = field0 + 4u;
+        uint32_t target0 = 0;
+        uint32_t target1 = 0;
+        bool present0 = false;
+        bool present1 = false;
+        NativeArchiveStatus status0;
+        NativeArchiveStatus status1;
+        status0 = NativeArchiveReference(binding->archive, field0, &target0,
+                                          &present0, error);
+        status1 = NativeArchiveReference(binding->archive, field1, &target1,
+                                          &present1, error);
+        if (status0 != NATIVE_ARCHIVE_OK || status1 != NATIVE_ARCHIVE_OK) {
+            /* The first non-SIS pair marks the end of this root. */
+            if (!saw_entry) return NULL;
+            break;
+        }
+        if (!present0 && !present1) {
+            if (saw_entry) break;
+            return NULL;
+        }
+        if (!present0 || !present1) {
+            native_archive_error("SIS root", error);
+            return NULL;
+        }
+        if (!NativeArchiveDataRange(binding->archive, target0, 1) ||
+            !NativeArchiveDataRange(binding->archive, target1, 1)) {
+            /* Some message tables use end-of-data sentinels. */
+            if (target0 > NativeArchiveDataSize(binding->archive) ||
+                target1 > NativeArchiveDataSize(binding->archive))
+                return NULL;
+        }
+        saw_entry = true;
+        count = i + 1;
+    }
+    if (count == 0 || count > SIZE_MAX / sizeof(*table)) return NULL;
+    table = calloc(count, sizeof(*table));
+    if (table == NULL) {
+        if (error != NULL) {
+            error->status = NATIVE_ARCHIVE_NO_MEMORY;
+            error->offset = offset;
+            error->message = "cannot allocate SIS root";
+        }
+        return NULL;
+    }
+    for (i = 0; i < count; ++i) {
+        uint32_t target0 = 0;
+        uint32_t target1 = 0;
+        bool present0 = false;
+        bool present1 = false;
+        if (NativeArchiveReference(binding->archive, offset + (uint32_t) (i * 8u),
+                                   &target0, &present0, error) !=
+                NATIVE_ARCHIVE_OK ||
+            NativeArchiveReference(binding->archive,
+                                   offset + (uint32_t) (i * 8u + 4u), &target1,
+                                   &present1, error) != NATIVE_ARCHIVE_OK) {
+            free(table);
+            return NULL;
+        }
+        table[i].kerning = present0 && target0 < NativeArchiveDataSize(binding->archive)
+                                ? (TextKerning*) (binding->archive->data + target0)
+                                : NULL;
+        table[i].textures = present1 && target1 < NativeArchiveDataSize(binding->archive)
+                                ? (TextGlyphTexture*) (binding->archive->data + target1)
+                                : NULL;
+    }
+    root = calloc(1, sizeof(*root));
+    if (root == NULL) {
+        free(table);
+        return NULL;
+    }
+    root->table = table;
+    root->count = count;
+    root->next = binding->sis_roots;
+    binding->sis_roots = root;
+    return table;
+}
+
+static struct Fighter_804D653C_t* native_rumble_root(
+    NativeArchiveBinding* binding, uint32_t offset, NativeArchiveError* error)
+{
+    size_t count = 0;
+    size_t i;
+    const size_t max_entries =
+        (NativeArchiveDataSize(binding->archive) - offset) / 8u;
+    struct Fighter_804D653C_t* table;
+    for (i = 0; i < max_entries; ++i) {
+        uint32_t target = 0;
+        bool present = false;
+        NativeArchiveStatus status = NativeArchiveReference(
+            binding->archive, offset + (uint32_t) (i * 8u), &target, &present,
+            error);
+        if (status != NATIVE_ARCHIVE_OK || !present) break;
+        if (!NativeArchiveDataRange(binding->archive, target, 1)) return NULL;
+        count = i + 1;
+    }
+    if (count == 0) return NULL;
+    table = calloc(count, sizeof(*table));
+    if (table == NULL) return NULL;
+    for (i = 0; i < count; ++i) {
+        uint32_t target = 0;
+        bool present = false;
+        const uint8_t* bytes = binding->archive->data + offset + i * 8u;
+        if (NativeArchiveReference(binding->archive,
+                                   offset + (uint32_t) (i * 8u), &target,
+                                   &present, error) != NATIVE_ARCHIVE_OK) {
+            free(table);
+            return NULL;
+        }
+        table[i].unk = present ? (void*) (binding->archive->data + target) : NULL;
+        table[i].unk4 = bytes[4];
+        table[i].unk5 = bytes[5];
+    }
+    return table;
+}
+
+void* HSD_ArchiveNativePublicAddress(HSD_Archive* archive, const char* symbol)
+{
+    NativeArchiveBinding* binding = native_binding(archive);
+    NativeArchiveError error = { NATIVE_ARCHIVE_OK, 0, "ok" };
+    uint32_t offset;
+    void* root = NULL;
+
+    if (binding == NULL || symbol == NULL ||
+        NativeArchiveFind(binding->archive, symbol, &offset, &error) !=
+            NATIVE_ARCHIVE_OK) {
+        if (binding != NULL) {
+            OSReport("native lookup miss %s public_count=%zu\n", symbol,
+                     NativeArchivePublicCount(binding->archive));
+            for (size_t i = 0; i < NativeArchivePublicCount(binding->archive) && i < 5; i++) {
+                NativeArchiveSymbol item;
+                if (NativeArchivePublic(binding->archive, i, &item, NULL) == NATIVE_ARCHIVE_OK)
+                    OSReport("  public[%zu]=%s off=%u\n", i, item.name, item.offset);
+            }
+        }
+        return NULL;
+    }
+    if (strncmp(symbol, "SIS_", 4) == 0) {
+        return native_sis_root(binding, offset, &error);
+    }
+    if (strcmp(symbol, "lbRumbleData") == 0) {
+        return native_rumble_root(binding, offset, &error);
+    }
+    if (strcmp(symbol, "MemCardIconData") == 0 &&
+        NativeArchiveDataRange(binding->archive, offset, 1)) {
+        return (void*) (binding->archive->data + offset);
+    }
+    if (native_name_ends_with(symbol, "_animjoint") ||
+        native_name_ends_with(symbol, "_animation")) {
+        if (NativeArchiveAnimation(binding->graph, offset,
+                                   (HSD_AnimJoint**) &root, &error) ==
+            NATIVE_ARCHIVE_OK) return root;
+    } else if (native_name_ends_with(symbol, "_camera") ||
+               native_name_ends_with(symbol, "_cobjdesc")) {
+        if (NativeArchiveCObj(binding->graph, offset,
+                              (HSD_CObjDesc**) &root, &error) ==
+            NATIVE_ARCHIVE_OK) return root;
+    } else if (native_name_ends_with(symbol, "_joint")) {
+        if (NativeArchiveJoint(binding->graph, offset, (HSD_Joint**) &root,
+                               &error) == NATIVE_ARCHIVE_OK)
+            return root;
+    } else if (native_name_ends_with(symbol, "_wobj") ||
+               native_name_ends_with(symbol, "_light")) {
+        if (NativeArchiveWObj(binding->graph, offset, (HSD_WObjDesc**) &root,
+                              &error) == NATIVE_ARCHIVE_OK)
+            return root;
+    }
+    /* Byte-only DAT roots are safe to expose through the old API. */
+    if (binding->archive->reloc_count == 0 &&
+        NativeArchiveDataRange(binding->archive, offset, 1))
+        return (void*) (binding->archive->data + offset);
+    native_archive_error(symbol, &error);
+    return NULL;
+}
+
+void HSD_ArchiveNativeRelease(HSD_Archive* archive)
+{
+    NativeArchiveBinding** cursor = &native_archive_bindings;
+    NativeArchiveBinding* binding;
+    NativeSisRoot* sis;
+    while (*cursor != NULL && (*cursor)->legacy != archive) cursor = &(*cursor)->next;
+    binding = *cursor;
+    if (binding == NULL) return;
+    *cursor = binding->next;
+    sis = binding->sis_roots;
+    while (sis != NULL) {
+        NativeSisRoot* next = sis->next;
+        free(sis->table);
+        free(sis);
+        sis = next;
+    }
+    NativeArchiveGraphClose(binding->graph);
+    NativeArchiveClose(binding->archive);
+    /* The owning heap releases the serialized input.  Preloaded archives can
+     * use a scene heap, so this bridge must not guess its heap id. */
+    free(binding);
+}
+#endif
 
 #ifdef MUST_MATCH
 #pragma push
@@ -17,14 +288,50 @@
 void lbArchive_InitializeDAT(HSD_Archive* archive, void* data, size_t length)
 {
 #ifdef MELEE_NATIVE
-    /* DAT files need a NativeArchive graph before their roots can be used.
-     * Keep this legacy entry point fail-fast until its caller has migrated. */
-    (void) archive;
-    (void) data;
-    (void) length;
-    OSReport("lbArchive_InitializeDAT is unavailable on native hosts; use "
-             "NativeArchive.\n");
-    HSD_ASSERT(73, 0);
+    NativeArchive* native = NULL;
+    NativeArchiveGraph* graph = NULL;
+    NativeArchiveBinding* state;
+    NativeArchiveError error;
+    NativeArchiveStatus status;
+    if (archive == NULL || data == NULL) {
+        HSD_ASSERT(73, 0);
+        return;
+    }
+    HSD_ArchiveNativeRelease(archive);
+    status = NativeArchiveOpen(data, length, &native, &error);
+    if (status != NATIVE_ARCHIVE_OK) {
+        native_archive_error("open", &error);
+        HSD_ASSERT(73, 0);
+        return;
+    }
+    status = NativeArchiveGraphOpen(native, &graph, &error);
+    if (status != NATIVE_ARCHIVE_OK) {
+        native_archive_error("graph", &error);
+        NativeArchiveClose(native);
+        HSD_ASSERT(73, 0);
+        return;
+    }
+    state = calloc(1, sizeof(*state));
+    if (state == NULL) {
+        NativeArchiveGraphClose(graph);
+        NativeArchiveClose(native);
+        HSD_ASSERT(73, 0);
+        return;
+    }
+    state->legacy = archive;
+    state->input = data;
+    state->archive = native;
+    state->graph = graph;
+    state->next = native_archive_bindings;
+    native_archive_bindings = state;
+    memset(archive, 0, sizeof(*archive));
+    archive->header.file_size = (u32) length;
+    archive->header.data_size = (u32) NativeArchiveDataSize(native);
+    archive->header.nb_reloc = (u32) native->reloc_count;
+    archive->header.nb_public = (u32) native->public_count;
+    archive->header.nb_extern = (u32) native->external_count;
+    archive->flags = HSD_ARCHIVE_DONT_FREE;
+    archive->top_ptr = state;
 #else
     const char* extern_name;
     int extern_index = 0;
@@ -159,10 +466,16 @@ HSD_Archive* lbArchive_80016DBC(const char* filename, void* symbol_dst, ...)
 
 void lbArchive_80016EFC(HSD_Archive* archive)
 {
+#ifdef MELEE_NATIVE
+    HSD_ArchiveNativeRelease(archive);
+    lbHeap_80015CA8(0, (u8*) archive - 0x20);
+    return;
+#else
     HSD_ASSERT(0xFC, archive);
     HSD_ASSERT(0xFD, archive->flags & HSD_ARCHIVE_DONT_FREE);
     lbHeap_80015CA8(0, archive->data - sizeof(HSD_ArchiveHeader));
     lbHeap_80015CA8(0, archive);
+#endif
 }
 
 bool lbArchive_80016F80(HSD_Archive** dst, const char* filename)
