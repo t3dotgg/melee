@@ -450,6 +450,32 @@ static bool gx_dl_is_primitive(u8 command)
            primitive == GX_LINES || primitive == GX_LINESTRIP ||
            primitive == GX_POINTS;
 }
+
+static bool gx_dl_skip_state_command(u8 command, const u8 **cursor,
+                                     const u8 *end)
+{
+    size_t payload_size;
+    switch (command) {
+    case GX_LOAD_CP_REG:
+        payload_size = 5; /* register byte and one 32-bit value */
+        break;
+    case GX_LOAD_XF_REG:
+        payload_size = 8; /* 32-bit XF address and one 32-bit value */
+        break;
+    case GX_LOAD_INDX_A:
+    case GX_LOAD_INDX_B:
+    case GX_LOAD_INDX_C:
+    case GX_LOAD_INDX_D:
+    case GX_LOAD_BP_REG:
+        payload_size = 4;
+        break;
+    default:
+        return false;
+    }
+    if (payload_size > (size_t) (end - *cursor)) return false;
+    *cursor += payload_size;
+    return true;
+}
 GXRenderModeObj GXNtsc480Int = { .fbWidth = 640, .efbHeight = 480,
                                  .xfbHeight = 480, .viWidth = 640,
                                  .viHeight = 480 };
@@ -733,8 +759,8 @@ void GXCallDisplayList(void *list, u32 nbytes) {
         /* A PObj display list is normally a stream of primitive commands.
          * Handle the common padding command and stop on other commands rather
          * than guessing a payload length and reading into the next object. */
-        if (command == 0x00) continue;
-        return;
+        if (command == GX_NOP) continue;
+        if (!gx_dl_skip_state_command(command, &cursor, end)) return;
     }
 }
 void GXAbortFrame(void) {}
