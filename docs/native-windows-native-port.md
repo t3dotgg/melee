@@ -146,3 +146,6 @@ collision, and render snapshots into a deterministic training-mode slice.
 The Windows input boundary now dynamically loads XInput 1.4/1.3 and converts
 real controller packets into the typed mapper, while cleanly handling systems
 with no XInput DLL or connected controller.
+Typed Persistent, Scene, Frame, and Audio arenas now provide alignment-safe
+allocation, generation-checked handles, and deterministic reset behavior in
+place of the GameCube heap and raw pointer ranges.
