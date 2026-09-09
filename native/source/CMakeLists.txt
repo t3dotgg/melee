@@ -95,6 +95,12 @@ add_executable(test_fighter_common tests/test_fighter_common.c
 target_link_libraries(test_fighter_common PRIVATE melee_host_options)
 add_test(NAME fighter_common COMMAND test_fighter_common)
 
+add_executable(test_fighter_parts tests/test_fighter_parts.c
+    assets/fighter_parts.c assets/archive.c assets/descriptors.c
+    platform/report.c)
+target_link_libraries(test_fighter_parts PRIVATE melee_host_options)
+add_test(NAME fighter_parts COMMAND test_fighter_parts)
+
 add_executable(test_effects tests/test_effects.c)
 target_sources(test_effects PRIVATE "${MELEE_ROOT}/src/melee/ef/eflib.c")
 target_link_libraries(test_effects PRIVATE melee_host_options)
