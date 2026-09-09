@@ -3,13 +3,84 @@
 
 #include "display.h"
 
+#include <ctype.h>
+#include <stdint.h>
+#include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 /* Keep Dolphin's BOOL typedef out of Objective-C headers. */
 extern void NativePADHandleKeyCode(unsigned short key_code, int pressed,
                                    int repeat);
 
 static NSWindow* s_window;
+static int s_headless;
+static int s_options_initialized;
+static char* s_frame_output_path;
+static uint32_t s_frame_output_retrace = 1;
+static int s_frame_output_has_retrace;
+static int s_frame_output_written;
+static uint32_t s_retrace_count;
+
+static void initialize_options(void)
+{
+    if (s_options_initialized) {
+        return;
+    }
+    s_options_initialized = 1;
+
+    const char* headless = getenv("MELEE_HEADLESS");
+    s_headless = headless != NULL && headless[0] != '\0' &&
+                 strcmp(headless, "0") != 0;
+
+    const char* output = getenv("MELEE_FRAME_OUTPUT");
+    if (output == NULL || output[0] == '\0') {
+        return;
+    }
+
+    char* value = strdup(output);
+    if (value == NULL) {
+        return;
+    }
+    char* path = value;
+    char* suffix = strrchr(value, '@');
+    if (suffix != NULL && suffix[1] != '\0') {
+        char* end = NULL;
+        unsigned long retrace = strtoul(suffix + 1, &end, 10);
+        if (*end == '\0' && retrace <= UINT32_MAX) {
+            *suffix = '\0';
+            s_frame_output_retrace = (uint32_t) retrace;
+            s_frame_output_has_retrace = 1;
+        }
+    } else {
+        char* colon = strchr(value, ':');
+        if (colon != NULL && colon != value) {
+            int digits = 1;
+            for (char* p = value; p < colon; ++p) {
+                if (!isdigit((unsigned char) *p)) {
+                    digits = 0;
+                    break;
+                }
+            }
+            if (digits) {
+                char* end = NULL;
+                unsigned long retrace = strtoul(value, &end, 10);
+                if (end == colon && retrace <= UINT32_MAX && colon[1] != '\0') {
+                    *colon = '\0';
+                    s_frame_output_retrace = (uint32_t) retrace;
+                    s_frame_output_has_retrace = 1;
+                    path = colon + 1;
+                    memmove(value, path, strlen(path) + 1);
+                }
+            }
+        }
+    }
+    if (value[0] != '\0') {
+        s_frame_output_path = value;
+    } else {
+        free(value);
+    }
+}
 
 static void release_pixels(void* info, const void* data, size_t size)
 {
@@ -20,6 +91,9 @@ static void release_pixels(void* info, const void* data, size_t size)
 
 static void pump_events(void)
 {
+    if (s_headless) {
+        return;
+    }
     NSEvent* event;
     do {
         event = [NSApp nextEventMatchingMask:NSEventMaskAny
@@ -38,8 +112,17 @@ static void pump_events(void)
     } while (event != nil);
 }
 
+void NativeDisplaySetRetraceCount(uint32_t retrace_count)
+{
+    s_retrace_count = retrace_count;
+}
+
 void NativeDisplayPumpEvents(void)
 {
+    initialize_options();
+    if (s_headless) {
+        return;
+    }
     @autoreleasepool {
         pump_events();
     }
@@ -47,7 +130,7 @@ void NativeDisplayPumpEvents(void)
 
 static void ensure_window(uint16_t width, uint16_t height)
 {
-    if (s_window != nil) {
+    if (s_headless || s_window != nil) {
         return;
     }
 
@@ -73,14 +156,49 @@ static void ensure_window(uint16_t width, uint16_t height)
     [view layer].contentsGravity = kCAGravityResizeAspect;
 }
 
+static void write_frame_ppm(const char* path, const void* xfb, uint16_t width,
+                            uint16_t height, uint16_t stride_pixels)
+{
+    FILE* file = fopen(path, "wb");
+    if (file == NULL) {
+        return;
+    }
+    fprintf(file, "P6\n%u %u\n255\n", width, height);
+    const uint8_t* source = (const uint8_t*) xfb;
+    for (uint16_t y = 0; y < height; y++) {
+        const uint8_t* row = source + (size_t) y * stride_pixels * 2;
+        for (uint16_t x = 0; x < width; x++) {
+            uint16_t value = ((uint16_t) row[x * 2] << 8) | row[x * 2 + 1];
+            uint8_t rgb[3] = {
+                (uint8_t) ((((value >> 11) & 0x1f) * 255 + 15) / 31),
+                (uint8_t) ((((value >> 5) & 0x3f) * 255 + 31) / 63),
+                (uint8_t) (((value & 0x1f) * 255 + 15) / 31),
+            };
+            fwrite(rgb, sizeof(rgb), 1, file);
+        }
+    }
+    fclose(file);
+    s_frame_output_written = 1;
+}
+
 void NativeDisplayPresent(const void* xfb, uint16_t width, uint16_t height,
                           uint16_t stride_pixels)
 {
+    initialize_options();
     if (xfb == NULL || width == 0 || height == 0) {
         return;
     }
     if (stride_pixels < width) {
         stride_pixels = width;
+    }
+
+    if (s_frame_output_path != NULL && !s_frame_output_written &&
+        (!s_frame_output_has_retrace || s_retrace_count >= s_frame_output_retrace)) {
+        write_frame_ppm(s_frame_output_path, xfb, width, height, stride_pixels);
+    }
+
+    if (s_headless) {
+        return;
     }
 
     @autoreleasepool {

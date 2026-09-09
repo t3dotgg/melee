@@ -95,6 +95,7 @@ void VIWaitForRetrace(void)
     /* The GameCube presents the XFB selected during the retrace. The native
      * backend copies that RGB565 buffer to a Cocoa window synchronously. */
 #if defined(MELEE_NATIVE_DISPLAY)
+    NativeDisplaySetRetraceCount(s_vi.retrace_count);
     if (!s_vi.black && s_vi.next_frame_buffer != NULL) {
         uint16_t width = s_vi.mode.viWidth != 0 ? s_vi.mode.viWidth
                                                 : s_vi.mode.fbWidth;
