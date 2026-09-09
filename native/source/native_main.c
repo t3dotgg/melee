@@ -10,16 +10,19 @@
 #include <string.h>
 #include <sys/stat.h>
 
+#include "platform/pad.h"
+
 int MeleeMain(void);
 
 static void print_usage(const char* program)
 {
     fprintf(stderr,
             "Usage: %s [--root DIRECTORY | --disc IMAGE]\n"
+            "       %s [--pad-script SCRIPT] [--pad-trace]\n"
             "       %s PATH\n\n"
             "PATH is treated as an extracted game directory or disc image.\n"
             "MELEE_GAME_ROOT and MELEE_DISC_IMAGE may also be set in the environment.\n",
-            program, program);
+            program, program, program);
 }
 
 static int set_data_path(const char* name, const char* path)
@@ -54,6 +57,8 @@ static int set_data_path(const char* name, const char* path)
 int main(int argc, char** argv)
 {
     const char* positional = NULL;
+    const char* pad_script = getenv("MELEE_PAD_SCRIPT");
+    int pad_trace = getenv("MELEE_PAD_TRACE") != NULL;
     int path_was_set = 0;
 
     for (int i = 1; i < argc; i++) {
@@ -61,6 +66,19 @@ int main(int argc, char** argv)
         if (strcmp(argument, "--help") == 0 || strcmp(argument, "-h") == 0) {
             print_usage(argv[0]);
             return 0;
+        }
+        if (strcmp(argument, "--pad-script") == 0) {
+            if (i + 1 >= argc) {
+                fprintf(stderr, "--pad-script requires a timeline\n");
+                print_usage(argv[0]);
+                return 2;
+            }
+            pad_script = argv[++i];
+            continue;
+        }
+        if (strcmp(argument, "--pad-trace") == 0) {
+            pad_trace = 1;
+            continue;
         }
         if (strcmp(argument, "--root") == 0 || strcmp(argument, "--disc") == 0) {
             if (i + 1 >= argc || !set_data_path(
@@ -107,6 +125,12 @@ int main(int argc, char** argv)
         print_usage(argv[0]);
         return 2;
     }
+
+    if (pad_script != NULL && !NativePADSetScript(pad_script)) {
+        fprintf(stderr, "Invalid --pad-script timeline: %s\n", pad_script);
+        return 2;
+    }
+    NativePADSetTrace(pad_trace);
 
     return MeleeMain();
 }

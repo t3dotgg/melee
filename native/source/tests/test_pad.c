@@ -39,5 +39,29 @@ int main(void)
 
     NativePADResetKeyboard();
     CHECK(PADRead(status) == 0);
+
+    CHECK(NativePADSetScript("0=START;2=NONE;4=A+STICK_RIGHT") == TRUE);
+    CHECK((PADRead(status) & PAD_CHAN0_BIT) != 0);
+    CHECK(status[0].button == PAD_BUTTON_START);
+    NativePADAdvanceFrame(2);
+    CHECK(status[0].button == PAD_BUTTON_START);
+    CHECK((PADRead(status) & PAD_CHAN0_BIT) != 0);
+    CHECK(status[0].button == 0);
+    NativePADAdvanceFrame(4);
+    CHECK((PADRead(status) & PAD_CHAN0_BIT) != 0);
+    CHECK(status[0].button == PAD_BUTTON_A);
+    CHECK(status[0].stickX == 80);
+    CHECK(NativePADSetScript("4=A;0=START;2=NONE") == TRUE);
+    CHECK((PADRead(status) & PAD_CHAN0_BIT) != 0);
+    CHECK(status[0].button == PAD_BUTTON_START);
+    NativePADAdvanceFrame(2);
+    CHECK((PADRead(status) & PAD_CHAN0_BIT) != 0);
+    CHECK(status[0].button == 0);
+    NativePADAdvanceFrame(4);
+    CHECK((PADRead(status) & PAD_CHAN0_BIT) != 0);
+    CHECK(status[0].button == PAD_BUTTON_A);
+    CHECK(NativePADSetScript(NULL) == TRUE);
+    NativePADResetKeyboard();
+    CHECK(PADRead(status) == 0);
     return failures == 0 ? 0 : 1;
 }

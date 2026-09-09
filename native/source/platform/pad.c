@@ -1,6 +1,10 @@
 #include "platform/pad.h"
 
 #include <stdbool.h>
+#include <ctype.h>
+#include <errno.h>
+#include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 /* SI_GC_CONTROLLER from dolphin/si.h. Including that header would also
@@ -19,6 +23,30 @@ static u32 s_sampling_rate;
 static BOOL s_initialized;
 static BOOL s_disable_recalibration;
 static bool s_keyboard_keys[128];
+
+#define NATIVE_PAD_SCRIPT_MAX_EVENTS 256
+
+typedef struct NativePADScriptEvent {
+    u32 frame;
+    u16 button;
+    s8 stick_x;
+    s8 stick_y;
+    s8 substick_x;
+    s8 substick_y;
+    u8 trigger_left;
+    u8 trigger_right;
+    u8 analog_a;
+    u8 analog_b;
+} NativePADScriptEvent;
+
+static NativePADScriptEvent s_script[NATIVE_PAD_SCRIPT_MAX_EVENTS];
+static size_t s_script_count;
+static u32 s_script_frame;
+static size_t s_script_event_index;
+static bool s_script_event_valid;
+static bool s_script_enabled;
+static bool s_script_trace_enabled;
+static bool s_script_trace_pending;
 
 /* US keyboard key codes from NSEvent. Keeping these values here means the
  * controller shim remains a plain C module and can also be driven by tests
@@ -61,6 +89,128 @@ static bool key_down(u16 key_code)
 {
     return key_code < (u16) (sizeof(s_keyboard_keys) / sizeof(*s_keyboard_keys)) &&
            s_keyboard_keys[key_code];
+}
+
+static bool token_equals(const char* token, const char* name)
+{
+    while (*token != '\0' && *name != '\0') {
+        if (tolower((unsigned char) *token) !=
+            tolower((unsigned char) *name)) {
+            return false;
+        }
+        token++;
+        name++;
+    }
+    return *token == '\0' && *name == '\0';
+}
+
+static bool parse_button_token(const char* token, NativePADScriptEvent* event)
+{
+    if (token_equals(token, "none")) {
+        return true;
+    }
+    if (token_equals(token, "a")) event->button |= PAD_BUTTON_A;
+    else if (token_equals(token, "b")) event->button |= PAD_BUTTON_B;
+    else if (token_equals(token, "x")) event->button |= PAD_BUTTON_X;
+    else if (token_equals(token, "y")) event->button |= PAD_BUTTON_Y;
+    else if (token_equals(token, "start") || token_equals(token, "menu"))
+        event->button |= PAD_BUTTON_START;
+    else if (token_equals(token, "z")) event->button |= PAD_TRIGGER_Z;
+    else if (token_equals(token, "l")) event->button |= PAD_TRIGGER_L;
+    else if (token_equals(token, "r")) event->button |= PAD_TRIGGER_R;
+    else if (token_equals(token, "up")) event->button |= PAD_BUTTON_UP;
+    else if (token_equals(token, "down")) event->button |= PAD_BUTTON_DOWN;
+    else if (token_equals(token, "left")) event->button |= PAD_BUTTON_LEFT;
+    else if (token_equals(token, "right")) event->button |= PAD_BUTTON_RIGHT;
+    else if (token_equals(token, "stick_up")) event->stick_y = 80;
+    else if (token_equals(token, "stick_down")) event->stick_y = -80;
+    else if (token_equals(token, "stick_left")) event->stick_x = -80;
+    else if (token_equals(token, "stick_right")) event->stick_x = 80;
+    else if (token_equals(token, "c_up")) event->substick_y = 80;
+    else if (token_equals(token, "c_down")) event->substick_y = -80;
+    else if (token_equals(token, "c_left")) event->substick_x = -80;
+    else if (token_equals(token, "c_right")) event->substick_x = 80;
+    else if (token_equals(token, "trigger_l")) event->trigger_left = 255;
+    else if (token_equals(token, "trigger_r")) event->trigger_right = 255;
+    else if (token_equals(token, "analog_a")) event->analog_a = 255;
+    else if (token_equals(token, "analog_b")) event->analog_b = 255;
+    else return false;
+    return true;
+}
+
+static bool parse_script_entry(char* entry, NativePADScriptEvent* event)
+{
+    char* separator = strchr(entry, '=');
+    char* end;
+    unsigned long frame;
+    char* token;
+    char* token_state = NULL;
+
+    if (separator == NULL) return false;
+    *separator = '\0';
+    while (isspace((unsigned char) *entry)) entry++;
+    errno = 0;
+    frame = strtoul(entry, &end, 10);
+    while (isspace((unsigned char) *end)) end++;
+    if (entry == end || *end != '\0' || errno == ERANGE ||
+        frame > 0xffffffffUL) {
+        return false;
+    }
+    event->frame = (u32) frame;
+    token = separator + 1;
+    token = strtok_r(token, "+|	 \r\n", &token_state);
+    if (token == NULL) return false;
+    do {
+        if (!parse_button_token(token, event)) return false;
+    } while ((token = strtok_r(NULL, "+|	 \r\n", &token_state)) != NULL);
+    return true;
+}
+
+static int compare_script_events(const void* left, const void* right)
+{
+    const NativePADScriptEvent* a = left;
+    const NativePADScriptEvent* b = right;
+    if (a->frame < b->frame) return -1;
+    if (a->frame > b->frame) return 1;
+    return 0;
+}
+
+static void apply_script_frame(void)
+{
+    NativePADScriptEvent* event = NULL;
+    size_t i;
+
+    if (!s_script_enabled) return;
+    for (i = 0; i < s_script_count; i++) {
+        if (s_script[i].frame <= s_script_frame) {
+            event = &s_script[i];
+            s_script_event_index = i;
+            s_script_event_valid = true;
+        } else {
+            break;
+        }
+    }
+    memset(&s_status[0], 0, sizeof(s_status[0]));
+    s_status[0].err = PAD_ERR_NONE;
+    if (event != NULL) {
+        s_status[0].button = event->button;
+        s_status[0].stickX = event->stick_x;
+        s_status[0].stickY = event->stick_y;
+        s_status[0].substickX = event->substick_x;
+        s_status[0].substickY = event->substick_y;
+        s_status[0].triggerLeft = event->trigger_left;
+        s_status[0].triggerRight = event->trigger_right;
+        s_status[0].analogA = event->analog_a;
+        s_status[0].analogB = event->analog_b;
+    }
+    if (s_script_trace_enabled && s_script_trace_pending &&
+        s_script_event_valid) {
+        fprintf(stderr, "[native-pad] frame %u event %zu buttons=0x%04x stick=(%d,%d) cstick=(%d,%d)\n",
+                s_script_frame, s_script_event_index,
+                s_status[0].button, s_status[0].stickX, s_status[0].stickY,
+                s_status[0].substickX, s_status[0].substickY);
+        s_script_trace_pending = false;
+    }
 }
 
 static void update_keyboard_status(void)
@@ -110,6 +260,61 @@ static void reset_status(void)
         memset(&s_status[i], 0, sizeof(s_status[i]));
         s_status[i].err = PAD_ERR_NO_CONTROLLER;
     }
+}
+
+BOOL NativePADSetScript(const char* script)
+{
+    char* copy;
+    char* entry;
+    char* state = NULL;
+
+    s_script_enabled = false;
+    s_script_count = 0;
+    s_script_frame = 0;
+    s_script_event_index = 0;
+    s_script_event_valid = false;
+    s_script_trace_pending = false;
+    if (script == NULL || script[0] == '\0') {
+        return TRUE;
+    }
+
+    copy = malloc(strlen(script) + 1);
+    if (copy == NULL) return FALSE;
+    strcpy(copy, script);
+    entry = strtok_r(copy, ";", &state);
+    while (entry != NULL) {
+        NativePADScriptEvent event;
+        memset(&event, 0, sizeof(event));
+        if (s_script_count >= NATIVE_PAD_SCRIPT_MAX_EVENTS ||
+            !parse_script_entry(entry, &event)) {
+            free(copy);
+            s_script_count = 0;
+            return FALSE;
+        }
+        s_script[s_script_count++] = event;
+        entry = strtok_r(NULL, ";", &state);
+    }
+    free(copy);
+    if (s_script_count == 0) return FALSE;
+    qsort(s_script, s_script_count, sizeof(*s_script), compare_script_events);
+    s_script_enabled = true;
+    apply_script_frame();
+    return TRUE;
+}
+
+void NativePADSetTrace(BOOL enabled)
+{
+    s_script_trace_enabled = enabled != FALSE;
+    s_script_trace_pending = s_script_trace_enabled;
+}
+
+void NativePADAdvanceFrame(u32 frame)
+{
+    if (!s_script_enabled) return;
+    if (frame == s_script_frame) return;
+    s_script_frame = frame;
+    s_script_trace_pending = true;
+    apply_script_frame();
 }
 
 BOOL NativePADSetStatus(s32 chan, const PADStatus* status)
@@ -186,6 +391,7 @@ u32 PADRead(PADStatus* status)
     if (status == NULL) {
         return 0;
     }
+    apply_script_frame();
     memcpy(status, s_status, sizeof(s_status));
 
     u32 connected = 0;

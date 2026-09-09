@@ -17,6 +17,14 @@ const PADStatus* NativePADGetStatus(s32 chan);
 void NativePADHandleKeyCode(u16 key_code, BOOL pressed, BOOL repeat);
 void NativePADResetKeyboard(void);
 
+/* Configure a deterministic controller timeline for headless validation.
+ * The syntax is a semicolon separated list of frame=buttons entries, for
+ * example "0=START;1=NONE;60=A;61=NONE". The latest entry at or before the
+ * current VI retrace remains active. */
+BOOL NativePADSetScript(const char* script);
+void NativePADSetTrace(BOOL enabled);
+void NativePADAdvanceFrame(u32 frame);
+
 #ifdef __cplusplus
 }
 #endif
