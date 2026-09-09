@@ -1,8 +1,8 @@
 #include "lbsnap.h"
 
 #include <placeholder.h>
-#include <stdio.h>
 #include <stddef.h>
+#include <stdio.h>
 
 #include "lbarchive.h"
 #include "lbcardnew.h"
@@ -45,8 +45,8 @@ struct Unk80433380_0 {
 
 typedef union LbMcSnapMemSnapIconData {
     u8* ptr;
-    int offset;
-    int size;
+    HsdCardArg offset;
+    HsdCardArg size;
 } LbMcSnapMemSnapIconData;
 
 struct Unk80433380 {

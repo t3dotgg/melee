@@ -12,6 +12,11 @@
 #include <sysdolphin/baselib/memory.h>
 
 #define _p(x) (lb_80432A68.x)
+#ifdef MELEE_NATIVE
+#define unk_A8 card_state
+#define xD0 card_state.x28
+#define xF4 card_state.x4C
+#endif
 
 int lb_80019BB8(int card_result)
 {
@@ -365,10 +370,11 @@ int lb_8001A594(char* filename, void* file_entries)
                 open_result = CARDOpen(_p(chan), filename, &_p(file_info));
                 CARDClose(&_p(file_info));
                 HSD_ASSERT(0x2C8, _p(lib_area));
-                hsd_803B24E4(&_p(unk_A8), _p(chan), 0x2000, _p(lib_area));
+                hsd_803B24E4((void*) &_p(unk_A8), _p(chan), 0x2000,
+                             _p(lib_area));
                 if (open_result == 0) {
-                    hsd_result =
-                        hsd_803B2550(&_p(unk_A8), filename, fn_8001A0B0);
+                    hsd_result = hsd_803B2550((void*) &_p(unk_A8), filename,
+                                              fn_8001A0B0);
 
                     _p(unk_34) = convert_hsdcard_error(hsd_result);
                     if (_p(unk_34) == 0) {
@@ -379,7 +385,8 @@ int lb_8001A594(char* filename, void* file_entries)
                 } else if (_p(unused_files) == 0) {
                     _p(unk_34) = 6;
                 } else {
-                    setup_card_entries(&_p(unk_A8), _p(unk_C), file_entries);
+                    setup_card_entries((void*) &_p(unk_A8), _p(unk_C),
+                                       file_entries);
                     if (_p(unused_bytes) <
                         (hsd_803B2674((void*) &_p(unk_A8)) << 0xD))
                     {
@@ -502,8 +509,8 @@ int lb_8001AC04(UNK_T filename)
     int hsd_result;
     int unused;
 
-    hsd_result = hsd_803B286C(&_p(unk_A8), filename, _p(unk_14), _p(unk_18),
-                              _p(unk_1C), fn_8001A0B0);
+    hsd_result = hsd_803B286C((void*) &_p(unk_A8), filename, _p(unk_14),
+                              _p(unk_18), _p(unk_1C), fn_8001A0B0);
     _p(unk_34) = convert_hsdcard_error(hsd_result);
     if (_p(unk_34) == 0) {
         _p(x8AC) += 1;
@@ -530,8 +537,8 @@ int lb_8001ACEC(UNK_T file_entries)
         cached_flag = _p(xF4)[i];
         cached_data = _p(xD0)[i];
         if (_p(xF4)[i] != 0) {
-            hsd_result =
-                hsd_803B29D8(&_p(unk_A8), i, entries[i].data, fn_8001A0B0);
+            hsd_result = hsd_803B29D8((void*) &_p(unk_A8), i, entries[i].data,
+                                      fn_8001A0B0);
             _p(unk_38)[i].unk_0 = convert_hsdcard_error(hsd_result);
             _p(unk_38)[i].unk_4 = hsd_result;
             file_error = _p(unk_38)[i].unk_0;
@@ -564,8 +571,8 @@ int lb_8001AE38(UNK_T file_entries)
         cached_flag = _p(xF4)[i];
         cached_data = _p(xD0)[i];
         if (_p(xF4)[i] != 0) {
-            hsd_result =
-                hsd_803B2A4C(&_p(unk_A8), i, entries[i].data, fn_8001A0B0);
+            hsd_result = hsd_803B2A4C((void*) &_p(unk_A8), i, entries[i].data,
+                                      fn_8001A0B0);
             _p(unk_38)[i].unk_0 = convert_hsdcard_error(hsd_result);
             _p(unk_38)[i].unk_4 = hsd_result;
             file_error = _p(unk_38)[i].unk_0;
@@ -584,7 +591,7 @@ int lb_8001AE38(UNK_T file_entries)
 
 int lb_8001AF84(void)
 {
-    int hsd_result = hsd_803B2928(&_p(unk_A8), _p(unk_14), _p(unk_18),
+    int hsd_result = hsd_803B2928((void*) &_p(unk_A8), _p(unk_14), _p(unk_18),
                                   _p(unk_1C), fn_8001A0B0);
 
     _p(unk_34) = convert_hsdcard_error(hsd_result);
@@ -600,7 +607,7 @@ int lb_8001AF84(void)
 
 int lb_8001B068(void)
 {
-    int hsd_result = hsd_803B27F4(&_p(unk_A8), _p(unk_14), _p(unk_18),
+    int hsd_result = hsd_803B27F4((void*) &_p(unk_A8), _p(unk_14), _p(unk_18),
                                   _p(unk_1C), fn_8001A0B0);
 
     _p(unk_34) = convert_hsdcard_error(hsd_result);
@@ -824,8 +831,8 @@ int lb_8001BA44(int chan, const char* filename, UNK_T status_out)
 }
 
 int lb_8001BB48(int chan, char* filename, void* file_entries, void* save_data,
-                const char* write_buf, int write_offset, int write_len,
-                UNK_T status_out)
+                const char* write_buf, HsdCardArg write_offset,
+                HsdCardArg write_len, UNK_T status_out)
 {
     int new_var;
     struct CardTask* task;
@@ -854,8 +861,8 @@ int lb_8001BB48(int chan, char* filename, void* file_entries, void* save_data,
 }
 
 int lb_8001BC18(int chan, char* filename, void** file_entries, void* save_data,
-                const char* write_buf, int write_offset, int write_len,
-                UNK_T status_out)
+                const char* write_buf, HsdCardArg write_offset,
+                HsdCardArg write_len, UNK_T status_out)
 {
     int new_var;
     s32 result;
@@ -911,8 +918,8 @@ int lb_8001BD34(int chan, const char* filename, UNK_T file_entries,
 #pragma dont_inline on
 #endif
 int lb_8001BE30(int chan, const char* filename, UNK_T file_entries,
-                const char* read_buf, int read_offset, int read_len,
-                UNK_T status_out, UNK_T callback)
+                const char* read_buf, HsdCardArg read_offset,
+                HsdCardArg read_len, UNK_T status_out, UNK_T callback)
 {
     struct CardTask* task;
     lb_80019EF0(chan, 0, status_out, callback);
@@ -944,8 +951,8 @@ int lb_8001BE30(int chan, const char* filename, UNK_T file_entries,
 #endif
 
 int lb_8001BF04(int chan, char* filename, void* file_entries,
-                const char* write_buf, int write_offset, int write_len,
-                UNK_T status_out)
+                const char* write_buf, HsdCardArg write_offset,
+                HsdCardArg write_len, UNK_T status_out)
 {
     struct CardTask* task;
     lb_80019EF0(chan, 0, status_out, 0);
@@ -1094,10 +1101,10 @@ int lb_8001C4A8(void* file_entries, void* icon_data)
 {
     void* icon = icon_data;
     struct CardEntry* entry;
-    s32* ctx;
+    void* ctx;
 
     entry = file_entries;
-    ctx = &_p(unk_A8);
+    ctx = (void*) &_p(unk_A8);
     hsd_803B24E4(ctx, 0, 0x2000, _p(lib_area));
     hsd_803B2ADC(ctx, icon);
     {

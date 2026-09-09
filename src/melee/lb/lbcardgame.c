@@ -22,6 +22,10 @@
 
 #define _p(x) (lb_80433318.x)
 
+#ifdef MELEE_NATIVE
+/* The icon descriptor is a byte sequence, independent of host byte order. */
+static u8 lb_803BAB60[20] = { 2, 0, 1, 0, 0, 0, 0, 0, 0, 0, 3 };
+#else
 static struct {
     u32 x0, x4, x8;
     u32 pad[2];
@@ -30,6 +34,8 @@ static struct {
     0,
     0x300,
 };
+
+#endif
 
 // save-data manifest
 static struct CardEntry lb_803BAB74[10] = {
@@ -72,7 +78,7 @@ static const char* lb_8001C658(void)
     return _p(_1C);
 }
 
-static int lb_8001C820(void)
+static HsdCardArg lb_8001C820(void)
 {
     int var_r0;
 
@@ -142,8 +148,7 @@ enum_t lb_8001CBBC(void)
     enum_t temp_r3;
 
 #ifdef MELEE_NATIVE
-    /* Native hosts do not have a card device yet. Let headless boot tests
-     * continue when the caller explicitly opts out of the card prompt. */
+    /* Let headless boot tests explicitly opt out of the card prompt. */
     {
         const char* skip_card = getenv("MELEE_SKIP_CARD");
         if (skip_card != NULL && skip_card[0] != '\0' && skip_card[0] != '0') {
@@ -176,7 +181,7 @@ int lb_8001CC4C(void)
 
 static int dont_inline_helper(void)
 {
-    int temp_r24;
+    HsdCardArg temp_r24;
 
     if (lb_8001CAF4() != 0) {
         return 0xD;
