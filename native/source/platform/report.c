@@ -12,7 +12,7 @@ void OSReport(char* format, ...)
     va_end(args);
 }
 
-void __assert(char* file, u32 line, char* condition)
+__attribute__((weak)) void __assert(char* file, u32 line, char* condition)
 {
     OSPanic(file, (int) line, "assertion failed: %s", condition);
 }
