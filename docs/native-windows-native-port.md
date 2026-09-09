@@ -138,3 +138,6 @@ fixture before deleting a compatibility path.
 The shell demo now drives the fighter through the scene kernel, so its host
 loop exercises typed simulation state, callback dispatch, and render-object
 updates together.
+The collision slice adds typed stage bounds, hitboxes, deterministic overlap
+events, and damage ordering. It is a foundation for replacing the original
+collision and stage geometry routines; it is not yet Melee-complete geometry.
