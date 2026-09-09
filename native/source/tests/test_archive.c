@@ -8,6 +8,7 @@
 #include <sysdolphin/baselib/mobj.h>
 #include <sysdolphin/baselib/pobj.h>
 #include <sysdolphin/baselib/robj.h>
+#include <sysdolphin/baselib/spline.h>
 #include <sysdolphin/baselib/wobj.h>
 
 #include <stdio.h>
@@ -834,6 +835,58 @@ static void test_external_chains(void)
     reject_file(&fixture, fixture.size);
 }
 
+static void test_spline_graph(void)
+{
+    const size_t points[] = { 3, 7, 5, 5 };
+    for (unsigned int type = 0; type < 4; ++type) {
+        Fixture fixture = fixture_new(224);
+        word(&fixture, 4, JOBJ_SPLINE);
+        reference(&fixture, 16, 64);
+        word(&fixture, 64, type << 24 | 3);
+        word(&fixture, 68, 0x3f000000); /* tension 0.5 */
+        reference(&fixture, 72, 88);
+        word(&fixture, 76, 0x41a00000); /* total length 20 */
+        reference(&fixture, 80, 172);
+        if (type != 0) reference(&fixture, 84, 184);
+        word(&fixture, 88 + (uint32_t) (points[type] * 12) - 4, 0xc0200000);
+        word(&fixture, 176, 0x3f000000); /* segment boundary 0.5 */
+        word(&fixture, 180, 0x3f800000); /* segment boundary 1 */
+        word(&fixture, 220, 0x3fa00000); /* last coefficient 1.25 */
+        NativeArchive* archive = open_fixture(&fixture);
+        NativeArchiveGraph* graph = open_graph(archive);
+        NativeArchiveError error = { 0 };
+        HSD_Joint* joint = NULL;
+        HSD_Spline* spline = NULL;
+        CHECK(NativeArchiveJoint(graph, 0, &joint, &error) == NATIVE_ARCHIVE_OK);
+        CHECK(NativeArchiveSpline(graph, 64, &spline, &error) == NATIVE_ARCHIVE_OK);
+        CHECK(joint->u.spline == spline);
+        CHECK(spline->type == type && spline->numcv == 3);
+        CHECK(spline->tension == 0.5f && spline->totalLength == 20.0f);
+        CHECK(spline->cv[points[type] - 1].z == -2.5f);
+        CHECK(spline->segLength[0] == 0.0f && spline->segLength[1] == 0.5f);
+        CHECK(spline->segLength[2] == 1.0f);
+        if (type == 0) CHECK(spline->segPoly == NULL);
+        else CHECK(spline->segPoly[1][4] == 1.25f);
+        check_host_pointer(&fixture, spline);
+        check_host_pointer(&fixture, spline->cv);
+        check_host_pointer(&fixture, spline->segLength);
+        NativeArchiveGraphClose(graph);
+        NativeArchiveClose(archive);
+    }
+    Fixture fixture = fixture_new(64);
+    word(&fixture, 0, 2);
+    reference(&fixture, 8, 24);
+    reference(&fixture, 16, 60);
+    NativeArchive* archive = open_fixture(&fixture);
+    NativeArchiveGraph* graph = open_graph(archive);
+    NativeArchiveError error = { 0 };
+    HSD_Spline* spline = NULL;
+    CHECK(NativeArchiveSpline(graph, 0, &spline, &error) == NATIVE_ARCHIVE_BOUNDS);
+    CHECK(spline == NULL && error.offset == HEADER_SIZE + 60);
+    NativeArchiveGraphClose(graph);
+    NativeArchiveClose(archive);
+}
+
 static Fixture shape_fixture(u16 mode)
 {
     Fixture fixture = fixture_new(252);
@@ -1274,6 +1327,7 @@ int main(void)
     test_bad_relocations();
     test_bad_symbols();
     test_external_chains();
+    test_spline_graph();
     test_shape_sets();
     test_envelope_graph();
     test_joint_constraints();

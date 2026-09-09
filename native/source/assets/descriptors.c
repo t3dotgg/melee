@@ -8,12 +8,14 @@
 #include <sysdolphin/baselib/mobj.h>
 #include <sysdolphin/baselib/pobj.h>
 #include <sysdolphin/baselib/robj.h>
+#include <sysdolphin/baselib/spline.h>
 #include <sysdolphin/baselib/tobj.h>
 #include <sysdolphin/baselib/wobj.h>
 #include <sysdolphin/baselib/fog.h>
 #include <sysdolphin/baselib/sobjlib.h>
 #include <melee/lb/lbanim.h>
 
+#include <math.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -26,6 +28,8 @@ _Static_assert(sizeof(float) == 4, "serialized floats must be 32 bits");
 
 typedef enum Schema {
     SCHEMA_JOINT,
+    SCHEMA_SPLINE,
+    SCHEMA_FLOATS,
     SCHEMA_DOBJ,
     SCHEMA_MOBJ,
     SCHEMA_TOBJ,
@@ -280,7 +284,8 @@ static void* add_node(NativeArchiveGraph* graph, uint32_t offset,
         if (node->offset == offset) {
             if (node->schema != schema ||
                 ((schema == SCHEMA_BYTES || schema == SCHEMA_VTXLIST ||
-                  schema == SCHEMA_SHAPEIDXTBL) && node->length != length) ||
+                  schema == SCHEMA_SHAPEIDXTBL || schema == SCHEMA_FLOATS) &&
+                 node->length != length) ||
                 ((schema == SCHEMA_IMAGETBL || schema == SCHEMA_TLUTTBL) &&
                  node->length / 4 != length)) {
                 graph_fail(graph, NATIVE_ARCHIVE_TYPE_CONFLICT, offset,
@@ -291,6 +296,19 @@ static void* add_node(NativeArchiveGraph* graph, uint32_t offset,
         }
     }
     switch (schema) {
+    case SCHEMA_SPLINE:
+        disk_size = 24;
+        host_size = sizeof(HSD_Spline);
+        break;
+    case SCHEMA_FLOATS:
+        if (length == 0 || length % 4 != 0) {
+            graph_fail(graph, NATIVE_ARCHIVE_INVALID, offset,
+                       "float array has an invalid size");
+            return NULL;
+        }
+        disk_size = length;
+        host_size = length;
+        break;
     case SCHEMA_JOINT:
         disk_size = 64;
         host_size = sizeof(HSD_Joint);
@@ -782,10 +800,9 @@ static bool convert_node(NativeArchiveGraph* graph, Node* node)
     switch (node->schema) {
     case SCHEMA_JOINT: {
         HSD_Joint* joint = node->value;
-        if ((NativeArchiveBE32(bytes + 4) & (JOBJ_PTCL | JOBJ_SPLINE)) != 0) {
+        if ((NativeArchiveBE32(bytes + 4) & JOBJ_PTCL) != 0) {
             if (!unsupported_link(graph, offset + 16,
-                                  "joint spline and particle schemas are not "
-                                  "implemented")) {
+                                  "joint particle schema is not implemented")) {
                 return false;
             }
         }
@@ -796,11 +813,64 @@ static bool convert_node(NativeArchiveGraph* graph, Node* node)
         joint->class_name = link_node(graph, offset, SCHEMA_STRING, 0);
         joint->child = link_node(graph, offset + 8, SCHEMA_JOINT, 0);
         joint->next = link_node(graph, offset + 12, SCHEMA_JOINT, 0);
-        if ((joint->flags & (JOBJ_PTCL | JOBJ_SPLINE)) == 0) {
+        if ((joint->flags & JOBJ_SPLINE) != 0) {
+            joint->u.spline = link_node(graph, offset + 16, SCHEMA_SPLINE, 0);
+        } else if ((joint->flags & JOBJ_PTCL) == 0) {
             joint->u.dobjdesc = link_node(graph, offset + 16, SCHEMA_DOBJ, 0);
         }
         joint->mtx = link_node(graph, offset + 56, SCHEMA_MATRIX, 0);
         joint->robjdesc = link_node(graph, offset + 60, SCHEMA_ROBJ, 0);
+        break;
+    }
+    case SCHEMA_SPLINE: {
+        HSD_Spline* spline = node->value;
+        spline->type = bytes[0];
+        spline->numcv = (s16) ((bytes[2] << 8) | bytes[3]);
+        spline->tension = read_float(bytes + 4);
+        spline->totalLength = read_float(bytes + 12);
+        if (spline->type > 3 || spline->numcv < 2) {
+            graph_fail(graph, NATIVE_ARCHIVE_INVALID, offset,
+                       "spline has an invalid type or control point count");
+            return false;
+        }
+        size_t points = (size_t) spline->numcv;
+        if (spline->type == 1) points = (points - 1) * 3 + 1;
+        else if (spline->type >= 2) points += 2;
+        spline->cv = link_node(graph, offset + 8, SCHEMA_FLOATS, points * 12);
+        spline->segLength = link_node(graph, offset + 16, SCHEMA_FLOATS,
+                                      (size_t) spline->numcv * 4);
+        spline->segPoly = link_node(graph, offset + 20, SCHEMA_FLOATS,
+                                    (size_t) (spline->numcv - 1) * 20);
+        if (graph->failure.status != NATIVE_ARCHIVE_OK) return false;
+        if (spline->cv == NULL || spline->segLength == NULL ||
+            (spline->type != 0 && spline->segPoly == NULL)) {
+            graph_fail(graph, NATIVE_ARCHIVE_INVALID, offset,
+                       "spline is missing a required data array");
+            return false;
+        }
+        uint32_t lengths_offset;
+        bool present;
+        if (!read_reference(graph, offset + 16, &lengths_offset, &present)) return false;
+        float previous = 0.0f;
+        for (size_t i = 0; i < (size_t) spline->numcv; ++i) {
+            float value = read_float(graph->archive->data + lengths_offset + i * 4);
+            if (!isfinite(value) || value < previous ||
+                (i == 0 && value != 0.0f) ||
+                (i + 1 == (size_t) spline->numcv && value < 1.0f)) {
+                graph_fail(graph, NATIVE_ARCHIVE_INVALID,
+                           lengths_offset + (uint32_t) i * 4,
+                           "spline segment lengths do not cover the curve");
+                return false;
+            }
+            previous = value;
+        }
+        break;
+    }
+    case SCHEMA_FLOATS: {
+        float* values = node->value;
+        for (size_t i = 0; i < node->length / 4; ++i) {
+            values[i] = read_float(bytes + i * 4);
+        }
         break;
     }
     case SCHEMA_DOBJ: {
@@ -1652,6 +1722,7 @@ NativeArchiveStatus NativeArchiveFigaTree(NativeArchiveGraph* graph,
     }
 
 ROOT_READER(NativeArchiveJoint, HSD_Joint, SCHEMA_JOINT)
+ROOT_READER(NativeArchiveSpline, HSD_Spline, SCHEMA_SPLINE)
 ROOT_READER(NativeArchiveMObj, HSD_MObjDesc, SCHEMA_MOBJ)
 ROOT_READER(NativeArchiveMatAnimJoint, HSD_MatAnimJoint,
             SCHEMA_MATANIMJOINT)
