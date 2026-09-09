@@ -45,9 +45,16 @@ typedef void (*__OSInterruptHandler)(__OSInterrupt interrupt,
 // IWYU pragma: end_exports
 
 // private macro, maybe shouldn't be defined here?
+#ifdef MELEE_NATIVE
+#define OFFSET(addr, align) ((uintptr_t) (addr) & ((uintptr_t) (align) - 1))
+#define ROUND(n, a) \
+    (((uintptr_t) (n) + (uintptr_t) (a) - 1) & ~((uintptr_t) (a) - 1))
+#define TRUNC(n, a) ((uintptr_t) (n) & ~((uintptr_t) (a) - 1))
+#else
 #define OFFSET(addr, align) (((u32) (addr) & ((align) - 1)))
 #define ROUND(n, a) (((u32) (n) + (a) - 1) & ~((a) - 1))
 #define TRUNC(n, a) (((u32) (n)) & ~((a) - 1))
+#endif
 
 u32 OSGetPhysicalMemSize(void);
 u32 OSGetConsoleSimulatedMemSize(void);
@@ -177,8 +184,13 @@ void OSSetSoundMode(u32 mode);
 void OSReport(char*, ...);
 DOLPHIN_ATTRIBUTE_NORETURN void OSPanic(char* file, int line, char* msg, ...);
 
+#ifdef MELEE_NATIVE
+#define OSRoundUp32B(x) ROUND(x, 32)
+#define OSRoundDown32B(x) TRUNC(x, 32)
+#else
 #define OSRoundUp32B(x) (((u32) (x) + 32 - 1) & ~(32 - 1))
 #define OSRoundDown32B(x) (((u32) (x)) & ~(32 - 1))
+#endif
 
 void* OSPhysicalToCached(u32 paddr);
 void* OSPhysicalToUncached(u32 paddr);
