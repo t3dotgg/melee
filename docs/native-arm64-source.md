@@ -134,14 +134,14 @@ For isolated startup checks, `MELEE_SKIP_CARD=1` skips the memory card screen.
 `MELEE_SKIP_INTRO=1` skips the unavailable THP intro movie decoder. Save tests
 must set `MELEE_SAVE_ROOT` to an ignored build directory.
 
-The game reaches the title screen and starts VS scene setup. A playable match
-is not verified yet. Use the complete match lifecycle in the completion
-requirements to judge the port.
+The game reaches the title screen, VS scene setup, and the character select
+screen. A playable match is not verified yet. Use the complete match lifecycle
+in the completion requirements to judge the port.
 
 ## Current state
 
 The complete game builds as an ARM64 executable. The integrated compile check
-passes all 1014 C sources. All 30 focused sanitizer tests pass. These checks do
+passes all 1016 C sources. All 35 focused sanitizer tests pass. These checks do
 not prove that a match works.
 
 The port has native heap and context storage, filesystem and ISO disc reads,
@@ -158,8 +158,8 @@ code uses the converted records correctly.
 
 The software GX renderer applies matrix palettes, skinning, lighting, texture
 sampling, TEV materials, fog, clipping, depth tests, and framebuffer copies.
-It renders a visible native title screen. Its speed is too low for a playable
-match in the current sanitizer build. A native Metal backend is in progress.
+The native Metal backend renders the title screen and character select screen.
+Match rendering speed and the complete match lifecycle remain unverified.
 
 Native audio decodes SFX and HPS music and sends stereo PCM to AudioToolbox.
 An independent HPS decoder check matched all 1920000 samples from a 30-second
@@ -182,9 +182,9 @@ Do not treat a successful link as playable behavior.
 
 ## Remaining validation
 
-1. Complete fighter archive loading and fix faults in actual game callers.
-2. Finish and check native rendering at playable speed.
-3. Test normal startup, controls, sound, match end, and return to the menu.
+1. Complete the scripted character and opponent selections and enter a match.
+2. Check native rendering at playable speed during a match.
+3. Test controls, sound, match end, and return to the menu.
 4. Repeat save creation and loading through the game screens.
 
 Agent worktrees isolate each subsystem. The integrated changes are published
