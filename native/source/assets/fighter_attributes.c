@@ -33,7 +33,6 @@ typedef enum {
     ATTR_SWORD,
     ATTR_COLORS,
     ATTR_KIRBY,
-    ATTR_LINK,
     ATTR_PURIN,
 } AttributeLayout;
 
@@ -52,6 +51,7 @@ typedef struct {
 #define CHECK_SIZE(type, size)                                                \
     _Static_assert(sizeof(type) == size, #type " attribute size changed")
 CHECK_SIZE(ftMario_DatAttrs, 0x84);
+CHECK_SIZE(struct ftLk_DatAttrs, 0xDC);
 CHECK_SIZE(struct ftFox_DatAttrs, 0xD4);
 CHECK_SIZE(struct ftCaptain_DatAttrs, 0x8C);
 CHECK_SIZE(ftDonkeyAttributes, 0x74);
@@ -73,6 +73,8 @@ CHECK_SIZE(struct ftMasterHand_SpecialAttrs, 0x17C);
 CHECK_SIZE(ftCrazyHand_DatAttrs, 0x144);
 _Static_assert(offsetof(struct ftYs_DatAttrs, xEC) == 0xEC,
                "Yoshi attribute views must use the same offsets");
+_Static_assert(offsetof(struct ftLk_DatAttrs, xBC) == 0xBC,
+               "Link catch attributes must use the same offsets");
 #undef CHECK_SIZE
 
 #define WORDS(name, type) { name, sizeof(type), sizeof(type), ATTR_WORDS, 0 }
@@ -113,8 +115,10 @@ static const AttributeSchema schemas[] = {
     WORDS("Girl", s32),
     /* ftsandbag.c declares its attributes as two u32 values. */
     WORDS("Sandbag", u32[2]),
-    { "Link", 0xDC, sizeof(struct ftLk_DatAttrs), ATTR_LINK, 0 },
-    { "Clink", 0xDC, sizeof(struct ftLk_DatAttrs), ATTR_LINK, 0 },
+    SPECIAL("Link", struct ftLk_DatAttrs, ATTR_SWORD,
+            offsetof(struct ftLk_DatAttrs, x64)),
+    SPECIAL("Clink", struct ftLk_DatAttrs, ATTR_SWORD,
+            offsetof(struct ftLk_DatAttrs, x64)),
     { "Purin", 0x100, sizeof(ftPurinAttributes), ATTR_PURIN, 0 },
 };
 #undef WORDS
@@ -158,25 +162,11 @@ static void copy_sword(struct SwordAttrs* output, const uint8_t* input)
 static void convert(const AttributeSchema* schema, const uint8_t* input,
                     void* output)
 {
-    if (schema->layout == ATTR_LINK) {
-        struct ftLk_DatAttrs* link = output;
-        copy_words(link, input, 0x94);
-        copy_sword(&link->x64, input + 0x64);
-        /* These unused UNK_T fields have integer data, no relocation, and
-         * no dereference in game code. Preserve their numeric bits while
-         * retaining the declared host layout. */
-        link->x94 = (void*) (uintptr_t) NativeArchiveBE32(input + 0x94);
-        copy_words(&link->x98, input + 0x98, 4);
-        link->x9C = (void*) (uintptr_t) NativeArchiveBE32(input + 0x9C);
-        link->xA0 = (void*) (uintptr_t) NativeArchiveBE32(input + 0xA0);
-        copy_words(&link->xA4, input + 0xA4, 0x1C);
-        memcpy(link->xC0_filler, input + 0xC0, 4);
-        copy_words(&link->xC4, input + 0xC4, 0x18);
-        return;
-    }
     if (schema->layout == ATTR_PURIN) {
         ftPurinAttributes* purin = output;
         copy_words(purin, input, 0xE8);
+        /* These unused UNK_T fields have scalar data, no relocation, and
+         * no access in game code. Preserve their bits in the host layout. */
         purin->xE8 = (void*) (uintptr_t) NativeArchiveBE32(input + 0xE8);
         purin->xEC = (void*) (uintptr_t) NativeArchiveBE32(input + 0xEC);
         copy_words(&purin->xF0, input + 0xF0, 8);

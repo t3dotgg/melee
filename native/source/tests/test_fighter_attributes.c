@@ -106,6 +106,7 @@ static void test_mixed_layouts(void)
     word(data, 0x600 + 0x9C, 63);
     word(data, 0x600 + 0xA0, 88);
     word(data, 0x600 + 0xA4, 42);
+    word(data, 0x600 + 0xBC, 79);
     word(data, 0x600 + 0xD8, 0xC0200000);
     word(data, 0x800 + 0xE8, 0x3E800000);
     word(data, 0x800 + 0xEC, 0x3E4CCCCD);
@@ -134,9 +135,15 @@ static void test_mixed_layouts(void)
     struct ftLk_DatAttrs* link = output;
     assert(link->x64.x8 == 1 && link->x64.xF == 8 && link->x64.x10 == 9);
     assert(link->x64.x14 == -2);
-    assert((uintptr_t) link->x94 == 7 && link->x98 == -3);
-    assert((uintptr_t) link->x9C == 63 && (uintptr_t) link->xA0 == 88);
+    assert(link->x94 == 7 && link->x98 == -3);
+    assert(link->x9C == 63 && link->xA0 == 88);
     assert(link->xA4 == 42 && link->xD8 == -2.5F);
+    /* ftCo_0D8E.c reads the same block through a contiguous s32 view. */
+    s32 catch_fields[11];
+    memcpy(catch_fields, (unsigned char*) link + 0x94, sizeof(catch_fields));
+    assert(catch_fields[0] == 7 && catch_fields[1] == -3);
+    assert(catch_fields[2] == 63 && catch_fields[3] == 88);
+    assert(catch_fields[10] == 79);
     assert(NativeFighterAttributesRead(context, "ftDataPurin", 0x800, &output,
                                        &error) == NATIVE_ARCHIVE_OK);
     ftPurinAttributes* purin = output;
