@@ -697,11 +697,11 @@ void hsd_80394668(void)
         u32 size;
         struct ParticleScreenBuffer* src;
 
-        src = (struct ParticleScreenBuffer*) sp->x2C;
+        src = (struct ParticleScreenBuffer*) (uintptr_t) sp->x2C;
         if ((u32) (uintptr_t) src != 0) {
             /* Copy XFB data with brightness adjustment */
             dst_base = (s32*) sp + sp->x34;
-            dst = (struct ParticleScreenBuffer*) dst_base[9];
+            dst = (struct ParticleScreenBuffer*) (uintptr_t) dst_base[9];
             size = sp->x48;
 
             for (pos = 0; pos < size; pos += 2) {
@@ -829,10 +829,11 @@ void Exception_ReportStackTrace(OSContext* ctx, int max_depth)
     OSReport("- STACK ---------------------------------------------\n");
     OSReport(" Address:  Back Chain  LR Save\n");
 
-    sp = (u32*) ctx->gpr[1];
+    sp = (u32*) (uintptr_t) ctx->gpr[1];
     i = 0;
 
-    while (sp != NULL && (u32) (sp + 0x4000) != 0xFFFF && i < (u32) (uintptr_t) max_depth)
+    while (sp != NULL && (uintptr_t) (sp + 0x4000) != 0xFFFF &&
+           i < (u32) (uintptr_t) max_depth)
     {
         if ((u32) (uintptr_t) sp < 0x80000000u) {
             break;
@@ -841,7 +842,7 @@ void Exception_ReportStackTrace(OSContext* ctx, int max_depth)
             break;
         }
         OSReport("%08X:   %08X   %08X\n", sp, sp[0], sp[1]);
-        sp = (u32*) sp[0];
+        sp = (u32*) (uintptr_t) sp[0];
         i++;
     }
 }
@@ -1688,7 +1689,7 @@ static inline void hsd_80396188_draw_rows(char* buf, s32 col, u32** addr,
         hsd_80394434(buf);
         {
             u32 memsize = OSGetPhysicalMemSize();
-            *addr = (u32*) ((((u32) *addr & 0x0FFFFFFF) + memsize + 0x10) %
+            *addr = (u32*) (uintptr_t) ((((uintptr_t) *addr & 0x0FFFFFFF) + memsize + 0x10) %
                                 memsize +
                             0x80000000);
         }
@@ -1712,7 +1713,7 @@ void hsd_80396188(void)
     void* saved;
     PAD_STACK(12);
 
-    addr = (u32*) lbl_8040BAF0.x10;
+    addr = (u32*) (uintptr_t) lbl_8040BAF0.x10;
     saved = hsd_80396188_get_x50();
     i = hsd_804CF810.x20 - 0x2E;
     hsd_804CF810.x50 = &lbl_8040AB00;
@@ -1787,7 +1788,7 @@ s32 hsd_803962A8(void* data)
         }
         case 0x400:
             hsd_80393D2C(1);
-            addr = (u8*) lbl_8040BAF0.x10;
+            addr = (u8*) (uintptr_t) lbl_8040BAF0.x10;
             if (hsd_80394128(0, 0)) {
                 OSReport(lbl_804D62D8);
             }
@@ -2755,9 +2756,9 @@ void* fn_80397814(void* arg)
         /* Flush and display first frame */
         size_ptr = &sp->x48;
         fb_idx = hsd_804CF810.x34;
-        DCFlushRange((void*) (&hsd_804CF810.x24)[fb_idx], *size_ptr);
+        DCFlushRange((void*) (uintptr_t) (&hsd_804CF810.x24)[fb_idx], *size_ptr);
         fb_idx = hsd_804CF810.x34;
-        VISetNextFrameBuffer((void*) (&hsd_804CF810.x24)[fb_idx]);
+        VISetNextFrameBuffer((void*) (uintptr_t) (&hsd_804CF810.x24)[fb_idx]);
         VIFlush();
 
         retrace2 = VIGetRetraceCount();
@@ -2781,8 +2782,8 @@ void* fn_80397814(void* arg)
             result = 0;
             while (disp_node != NULL && !sp->x0_b5) {
                 if (*(void* (**) (void*) )((u8*) disp_node + 0xC) != NULL) {
-                    result = (s32) (*(void* (**) (void*) )((u8*) disp_node +
-                                                           0xC))(disp_node);
+                    result = (s32) (uintptr_t) (*(void* (**) (void*) )((u8*) disp_node +
+                                                                        0xC))(disp_node);
                     switch (result) {
                     case 0:
                         break;
@@ -2829,9 +2830,9 @@ void* fn_80397814(void* arg)
 
                 /* Flush and display */
                 fb_idx = hsd_804CF810.x34;
-                DCFlushRange((void*) (&sp->x24)[fb_idx], *size_ptr);
+                DCFlushRange((void*) (uintptr_t) (&sp->x24)[fb_idx], *size_ptr);
                 fb_idx = hsd_804CF810.x34;
-                VISetNextFrameBuffer((void*) (&sp->x24)[fb_idx]);
+                VISetNextFrameBuffer((void*) (uintptr_t) (&sp->x24)[fb_idx]);
                 VIFlush();
             }
 
