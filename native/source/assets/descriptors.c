@@ -62,6 +62,8 @@ typedef enum Schema {
     SCHEMA_WOBJANIM,
     SCHEMA_ROBJANIM,
     SCHEMA_ROBJ,
+    SCHEMA_BCEXP,
+    SCHEMA_RVALUE,
     SCHEMA_IKHINT,
     SCHEMA_LIGHT,
     SCHEMA_LIGHTANIM,
@@ -199,11 +201,11 @@ static bool vtxlist_length(NativeArchiveGraph* graph, uint32_t offset,
     return false;
 }
 
-/* Both envelope tables and weight lists end at a null joint reference.
- * Consult relocations so a reference to the joint at offset zero stays valid. */
+/* Descriptor arrays end at a null reference. Consult relocations so a
+ * reference to the joint at offset zero stays valid. */
 static bool terminated_reference_length(NativeArchiveGraph* graph,
                                         uint32_t offset, size_t stride,
-                                        size_t* length)
+                                        size_t pointer_offset, size_t* length)
 {
     size_t remaining = offset <= graph->archive->data_size
                            ? graph->archive->data_size - offset
@@ -212,7 +214,8 @@ static bool terminated_reference_length(NativeArchiveGraph* graph,
          at += stride) {
         uint32_t target;
         bool present;
-        if (!read_reference(graph, offset + (uint32_t) at, &target, &present)) {
+        if (!read_reference(graph, offset + (uint32_t) (at + pointer_offset),
+                            &target, &present)) {
             return false;
         }
         if (!present) {
@@ -343,13 +346,13 @@ static void* add_node(NativeArchiveGraph* graph, uint32_t offset,
         host_size = (length / 4) * sizeof(u8*);
         break;
     case SCHEMA_ENVELOPETBL:
-        if (!terminated_reference_length(graph, offset, 4, &disk_size)) {
+        if (!terminated_reference_length(graph, offset, 4, 0, &disk_size)) {
             return NULL;
         }
         host_size = (disk_size / 4) * sizeof(HSD_EnvelopeDesc*);
         break;
     case SCHEMA_ENVELOPE:
-        if (!terminated_reference_length(graph, offset, 8, &disk_size)) {
+        if (!terminated_reference_length(graph, offset, 8, 0, &disk_size)) {
             return NULL;
         }
         host_size = (disk_size / 8) * sizeof(HSD_EnvelopeDesc);
@@ -454,6 +457,16 @@ static void* add_node(NativeArchiveGraph* graph, uint32_t offset,
     case SCHEMA_ROBJ:
         disk_size = 12;
         host_size = sizeof(HSD_RObjDesc);
+        break;
+    case SCHEMA_BCEXP:
+        disk_size = 8;
+        host_size = sizeof(HSD_ByteCodeExpDesc);
+        break;
+    case SCHEMA_RVALUE:
+        if (!terminated_reference_length(graph, offset, 8, 4, &disk_size)) {
+            return NULL;
+        }
+        host_size = (disk_size / 8) * sizeof(HSD_RvalueList);
         break;
     case SCHEMA_IKHINT:
         disk_size = 8;
@@ -1332,13 +1345,35 @@ static bool convert_node(NativeArchiveGraph* graph, Node* node)
                        "PowerPC constraint functions require native bindings");
             return false;
         case REFTYPE_BYTECODE:
-            graph_fail(graph, NATIVE_ARCHIVE_UNSUPPORTED, offset + 8,
-                       "constraint bytecode schema is not implemented");
-            return false;
+            constraint->u.bcexp = link_node(graph, offset + 8, SCHEMA_BCEXP, 0);
+            if (graph->failure.status != NATIVE_ARCHIVE_OK) return false;
+            if (constraint->u.bcexp == NULL) {
+                graph_fail(graph, NATIVE_ARCHIVE_INVALID, offset + 8,
+                           "bytecode constraint requires an expression descriptor");
+                return false;
+            }
+            break;
         default:
             graph_fail(graph, NATIVE_ARCHIVE_INVALID, offset + 4,
                        "constraint has an invalid reference type");
             return false;
+        }
+        break;
+    }
+    case SCHEMA_BCEXP: {
+        HSD_ByteCodeExpDesc* expression = node->value;
+        /* HSD_ByteCodeEval reads opcodes and operands byte by byte. Only the
+         * argument list contains pointers and needs host descriptors. */
+        if (!link_tail(graph, offset, (void**) &expression->bytecode)) return false;
+        expression->rvalue = link_node(graph, offset + 4, SCHEMA_RVALUE, 0);
+        break;
+    }
+    case SCHEMA_RVALUE: {
+        HSD_RvalueList* arguments = node->value;
+        for (size_t i = 0; i + 1 < node->length / 8; ++i) {
+            arguments[i].flags = NativeArchiveBE32(bytes + i * 8);
+            arguments[i].joint = link_node(graph, offset + (uint32_t) i * 8 + 4,
+                                           SCHEMA_JOINT, 0);
         }
         break;
     }

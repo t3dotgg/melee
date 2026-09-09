@@ -1004,6 +1004,57 @@ static void test_envelope_graph(void)
     NativeArchiveClose(archive);
 }
 
+static void test_constraint_bytecode(void)
+{
+    Fixture fixture = fixture_new(132);
+    reference(&fixture, 60, 64);
+    reference(&fixture, 64, 76);
+    word(&fixture, 68, REFTYPE_BYTECODE | 0x80000001);
+    reference(&fixture, 72, 88);
+    word(&fixture, 80, REFTYPE_BYTECODE | 0x80000002);
+    reference(&fixture, 84, 96);
+    reference(&fixture, 88, 128);
+    reference(&fixture, 92, 104);
+    reference(&fixture, 96, 128);
+    reference(&fixture, 100, 104);
+    word(&fixture, 104, 0x102);
+    reference(&fixture, 108, 0);
+    word(&fixture, 128, 0x02000001); /* push argument zero, return */
+    NativeArchive* archive = open_fixture(&fixture);
+    NativeArchiveGraph* graph = open_graph(archive);
+    NativeArchiveError error = { 0 };
+    HSD_Joint* joint = NULL;
+    CHECK(NativeArchiveJoint(graph, 0, &joint, &error) == NATIVE_ARCHIVE_OK);
+    HSD_ByteCodeExpDesc* expression = joint->robjdesc->u.bcexp;
+    HSD_ByteCodeExpDesc* other = joint->robjdesc->next->u.bcexp;
+    const unsigned char code[] = { 2, 0, 0, 1 };
+    CHECK(expression != other && expression->bytecode == other->bytecode);
+    CHECK(expression->rvalue == other->rvalue);
+    CHECK(memcmp(expression->bytecode, code, sizeof(code)) == 0);
+    CHECK(expression->rvalue[0].flags == 0x102);
+    CHECK(expression->rvalue[0].joint == joint);
+    CHECK(expression->rvalue[1].joint == NULL);
+    check_host_pointer(&fixture, expression);
+    check_host_pointer(&fixture, expression->bytecode);
+    check_host_pointer(&fixture, expression->rvalue);
+    NativeArchiveGraphClose(graph);
+    NativeArchiveClose(archive);
+
+    fixture = fixture_new(92);
+    reference(&fixture, 60, 64);
+    word(&fixture, 68, REFTYPE_BYTECODE);
+    reference(&fixture, 72, 76);
+    reference(&fixture, 80, 84);
+    word(&fixture, 84, 1);
+    reference(&fixture, 88, 0);
+    archive = open_fixture(&fixture);
+    graph = open_graph(archive);
+    CHECK(NativeArchiveJoint(graph, 0, &joint, &error) == NATIVE_ARCHIVE_BOUNDS);
+    CHECK(joint == NULL && error.offset == HEADER_SIZE + 84);
+    NativeArchiveGraphClose(graph);
+    NativeArchiveClose(archive);
+}
+
 static void test_joint_constraints(void)
 {
     Fixture fixture = fixture_new(196);
@@ -1330,6 +1381,7 @@ int main(void)
     test_spline_graph();
     test_shape_sets();
     test_envelope_graph();
+    test_constraint_bytecode();
     test_joint_constraints();
     test_unsupported_joint_fields();
     test_unsupported_animation_and_wobj();
