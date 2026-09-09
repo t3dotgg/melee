@@ -141,3 +141,5 @@ updates together.
 The collision slice adds typed stage bounds, hitboxes, deterministic overlap
 events, and damage ordering. It is a foundation for replacing the original
 collision and stage geometry routines; it is not yet Melee-complete geometry.
+`NativeTrainingMatch` composes two typed fighters, hitbox generation, stage
+collision, and render snapshots into a deterministic training-mode slice.
