@@ -44,6 +44,10 @@ endforeach()
 target_link_libraries(test_memory PRIVATE melee_host_options)
 add_test(NAME memory COMMAND test_memory)
 
+add_executable(test_gobjplink tests/test_gobjplink.c)
+target_link_libraries(test_gobjplink PRIVATE melee_host_options)
+add_test(NAME gobjplink COMMAND test_gobjplink)
+
 add_executable(test_math tests/test_math.c platform/math.c)
 target_link_libraries(test_math PRIVATE melee_host_options)
 add_test(NAME math COMMAND test_math)

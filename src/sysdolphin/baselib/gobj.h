@@ -64,6 +64,39 @@ typedef struct _HSD_GObjLibInitDataType {
 
 /// @todo Belongs in `melee/` somewhere
 typedef struct HSD_GObjList {
+#ifdef MELEE_NATIVE
+    /*
+     * The game indexes this object as a 64-entry array by p_link.  The
+     * original array held four-byte pointers, so the named PPC view below
+     * cannot describe the native allocation by itself.  Keep both views in
+     * one union.  This makes `list->fighters` refer to native slot 8 while
+     * allowing the link code to access every slot without byte-offset casts.
+     */
+    union {
+        HSD_GObj* slots[64];
+        struct {
+            HSD_GObj* x0;
+            HSD_GObj* x4;
+            HSD_GObj* x8;
+            HSD_GObj* xC;
+            HSD_GObj* x10;
+            HSD_GObj* x14;
+            HSD_GObj* x18;
+            HSD_GObj* x1C;
+            HSD_GObj* fighters;
+            HSD_GObj* items;
+            HSD_GObj* x28;
+            HSD_GObj* x2C;
+            HSD_GObj* x30;
+            HSD_GObj* x34;
+            HSD_GObj* x38;
+            HSD_GObj* x3C;
+            HSD_GObj* x40;
+            HSD_GObj* x44;
+            HSD_GObj* x48;
+        };
+    };
+#else
     /*  +0 */ HSD_GObj* x0;
     /*  +4 */ HSD_GObj* x4;
     /*  +8 */ HSD_GObj* x8;
@@ -83,7 +116,17 @@ typedef struct HSD_GObjList {
     /* +40 */ HSD_GObj* x40;
     /* +44 */ HSD_GObj* x44;
     /* +48 */ HSD_GObj* x48;
+#endif
 } HSD_GObjList;
+
+#ifdef MELEE_NATIVE
+_Static_assert(sizeof(HSD_GObjList) == 64 * sizeof(HSD_GObj*),
+               "native game object links must have 64 host pointer slots");
+_Static_assert(offsetof(HSD_GObjList, fighters) == 8 * sizeof(HSD_GObj*),
+               "native fighters link must remain p_link slot 8");
+_Static_assert(offsetof(HSD_GObjList, items) == 9 * sizeof(HSD_GObj*),
+               "native items link must remain p_link slot 9");
+#endif
 
 extern struct _unk_gobj_struct {
     union {
@@ -123,6 +166,22 @@ extern s8 HSD_GObj_LightKind;
 extern u8 HSD_GObj_CameraKind;
 
 extern HSD_GObjLibInitDataType HSD_GObjLibInitData;
+
+/** Return the native pointer slot for a p_link list. */
+static inline HSD_GObj** HSD_GObjPLinkSlot(u8 p_link)
+{
+#ifdef MELEE_NATIVE
+    return &HSD_GObj_Entities->slots[p_link];
+#else
+    return ((HSD_GObj**) HSD_GObj_Entities) + p_link;
+#endif
+}
+
+/** Return the first object in a p_link list. */
+static inline HSD_GObj* HSD_GObjPLinkHead(u8 p_link)
+{
+    return *HSD_GObjPLinkSlot(p_link);
+}
 
 void HSD_GObj_80390C5C(HSD_GObj* gobj);
 void HSD_GObj_80390C84(HSD_GObj* gobj);

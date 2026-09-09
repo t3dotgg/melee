@@ -29,12 +29,25 @@ void HSD_GObj_80391304(HSD_GObjLibInitDataType* arg0)
 
     HSD_GObjLibInitData = *arg0;
 
+#ifdef MELEE_NATIVE
+    HSD_GObj_Entities = HSD_MemAlloc(sizeof(*HSD_GObj_Entities));
+#else
     HSD_GObj_Entities =
         HSD_MemAlloc(sizeof(HSD_GObj*) * (arg0->p_link_max + 1));
+#endif
     plinklow_gobjs = HSD_MemAlloc(sizeof(HSD_GObj*) * (arg0->p_link_max + 1));
-    for (i = 0; i < arg0->p_link_max + 1; i++) {
-        ((HSD_GObj**) HSD_GObj_Entities)[i] = plinklow_gobjs[i] = NULL;
+#ifdef MELEE_NATIVE
+    for (i = 0; i < 64; i++) {
+        HSD_GObjPLinkSlot((u8) i)[0] = NULL;
+        if (i <= arg0->p_link_max) {
+            plinklow_gobjs[i] = NULL;
+        }
     }
+#else
+    for (i = 0; i < arg0->p_link_max + 1; i++) {
+        HSD_GObjPLinkSlot((u8) i)[0] = plinklow_gobjs[i] = NULL;
+    }
+#endif
 
     HSD_GObjGXLinkHead =
         HSD_MemAlloc(sizeof(HSD_GObj*) * (arg0->gx_link_max + 2));

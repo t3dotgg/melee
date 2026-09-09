@@ -16,8 +16,8 @@ void GObj_PReorder(HSD_GObj* gobj, HSD_GObj* predecessor)
         gobj->next = predecessor->next;
         predecessor->next = gobj;
     } else {
-        gobj->next = ((HSD_GObj**) HSD_GObj_Entities)[link];
-        ((HSD_GObj**) HSD_GObj_Entities)[link] = gobj;
+        gobj->next = HSD_GObjPLinkHead(link);
+        *HSD_GObjPLinkSlot(link) = gobj;
     }
     if (gobj->next != NULL) {
         gobj->next->prev = gobj;
@@ -45,7 +45,7 @@ static inline void insertAfterEqualPriority(HSD_GObj* gobj)
 
 static inline void insertBeforeEqualPriority(HSD_GObj* gobj)
 {
-    HSD_GObj* candidate = ((HSD_GObj**) HSD_GObj_Entities)[gobj->p_link];
+    HSD_GObj* candidate = HSD_GObjPLinkHead(gobj->p_link);
     while (candidate != NULL && candidate->p_priority < gobj->p_priority) {
         candidate = candidate->next;
     }
@@ -104,7 +104,7 @@ static inline void unlinkObject(HSD_GObj* gobj)
     if (gobj->prev != NULL) {
         gobj->prev->next = gobj->next;
     } else {
-        ((HSD_GObj**) HSD_GObj_Entities)[gobj->p_link] = gobj->next;
+        *HSD_GObjPLinkSlot(gobj->p_link) = gobj->next;
     }
     if (gobj->next != NULL) {
         gobj->next->prev = gobj->prev;

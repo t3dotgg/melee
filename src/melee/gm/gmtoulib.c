@@ -1706,14 +1706,14 @@ void fn_8018E618(int arg0, f32 farg0, int arg1)
     cam = lbl_803B7CA8;
 
 #ifdef MELEE_NATIVE
-    while ((tmp = ((HSD_GObj**) HSD_GObj_Entities)[0x1B]) != NULL) {
+        while ((tmp = HSD_GObjPLinkHead(0x1B)) != NULL) {
 #else
     while ((tmp = M2C_FIELD(HSD_GObj_Entities, HSD_GObj**, 0x6C)) != NULL) {
 #endif
         HSD_GObjFree(tmp);
     }
 #ifdef MELEE_NATIVE
-    while ((tmp = ((HSD_GObj**) HSD_GObj_Entities)[0x14]) != NULL) {
+        while ((tmp = HSD_GObjPLinkHead(0x14)) != NULL) {
 #else
     while ((tmp = M2C_FIELD(HSD_GObj_Entities, HSD_GObj**, 0x50)) != NULL) {
 #endif
