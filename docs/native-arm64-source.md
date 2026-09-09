@@ -109,6 +109,18 @@ shasum -a 256 "$IMAGE"
 build/native-source/game/melee-native --disc "$IMAGE"
 ```
 
+Headless validation can drive controller 0 with a deterministic timeline. Use
+semicolon-separated `frame=buttons` entries. Button names can be combined with
+`+`, and the last entry at or before the current frame stays active:
+
+```sh
+build/native-source/game/melee-native --disc "$IMAGE" \
+  --pad-script '0=START;2=NONE;60=A+STICK_RIGHT;61=NONE' --pad-trace
+```
+
+`MELEE_PAD_SCRIPT` and `MELEE_PAD_TRACE` provide the same settings through the
+environment.
+
 The launcher starts the native game loop and stays alive during a ten-second
 headless run with this image. Stop it with Control-C. A longer AddressSanitizer
 startup run also stays alive without a sanitizer report. These runs have not
