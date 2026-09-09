@@ -40,10 +40,20 @@ RenderSnapshot NativeDemoGame::render_snapshot() const
     return scene_.extract_snapshot(state_.frame);
 }
 
+NativeTrainingGame::NativeTrainingGame()
+    : audio_(AudioMixerConfig{}, make_platform_audio_backend())
+{
+}
+
 void NativeTrainingGame::update(const NativeInput& input, double dt_seconds)
 {
     const FighterInput player_one{input.stick_x, input.attack, input.special, input.jump};
     match_.update(player_one, {}, dt_seconds);
+    if (input.attack || input.special) {
+        (void)audio_.play(AudioVoiceRequest{input.attack ? 1U : 2U, 0.08, 0.18F, 0.0F,
+                                            1.0F, input.attack ? 4U : 3U});
+    }
+    audio_.advance(dt_seconds);
     const auto snapshot = match_.snapshot();
     state_.frame = snapshot.simulation_frame;
     const auto& first = match_.player_one().state();
