@@ -455,11 +455,13 @@ NativeArchiveStatus NativeItemArchiveArticle(NativeItemArchive* items,
                                              NativeArchiveError* error)
 {
     Article* article;
+    if (output != NULL) {
+        *output = NULL;
+    }
     if (output == NULL || items == NULL || items->failed) {
         return NativeArchiveFail(error, NATIVE_ARCHIVE_INVALID, 32u + offset,
                                  "invalid item archive context");
     }
-    *output = NULL;
     article = cached(items, offset, 0);
     if (article != NULL) {
         *output = article;
@@ -765,7 +767,7 @@ NativeArchiveStatus NativeItemArchiveRead(NativeItemArchive* items,
     if (output != NULL) {
         *output = NULL;
     }
-    if (items == NULL || output == NULL || symbol == NULL || items->failed) {
+    if (output == NULL || symbol == NULL) {
         return NativeArchiveFail(error, NATIVE_ARCHIVE_INVALID, 32u + offset,
                                  "invalid item archive context");
     }
@@ -777,6 +779,10 @@ NativeArchiveStatus NativeItemArchiveRead(NativeItemArchive* items,
         schema = 3;
     } else {
         return NATIVE_ARCHIVE_NOT_FOUND;
+    }
+    if (items == NULL || items->failed) {
+        return NativeArchiveFail(error, NATIVE_ARCHIVE_INVALID, 32u + offset,
+                                 "invalid item archive context");
     }
     root = cached(items, offset, schema);
     if (root != NULL) {

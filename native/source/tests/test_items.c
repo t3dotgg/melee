@@ -241,6 +241,9 @@ static void test_invalid_hurtbone_count(void)
     CHECK(NativeItemArchiveRead(items, "itPublicData", 0x100, &output,
                                 &error) == NATIVE_ARCHIVE_INVALID);
     CHECK(output == NULL && error.offset == 32 + 0x6d0);
+    CHECK(NativeItemArchiveRead(items, "map_ptcl", 0x100, &output, &error) ==
+          NATIVE_ARCHIVE_NOT_FOUND);
+    CHECK(output == NULL);
     NativeItemArchiveClose(items);
     NativeArchiveGraphClose(graph);
     NativeArchiveClose(archive);
@@ -291,6 +294,7 @@ static void test_local_archive(const char* path)
     CHECK(NativeArchiveOpen(bytes, (size_t) size, &archive, &error) ==
           NATIVE_ARCHIVE_OK);
     free(bytes);
+    NativeArchiveNullExternals(archive);
     CHECK(NativeArchiveGraphOpen(archive, &graph, &error) ==
           NATIVE_ARCHIVE_OK);
     NativeItemArchive* items = NativeItemArchiveOpen(archive, graph);
