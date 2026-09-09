@@ -201,7 +201,12 @@ void ftCo_800D3680(Fighter_GObj* gobj)
 
     temp_r31 = (temp_r27 = gobj->user_data);
     ftCo_800D331C(gobj);
+#ifdef MELEE_NATIVE
+    /* The death animation decrements this integer union member. */
+    temp_r27->mv.co.unk_deadleft.x40 = p_ftCommonData->x500;
+#else
     temp_r27->mv.co.unk_800D3680.x40 = p_ftCommonData->x500;
+#endif
     Fighter_ChangeMotionState(gobj, 1, 0U, 0.0F, 1.0F, 0.0F, NULL);
     temp_r28 = (new_var = gobj)->user_data;
     if (temp_r28->x221D_b6) {
@@ -307,7 +312,12 @@ void ftCo_800D3950(Fighter_GObj* gobj)
 
     temp_r31 = (temp_r27 = gobj->user_data);
     ftCo_800D331C(gobj);
+#ifdef MELEE_NATIVE
+    /* The death animation decrements this integer union member. */
+    temp_r27->mv.co.unk_deadleft.x40 = p_ftCommonData->x500;
+#else
     temp_r27->mv.co.unk_800D3680.x40 = p_ftCommonData->x500;
+#endif
     Fighter_ChangeMotionState(gobj, 2, 0U, 0.0F, 1.0F, 0.0F, NULL);
     temp_r28 = (new_var = gobj)->user_data;
     if (temp_r28->x221D_b6) {
@@ -406,7 +416,12 @@ void ftCo_800D3BC8(Fighter_GObj* gobj)
 
     temp_r31 = (temp_r27 = gobj->user_data);
     ftCo_800D331C(gobj);
+#ifdef MELEE_NATIVE
+    /* The death animation decrements this integer union member. */
+    temp_r27->mv.co.unk_deadleft.x40 = p_ftCommonData->x500;
+#else
     temp_r27->mv.co.unk_800D3680.x40 = p_ftCommonData->x500;
+#endif
     Fighter_ChangeMotionState(gobj, 0, 0U, 0.0F, 1.0F, 0.0F, NULL);
     temp_r28 = (new_var = gobj)->user_data;
     if (temp_r28->x221D_b6) {
@@ -505,7 +520,12 @@ void ftCo_800D3E40(Fighter_GObj* gobj)
 
     temp_r31 = (temp_r27 = gobj->user_data);
     ftCo_800D331C(gobj);
+#ifdef MELEE_NATIVE
+    /* The death animation decrements this integer union member. */
+    temp_r27->mv.co.unk_deadleft.x40 = p_ftCommonData->x500;
+#else
     temp_r27->mv.co.unk_800D3680.x40 = p_ftCommonData->x500;
+#endif
     Fighter_ChangeMotionState(gobj, 3, 0U, 0.0F, 1.0F, 0.0F, NULL);
     temp_r28 = (new_var = gobj)->user_data;
     if (temp_r28->x221D_b6) {

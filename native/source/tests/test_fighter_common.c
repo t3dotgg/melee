@@ -50,6 +50,10 @@ static void test_attributes(void)
     Fixture fixture = { .data_size = 0x818 + 23 * 4 };
     u8* data = fixture.bytes + 32;
     /* Offset zero is a real reference. Numeric legacy fields are not. */
+    assert(sizeof(ftCommonData) == 0x818);
+    assert(offsetof(ftCommonData, x504) == 0x504);
+    assert(offsetof(ftCommonData, x520) == 0x520);
+    assert(offsetof(ftCommonData, x814) == 0x814);
     ref(&fixture, 0x818, 0);
     word(data, 0, 0x3F000000);
     word(data, 0x1E0, 0x3F800000);
@@ -57,7 +61,13 @@ static void test_attributes(void)
     word(data, 0x278, 0x40000000);
     word(data, 0x3A4, 0x40400000);
     word(data, 0x500, 60);
+    word(data, 0x504, 25);
+    word(data, 0x508, 130);
+    word(data, 0x50C, 45);
     word(data, 0x510, 0x40800000);
+    word(data, 0x520, 40);
+    word(data, 0x524, 1);
+    word(data, 0x528, 50);
     word(data, 0x5C4, 100);
     word(data, 0x5C8, 120);
     word(data, 0x6DC, 0x11223344);
@@ -81,10 +91,15 @@ static void test_attributes(void)
     ftCommonData* attributes = ((void**) root)[0];
     assert(attributes->horizontal_stick_deadzone == 0.5f);
     assert(attributes->x1E0 == 1 && attributes->x278 == 2);
-    assert((uintptr_t) attributes->x274 == 4);
+    assert(attributes->x274 == 4);
     assert(attributes->grab_timer_decrement == 3 && attributes->x510 == 4);
-    assert((uintptr_t) attributes->x500 == 60);
-    assert((uintptr_t) attributes->x5C4 == 100 && attributes->x5C8 == 120);
+    assert(attributes->x500 == 60);
+    const s32* death_table = &attributes->x504;
+    assert(death_table[0] == 25 && death_table[1] == 130 &&
+           death_table[2] == 45);
+    const s32* top_table = &attributes->x520;
+    assert(top_table[0] == 40 && top_table[1] == 1 && top_table[2] == 50);
+    assert(attributes->x5C4 == 100 && attributes->x5C8 == 120);
     assert(attributes->x6DC_colorsByPlayer[0].r == 0x11);
     assert(attributes->x6DC_colorsByPlayer[0].a == 0x44);
     assert(attributes->x6EC[0] == 0x55 && attributes->x6EC[3] == 0x88);

@@ -50,6 +50,8 @@ struct FighterPartsTable {
 };
 
 /// @todo Determine size and add remaining members.
+/* Native callers also read numeric tables by byte offset in this structure.
+ * Keep placeholder scalar fields at their serialized 32-bit width. */
 struct ftCommonData {
     /*   +0 */ float horizontal_stick_deadzone;
     /*   +4 */ float vertical_stick_deadzone;
@@ -170,7 +172,11 @@ struct ftCommonData {
     /* +1D0 */ float x1D0;
     /* +1D4 */ float x1D4;
     /* +1D8 */ float x1D8;
+#ifdef MELEE_NATIVE
+    /* +1DC */ u32 x1DC;
+#else
     /* +1DC */ UNK_T x1DC;
+#endif
     /* +1E0 */ float x1E0;
     /* +1E4 */ float x1E4;
     /* +1E8 */ float x1E8_radians;
@@ -212,7 +218,11 @@ struct ftCommonData {
     /* +268 */ float x268;
     /* +26C */ float x26C;
     /* +270 */ float x270;
+#ifdef MELEE_NATIVE
+    /* +274 */ u32 x274;
+#else
     /* +274 */ UNK_T x274;
+#endif
     /* +278 */ float x278;
     /* +27C */ float x27C;
     /* +280 */ float x280_unkShieldHealth;
@@ -371,24 +381,68 @@ struct ftCommonData {
     /* +4F4 */ float x4F4;
     /* +4F8 */ u32 x4F8;
     /* +4FC */ u32 x4FC;
+#ifdef MELEE_NATIVE
+    /* +500 */ u32 x500;
+#else
     /* +500 */ UNK_T x500;
+#endif
     /* +504 */ int x504;
+#ifdef MELEE_NATIVE
+    /* +508 */ u32 x508;
+#else
     /* +508 */ UNK_T x508;
+#endif
+#ifdef MELEE_NATIVE
+    /* +50C */ u32 x50C;
+#else
     /* +50C */ UNK_T x50C;
+#endif
     /* +510 */ float x510;
     /* +514 */ float x514;
+#ifdef MELEE_NATIVE
+    /* +518 */ u32 x518;
+#else
     /* +518 */ UNK_T x518;
+#endif
     /* +51C */ float x51C_radians;
     /* +520 */ int x520;
+#ifdef MELEE_NATIVE
+    /* +524 */ u32 x524;
+#else
     /* +524 */ UNK_T x524;
+#endif
+#ifdef MELEE_NATIVE
+    /* +528 */ u32 x528;
+#else
     /* +528 */ UNK_T x528;
+#endif
+#ifdef MELEE_NATIVE
+    /* +52C */ u32 x52C;
+#else
     /* +52C */ UNK_T x52C;
+#endif
+#ifdef MELEE_NATIVE
+    /* +530 */ u32 x530;
+#else
     /* +530 */ UNK_T x530;
+#endif
+#ifdef MELEE_NATIVE
+    /* +534 */ u32 x534;
+#else
     /* +534 */ UNK_T x534;
+#endif
+#ifdef MELEE_NATIVE
+    /* +538 */ u32 x538;
+#else
     /* +538 */ UNK_T x538;
+#endif
     /* +53C */ float x53C;
     /* +540 */ float x540;
+#ifdef MELEE_NATIVE
+    /* +544 */ u32 x544;
+#else
     /* +544 */ UNK_T x544;
+#endif
     /* +548 */ float x548;
     /* +54C */ float x54C;
     /* +550 */ float x550;
@@ -424,7 +478,11 @@ struct ftCommonData {
     /* +5BC */ UNK_T x5BC;
 #endif
     /* +5C0 */ float x5C0;
+#ifdef MELEE_NATIVE
+    /* +5C4 */ u32 x5C4;
+#else
     /* +5C4 */ UNK_T x5C4;
+#endif
     /* +5C8 */ int x5C8;
     /* +5CC */ float x5CC;
 #ifdef MELEE_NATIVE

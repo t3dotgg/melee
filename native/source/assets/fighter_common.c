@@ -227,39 +227,9 @@ static ftCommonData* attributes(NativeFighterCommonArchive* common,
     if (result == NULL) {
         return NULL;
     }
-    /* ftCommonData has explicit 32-bit scalar regions separated by legacy
-     * UNK_T placeholders. Preserve those unused numeric bits in host slots.
-     * There are no serialized references in this root. */
-#define SPAN(start, end, member)                                              \
-    word_span(common, offset + (start), (end) - (start), &result->member)
-#define OPAQUE(member, source)                                                \
-    result->member = (void*) (uintptr_t) NativeArchiveBE32(                   \
-        common->archive->data + offset + (source))
-    SPAN(0, 0x1DC, horizontal_stick_deadzone);
-    OPAQUE(x1DC, 0x1DC);
-    SPAN(0x1E0, 0x274, x1E0);
-    OPAQUE(x274, 0x274);
-    SPAN(0x278, 0x500, x278);
-    OPAQUE(x500, 0x500);
-    SPAN(0x504, 0x508, x504);
-    OPAQUE(x508, 0x508);
-    OPAQUE(x50C, 0x50C);
-    SPAN(0x510, 0x518, x510);
-    OPAQUE(x518, 0x518);
-    SPAN(0x51C, 0x524, x51C_radians);
-    OPAQUE(x524, 0x524);
-    OPAQUE(x528, 0x528);
-    OPAQUE(x52C, 0x52C);
-    OPAQUE(x530, 0x530);
-    OPAQUE(x534, 0x534);
-    OPAQUE(x538, 0x538);
-    SPAN(0x53C, 0x544, x53C);
-    OPAQUE(x544, 0x544);
-    SPAN(0x548, 0x5C4, x548);
-    OPAQUE(x5C4, 0x5C4);
-    SPAN(0x5C8, 0x818, x5C8);
-#undef OPAQUE
-#undef SPAN
+    _Static_assert(sizeof(ftCommonData) == 0x818,
+                   "fighter common attributes must keep their scalar layout");
+    word_span(common, offset, 0x818, result);
     memcpy(result->x6DC_colorsByPlayer, common->archive->data + offset + 0x6DC,
            0x14);
     memcpy(&result->x7D8, common->archive->data + offset + 0x7D8, 4);
