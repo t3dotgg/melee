@@ -121,10 +121,11 @@ build/native-source/game/melee-native --disc "$IMAGE" \
 `MELEE_PAD_SCRIPT` and `MELEE_PAD_TRACE` provide the same settings through the
 environment.
 
-The launcher starts the native game loop and stays alive during a ten-second
-headless run with this image. Stop it with Control-C. A longer AddressSanitizer
-startup run also stays alive without a sanitizer report. These runs have not
-yet reached a playable menu or a real match.
+The latest launcher build starts the native game loop and stays alive during
+an eight-second run with this image. It prints the game startup banner without
+an archive error. Stop it with Control-C. A longer AddressSanitizer startup
+run also stays alive without a sanitizer report. These runs have not yet
+reached a playable menu or a real match.
 
 ## Current state
 
@@ -139,9 +140,10 @@ scheduler uses the host monotonic clock by default. Tests can advance a
 deterministic clock without sleeping.
 
 The native archive bridge now loads `lbRumbleData`, `SIS_MessageData`, and
-`MemCardIconData` from the real image. An AddressSanitizer startup run reaches
-the typed `SceneDesc` conversion for `ScNtcCommon_scene_data`. It has not yet
-entered a real match. The typed archive graph covers common joint display
+`MemCardIconData` from the real image. It also converts the camera animation
+used by `ScNtcCommon_scene_data`. An AddressSanitizer startup run reaches this
+typed scene conversion without a sanitizer report. It has not yet entered a
+real match. The typed archive graph covers common joint display
 descriptors, materials, texture metadata, skin polygon descriptors, vertex
 descriptor lists, animations, cameras, and world objects. Remaining archive
 work includes the full scene roots, stage and menu roots, shape and envelope
