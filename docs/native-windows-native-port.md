@@ -155,3 +155,7 @@ translation still remain to be implemented.
 The native target also initializes and releases a real D3D12 device through the
 Windows loader, selecting the highest available feature level. Command lists,
 swap-chain ownership, shaders, and GX/TEV translation remain separate work.
+`NativeDisc` now maps validated numeric entry IDs to the rooted asset service,
+providing synchronous and ordered asynchronous reads with cancellation. DVD
+seek timing and the complete original disc table still need to be derived from
+game traces.
