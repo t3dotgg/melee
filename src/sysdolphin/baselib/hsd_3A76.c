@@ -15,6 +15,47 @@
 #include <dolphin/types.h>
 #include <melee/lb/lbarchive.h> ///< @todo Circular include
 
+#ifdef MELEE_NATIVE
+/* SIS bytecode stores multi-byte values in big-endian order. The stream can
+ * start at any byte offset, so native reads must avoid typed pointer casts. */
+static inline u16 sis_load_u16(const u8* ptr)
+{
+    return (u16) (((u16) ptr[0] << 8) | ptr[1]);
+}
+
+static inline s16 sis_load_s16(const u8* ptr)
+{
+    return (s16) sis_load_u16(ptr);
+}
+
+static inline u32 sis_load_u32(const u8* ptr)
+{
+    return ((u32) ptr[0] << 24) | ((u32) ptr[1] << 16) |
+           ((u32) ptr[2] << 8) | ptr[3];
+}
+
+/* Preserve the original low-byte fixed-point encoding without invoking
+ * undefined float-to-integer conversion when malformed data is out of range. */
+static inline u16 sis_fixed8(f32 value)
+{
+    f32 scaled = 256.0F * value;
+    if (!(scaled == scaled) || scaled < -2147483648.0F ||
+        scaled >= 2147483648.0F) {
+        return 0;
+    }
+    return (u16) (s32) scaled;
+}
+
+#define SIS_LOAD_U16(ptr) sis_load_u16(ptr)
+#define SIS_LOAD_S16(ptr) sis_load_s16(ptr)
+#define SIS_LOAD_U32(ptr) sis_load_u32(ptr)
+#else
+#define sis_fixed8(value) ((u16) (256.0F * (value)))
+#define SIS_LOAD_U16(ptr) (*(u16*) (ptr))
+#define SIS_LOAD_S16(ptr) (*(s16*) (ptr))
+#define SIS_LOAD_U32(ptr) (*(u32*) (ptr))
+#endif
+
 static inline f32 HSD_SisLib_GlyphWidth(HSD_Text* text, f32 scale_x)
 {
     return 32.0F * text->x80.x * scale_x;
@@ -47,11 +88,11 @@ void HSD_SisLib_803A7684(HSD_Text* text, const u8* cursor, u8 flags)
             HSD_SisLib_Free(old_buf);
         }
         text->string_buffer[text->x6C++] =
-            (u8) ((s32) (256.0F * text->x78.x) >> 8);
-        text->string_buffer[text->x6C++] = (u8) (256.0F * text->x78.x);
+            (u8) (sis_fixed8(text->x78.x) >> 8);
+        text->string_buffer[text->x6C++] = (u8) sis_fixed8(text->x78.x);
         text->string_buffer[text->x6C++] =
-            (u8) ((s32) (256.0F * text->x78.y) >> 8);
-        text->string_buffer[text->x6C++] = (u8) (256.0F * text->x78.y);
+            (u8) (sis_fixed8(text->x78.y) >> 8);
+        text->string_buffer[text->x6C++] = (u8) sis_fixed8(text->x78.y);
         text->string_buffer[text->x6C++] = flags;
         return;
     }
@@ -108,11 +149,11 @@ void HSD_SisLib_803A7684(HSD_Text* text, const u8* cursor, u8 flags)
             HSD_SisLib_Free(old_buf);
         }
         text->string_buffer[text->x6C++] =
-            (u8) ((s32) (256.0F * text->x80.x) >> 8);
-        text->string_buffer[text->x6C++] = (u8) (256.0F * text->x80.x);
+            (u8) (sis_fixed8(text->x80.x) >> 8);
+        text->string_buffer[text->x6C++] = (u8) sis_fixed8(text->x80.x);
         text->string_buffer[text->x6C++] =
-            (u8) ((s32) (256.0F * text->x80.y) >> 8);
-        text->string_buffer[text->x6C++] = (u8) (256.0F * text->x80.y);
+            (u8) (sis_fixed8(text->x80.y) >> 8);
+        text->string_buffer[text->x6C++] = (u8) sis_fixed8(text->x80.y);
         text->string_buffer[text->x6C++] = flags;
         return;
     }
@@ -199,9 +240,9 @@ uintptr_t HSD_SisLib_803A7F0C(HSD_Text* text, s32 flags)
             pos -= 4;
             if (target_type == 1) {
                 text->x78.x =
-                    (f32) * (s16*) (text->string_buffer + pos) / 256.0F;
+                    (f32) SIS_LOAD_S16(text->string_buffer + pos) / 256.0F;
                 text->x78.y =
-                    (f32) * (s16*) (text->string_buffer + pos + 2) / 256.0F;
+                    (f32) SIS_LOAD_S16(text->string_buffer + pos + 2) / 256.0F;
                 if (flag_hi == entry_flags) {
                     remove_size = 5;
                 }
@@ -224,9 +265,9 @@ uintptr_t HSD_SisLib_803A7F0C(HSD_Text* text, s32 flags)
             pos -= 4;
             if (target_type == 3) {
                 text->x80.x =
-                    (f32) * (u16*) (text->string_buffer + pos) / 256.0F;
+                    (f32) SIS_LOAD_U16(text->string_buffer + pos) / 256.0F;
                 text->x80.y =
-                    (f32) * (u16*) (text->string_buffer + pos + 2) / 256.0F;
+                    (f32) SIS_LOAD_U16(text->string_buffer + pos + 2) / 256.0F;
                 if (flag_hi == entry_flags) {
                     remove_size = 5;
                 }
@@ -246,7 +287,7 @@ uintptr_t HSD_SisLib_803A7F0C(HSD_Text* text, s32 flags)
         case 5:
             pos -= 4;
             if (target_type == 5) {
-                result = *(s32*) (text->string_buffer + pos);
+                result = SIS_LOAD_U32(text->string_buffer + pos);
                 if (flag_hi == entry_flags) {
                     remove_size = 5;
                 }
@@ -325,12 +366,12 @@ loop_3:
         HSD_SisLib_803A7684(text, (u8*) cursor, 0x85U);
         /* fallthrough */
     case 8:
-        cursor = (u8*) (uintptr_t) *(s32*) ((u8*) cursor + 1) - 1;
+        cursor = (u8*) (uintptr_t) SIS_LOAD_U32((u8*) cursor + 1) - 1;
         goto block_33;
     case 14:
         HSD_SisLib_803A7684(text, (u8*) cursor, 0x83U);
-        text->x80.x = (f32) * (u16*) ((u8*) cursor + 1) / 256.0F;
-        scale_val = *(u16*) ((u8*) cursor + 3);
+        text->x80.x = (f32) SIS_LOAD_U16((u8*) cursor + 1) / 256.0F;
+        scale_val = SIS_LOAD_U16((u8*) cursor + 3);
         cursor = (u8*) cursor + 4;
         text->x80.y = (f32) scale_val / 256.0F;
         goto block_33;
@@ -343,7 +384,7 @@ loop_3:
     case 10:
         if ((text->alloc_data == NULL) || (kern_enabled == 0)) {
             HSD_SisLib_803A7684(text, (u8*) cursor, 0x81U);
-            text->x78.x = (f32) * (s16*) ((u8*) cursor + 1) / 256.0F;
+            text->x78.x = (f32) SIS_LOAD_S16((u8*) cursor + 1) / 256.0F;
         }
         cursor = (u8*) cursor + 4;
         goto block_33;
@@ -374,7 +415,7 @@ loop_3:
         if (opcode >= 0x20U) {
             *out_width += text->x80.x * (32.0F + text->x78.x);
             if (kern_enabled != 0) {
-                glyph_code = *(u16*) cursor;
+                glyph_code = SIS_LOAD_U16(cursor);
                 if (glyph_code < 0x4000U) {
                     /* The two bytes in a kerning entry are values. The
                      * original code routed them through a 32-bit integer
@@ -711,20 +752,20 @@ void HSD_SisLib_803A84BC(HSD_GObj* gobj, intptr_t pass)
                                 skip_count -= 1;
                             } else {
                                 text->x98 = (u32) (text->x98 + 1);
-                                text->x94 = *(u16*) (sis_cursor + 1);
+                                text->x94 = SIS_LOAD_U16(sis_cursor + 1);
                                 text->x60 = (void *) (sis_cursor + 3);
                             }
                             sis_cursor += 2;
                             break;
                         case 6:
-                            line_delay = *(u16*) (sis_cursor + 1);
-                            char_delay = *(u16*) (sis_cursor + 3);
+                            line_delay = SIS_LOAD_U16(sis_cursor + 1);
+                            char_delay = SIS_LOAD_U16(sis_cursor + 3);
                             sis_cursor += 4;
                             break;
                         case 7:
                             line_started = 1U;
                             HSD_SisLib_803A8134((void*) (sis_cursor + 5), text, &line_width_out, &line_height_out);
-                            x_origin = (f32) *(s16*) (sis_cursor + 1);
+                            x_origin = (f32) SIS_LOAD_S16(sis_cursor + 1);
                             if (( text->fitting == 1) && (text->box_size_x < line_width_out)) {
                                 text->x88 = (text->box_size_x / line_width_out);
                             } else {
@@ -741,7 +782,7 @@ void HSD_SisLib_803A84BC(HSD_GObj* gobj, intptr_t pass)
                                 text->current_width = x_origin;
                                 break;
                             }
-                            y_offset = *(s16*) (sis_cursor + 3);
+                            y_offset = SIS_LOAD_S16(sis_cursor + 3);
                             sis_cursor += 4;
                             text->current_height = ((f32) y_offset * text->font_size.y);
                             break;
@@ -749,13 +790,13 @@ void HSD_SisLib_803A84BC(HSD_GObj* gobj, intptr_t pass)
                             HSD_SisLib_803A7684(text, sis_cursor, 5U);
                             /* fallthrough */
                         case 8:
-                            sis_cursor = (u8*) (uintptr_t) *(s32*) (sis_cursor + 1) - 1;
+                            sis_cursor = (u8*) (uintptr_t) SIS_LOAD_U32(sis_cursor + 1) - 1;
                             break;
                         case 10:
                             if (((uintptr_t) text->alloc_data == 0U) || (saved_kerning == 0)) {
                                 HSD_SisLib_803A7684(text, sis_cursor, 1U);
-                                text->x78.x = (f32) *(s16*) (sis_cursor + 1) / 256.0F;
-                                text->x78.y = (f32) *(s16*) (sis_cursor + 3) / 256.0F;
+                                text->x78.x = (f32) SIS_LOAD_S16(sis_cursor + 1) / 256.0F;
+                                text->x78.y = (f32) SIS_LOAD_S16(sis_cursor + 3) / 256.0F;
                             }
                             sis_cursor += 4;
                             break;
@@ -776,8 +817,8 @@ void HSD_SisLib_803A84BC(HSD_GObj* gobj, intptr_t pass)
                             break;
                         case 14:
                             HSD_SisLib_803A7684(text, sis_cursor, 3U);
-                            text->x80.x = (f32) *(u16*) (sis_cursor + 1) / 256.0F;
-                            text->x80.y = (f32) *(u16*) (sis_cursor + 3) / 256.0F;
+                            text->x80.x = (f32) SIS_LOAD_U16(sis_cursor + 1) / 256.0F;
+                            text->x80.y = (f32) SIS_LOAD_U16(sis_cursor + 3) / 256.0F;
                             sis_cursor += 4;
                             break;
                         case 15:
@@ -845,7 +886,7 @@ void HSD_SisLib_803A84BC(HSD_GObj* gobj, intptr_t pass)
                                     measured_width = line_width_out;
                                     sisFitLineToBox(text, measured_width);
                                 }
-                                glyph_idx = *(u16 *)sis_cursor;
+                                glyph_idx = SIS_LOAD_U16(sis_cursor);
                                 if (glyph_idx < 0x4000U) {
                                     tex_offset = glyph_idx - 0x2000;
                                 } else {
