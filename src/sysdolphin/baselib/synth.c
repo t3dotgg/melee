@@ -893,6 +893,14 @@ static AXPBMIX lbl_80407FB4 = { 0 };
 
 static AXPBSRC HSD_Synth_80407FD8 = { 1, 0, 0, { 0, 0, 0, 0 } };
 
+#ifdef MELEE_NATIVE
+static inline void native_sfx_set_ratio(u32 bits)
+{
+    HSD_Synth_80407FD8.ratioHi = (u16) (bits >> 16);
+    HSD_Synth_80407FD8.ratioLo = (u16) bits;
+}
+#endif
+
 int HSD_Synth_80389334(int sfx_id, u8 vol, u8 vol2, u8 pan, int priority,
                        int itd_flag, float pitch1, float pitch2,
                        float mix_main, float mix_auxA, float mix_auxB)
@@ -981,9 +989,16 @@ int HSD_Synth_80389334(int sfx_id, u8 vol, u8 vol2, u8 pan, int priority,
             while (voice_idx < sfx_entry->unk8) {
                 AXSetVoicePriority(voices[voice_idx], priority);
                 AXSetVoiceVe(voices[voice_idx], &ve);
+#ifdef MELEE_NATIVE
+                native_sfx_set_ratio((u32) (65536.0F *
+                                            (sfx_node->x18[1] *
+                                             (sfx_node->x14 *
+                                              sfx_node->x18[0]))));
+#else
                 *(u32*) &HSD_Synth_80407FD8.ratioHi =
                     (65536.0F *
                      (sfx_node->x18[1] * (sfx_node->x14 * sfx_node->x18[0])));
+#endif
                 AXSetVoiceSrc(voices[voice_idx], &HSD_Synth_80407FD8);
                 AXSetVoiceAddr(voices[voice_idx], &SFX_VOICE(voice_idx)->x10);
                 AXSetVoiceAdpcm(voices[voice_idx], &SFX_VOICE(voice_idx)->x20);
@@ -1674,11 +1689,21 @@ void HSD_Synth_8038B120(void)
         for (i = 0; i < node->voice_count; i++) {
             AXSetVoiceVe(node->voice[i], &ve);
             if (node->flags & 4) {
+#ifdef MELEE_NATIVE
+                native_sfx_set_ratio(0);
+#else
                 *(u32*) &HSD_Synth_80407FD8.ratioHi = 0;
+#endif
             } else {
+#ifdef MELEE_NATIVE
+                native_sfx_set_ratio((u32) (65536.0F *
+                                            (node->x14 * node->x18[0] *
+                                             node->x18[1])));
+#else
                 *(u32*) &HSD_Synth_80407FD8.ratioHi =
                     (u32) (65536.0F *
                            (node->x14 * node->x18[0] * node->x18[1]));
+#endif
             }
             AXSetVoiceSrc(node->voice[i], &HSD_Synth_80407FD8);
             AXSetVoiceCurrentAddr(
@@ -1739,7 +1764,12 @@ void HSD_SynthPStreamHeaderCallback(int arg0, intptr_t arg1, void* arg2,
         }
         node->x14 = 0.00003125f * (f32) entry[2];
         for (i = 0; i < node->voice_count; i++) {
-            *(u32*) &HSD_Synth_80407FD8.ratioHi = (u32) (65536.0f * node->x14);
+#ifdef MELEE_NATIVE
+            native_sfx_set_ratio((u32) (65536.0f * node->x14));
+#else
+            *(u32*) &HSD_Synth_80407FD8.ratioHi =
+                (u32) (65536.0f * node->x14);
+#endif
             AXSetVoiceAddr(node->voice[i], (AXPBADDR*) &entry[i * 14 + 4]);
             AXSetVoiceAdpcm(node->voice[i], (AXPBADPCM*) &entry[i * 14 + 8]);
         }
