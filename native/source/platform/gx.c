@@ -1168,6 +1168,7 @@ static void gx_stream_float(f32 value)
     memcpy(&bits, &value, sizeof bits);
     gx_stream_write(bits, 4);
 }
+// clang-format off: these macros intentionally generate adjacent GX ABI symbols.
 #define GX_WRITE1(name, type, bytes)                                          \
     void name##1##type(type x)                                                \
     {                                                                         \
@@ -1260,9 +1261,10 @@ GX_WRITE1(GXTexCoord, u16, 2) GX_WRITE2(GXTexCoord, u16, 2)
 #undef GX_FLOAT1
 #undef GX_FLOAT2
 #undef GX_FLOAT3
+    // clang-format on
 
-                    u32 GXGetTexBufferSize(u16 width, u16 height, u32 format,
-                                           u8 mipmap, u8 max_lod)
+    u32 GXGetTexBufferSize(u16 width, u16 height, u32 format, u8 mipmap,
+                           u8 max_lod)
 {
     u32 x_shift;
     u32 y_shift;
