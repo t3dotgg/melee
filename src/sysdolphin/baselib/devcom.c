@@ -356,20 +356,29 @@ void HSD_DevComDVDWakeUp(void)
             }
             DVDFastOpen(dvdDC->file, &fileinfo);
             if (dvdDC->type == 0x21) {
-                DVDReadAsyncPrio(&fileinfo, (void*) dvdDC->dest,
-                                 MIN(dvdDC->size, 0x80000), (s32) dvdDC->src,
-                                 HSD_DevComDVDMemCallback, 2);
+                /* Native DVD reads complete inline. Mark the channel busy
+                 * before calling into the backend so its callback cannot
+                 * re-enter this wakeup path as a second request. */
                 HSD_DevCom_804D77F5 = 1;
+                if (!DVDReadAsyncPrio(&fileinfo, (void*) dvdDC->dest,
+                                      MIN(dvdDC->size, 0x80000),
+                                      (s32) dvdDC->src,
+                                      HSD_DevComDVDMemCallback, 2)) {
+                    HSD_DevCom_804D77F5 = 0;
+                }
                 OSRestoreInterrupts(enabled);
                 return;
             }
             buf_idx = getRelayBufIdx();
             if (buf_idx >= 0) {
                 HSD_DevCom_804D77F6 = buf_idx;
-                DVDReadAsyncPrio(&fileinfo, HSD_DevCom_804C6330_bufs[buf_idx],
-                                 MIN(dvdDC->size, DEVCOM_BUF_SIZE), dvdDC->src,
-                                 HSD_DevComDVDCallback, 2);
                 HSD_DevCom_804D77F5 = 1;
+                if (!DVDReadAsyncPrio(&fileinfo,
+                                      HSD_DevCom_804C6330_bufs[buf_idx],
+                                      MIN(dvdDC->size, DEVCOM_BUF_SIZE),
+                                      dvdDC->src, HSD_DevComDVDCallback, 2)) {
+                    HSD_DevCom_804D77F5 = 0;
+                }
                 OSRestoreInterrupts(enabled);
                 return;
             }
