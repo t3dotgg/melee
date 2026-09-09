@@ -3,12 +3,15 @@
 #include <cassert>
 #include <cstdlib>
 #include <cstring>
+#include <fstream>
+#include <iterator>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
 #include <iterator>
 #include <stdexcept>
 #include <string>
+#include <span>
 #include <vector>
 
 namespace {
@@ -141,8 +144,16 @@ int main(int argc, char** argv)
 
     if (const char* fixture_path = std::getenv("MELEE_DAT_FIXTURE");
         fixture_path != nullptr && fixture_path[0] != '\0') {
-        std::cout << "native DAT fixture validation is provided by the parser; "
-                  << "set MELEE_DAT_FIXTURE=" << fixture_path << " in a caller\n";
+        std::ifstream input(fixture_path, std::ios::binary);
+        if (!input) throw std::runtime_error("MELEE_DAT_FIXTURE cannot be opened");
+        const std::vector<char> raw((std::istreambuf_iterator<char>(input)), {});
+        const auto bytes = std::as_bytes(std::span(raw));
+        const auto real = NativeDatArchive::parse(bytes);
+        std::cout << "native DAT fixture: " << fixture_path
+                  << " data=" << real.header().data_size
+                  << " relocations=" << real.relocation_offsets().size()
+                  << " public=" << real.public_entries().size()
+                  << " external=" << real.external_entries().size() << "\n";
     }
     std::cout << "native DAT archive tests passed\n";
 }
