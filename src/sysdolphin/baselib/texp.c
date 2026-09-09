@@ -1041,6 +1041,9 @@ void HSD_TExpSetReg(HSD_TExp* texp)
     u32 changed;
     HSD_TECnst* clist;
 
+    if (texp == NULL) {
+        return;
+    }
     clist = &texp->cnst;
     changed = 0;
 
@@ -1146,7 +1149,7 @@ void HSD_TExpSetReg(HSD_TExp* texp)
                 }
             }
         }
-        clist = &clist->next->cnst;
+        clist = clist->next == NULL ? NULL : &clist->next->cnst;
     }
     if (changed != 0) {
         GXPixModeSync();
