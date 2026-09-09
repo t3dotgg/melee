@@ -845,6 +845,58 @@ static void* kongo_parameters(NativeStageArchive* stage, uint32_t offset)
     return result;
 }
 
+typedef struct NativeCorneriaParameters {
+    f32 x0, x4, x8, xC, x10, x14, x18, x1C, x20, x24, x28, x2C, x30, x34,
+        x38, x3C, x40, x44, x48, x4C;
+    u8 padding50[0x18];
+    f32 x68;
+    u8 padding6C[4];
+    f32 x70;
+    s32 x74, x78, x7C, x80;
+    void* x84;
+    f32 x88;
+} NativeCorneriaParameters;
+_Static_assert(sizeof(NativeCorneriaParameters) == 0x98,
+               "native corneria parameter layout");
+
+static void* corneria_parameters(NativeStageArchive* stage, uint32_t offset)
+{
+    NativeCorneriaParameters* result;
+    const u8* data;
+    uint32_t target;
+    bool present;
+    if (!range(stage, offset, 0x8C)) {
+        return NULL;
+    }
+    result = allocate(stage, 1, sizeof(*result));
+    if (result == NULL) {
+        return NULL;
+    }
+    data = stage->archive->data + offset;
+    for (size_t i = 0; i < 20; ++i) {
+        u32 value = NativeArchiveBE32(data + i * 4);
+        memcpy((u8*) result + i * 4, &value, 4);
+    }
+    result->x68 = read_float(data + 0x68);
+    result->x70 = read_float(data + 0x70);
+    for (size_t i = 0; i < 4; ++i) {
+        u32 value = NativeArchiveBE32(data + 0x74 + i * 4);
+        memcpy((u8*) result + offsetof(NativeCorneriaParameters, x74) + i * 4,
+               &value, 4);
+    }
+    if (!reference(stage, offset + 0x84, &target, &present)) {
+        return NULL;
+    }
+    if (present) {
+        if (!range(stage, target, 4)) {
+            return NULL;
+        }
+        result->x84 = (void*) (stage->archive->data + target);
+    }
+    result->x88 = read_float(data + 0x88);
+    return result;
+}
+
 static void* stage_parameters(NativeStageArchive* stage, uint32_t offset)
 {
     uint32_t ground_offset;
@@ -895,6 +947,8 @@ static void* stage_parameters(NativeStageArchive* stage, uint32_t offset)
         return castle_parameters(stage, offset);
     case St_Kind_Kongo:
         return kongo_parameters(stage, offset);
+    case St_Kind_Corneria:
+        return corneria_parameters(stage, offset);
     case St_Kind_Izumi:
         return scalar_array(stage, offset, 21, 4);
     case St_Kind_Story:
