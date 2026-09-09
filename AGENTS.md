@@ -33,8 +33,10 @@ contribution guidance, and pull request descriptions.
 ## Verification
 
 - Follow `docs/build-and-run.md`. Configure matching work with `--no-always-apply` to avoid automatic symbol-file writes.
-- Run `python tools/verify.py` after every integrated batch that changes game code, headers, or build settings.
-- The US v1.02 executable must keep SHA-1 `08e0bf20134dfcb260699671004527b2d6bb1a45`.
+- For direct ARM64 work, use the native compile inventory, sanitizer tests, and actual native game runs. Verify match startup, input, rendering, sound, match end, and return to the menu.
+- Do not run the Intel compiler comparison or install or use Rosetta for the direct ARM64 port.
+- For matching GameCube work, run `python tools/verify.py` after every integrated batch that changes game code, headers, or build settings.
+- The matching US v1.02 executable must keep SHA-1 `08e0bf20134dfcb260699671004527b2d6bb1a45`.
 - Do not change `config/GALE01/build.sha1` or the original executable to make a cleanup pass.
 - A progress report alone is not sufficient. Build and check the complete executable.
 - Format only edited C and header files with the pinned clang-format version. Run the source checker on affected files.

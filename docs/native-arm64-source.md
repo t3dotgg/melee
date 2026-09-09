@@ -11,6 +11,10 @@ services. That app is a separate build path.
 The direct build is an experimental port. It is separate from the existing
 translated Mac app.
 
+Validate this port with ARM64 compilation, sanitizer tests, and actual native
+game runs. The original GameCube compiler comparison is outside this workflow.
+Do not install or use Rosetta for the direct port.
+
 ## Completion requirements
 
 The active goal is a working game build, not a compile check.
@@ -104,7 +108,7 @@ its SHA-256 is
 For the local copy used during validation:
 
 ```sh
-IMAGE="/Users/theo-mini-pro/Downloads/Super Smash Bros. Melee (USA) (En,Ja) (Rev 2).iso"
+IMAGE="/path/to/Melee.iso"
 shasum -a 256 "$IMAGE"
 build/native-source/game/melee-native --disc "$IMAGE"
 ```

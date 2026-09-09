@@ -306,11 +306,15 @@ Enum typedefs in this project always resolve to `int` currently.  This is a quir
 - State the problem, the change, and the actual checks run. Name the public model and harness that made the change. If the model is unknown, name only the harness.
 - Check the target repository before every push or GitHub write.
 
-For game code, headers, and build changes, run `python tools/verify.py` after
+For matching GameCube code, headers, and build changes, run `python tools/verify.py` after
 integration. The US v1.02 executable must keep SHA-1
 `08e0bf20134dfcb260699671004527b2d6bb1a45`. The command checks source completion,
 runs `ninja diff`, and checks the complete executable. Do not change the expected
 hash or mark a source file incomplete to make a cleanup pass.
+
+For the direct ARM64 port, use the native compile inventory, sanitizer tests,
+and real native game runs described in `docs/native-arm64-source.md`. Skip the
+Intel compiler comparison. Do not install or use Rosetta for this work.
 
 Run clang-format on edited C and header files. Run the source checker and focused
 tests for changed tools. Public CI also builds the native static library. It has
