@@ -101,6 +101,9 @@ int main(void)
     CHECK(OSAllocFromArenaHi(32, 32) == arena + 65472);
     OSSetArenaLo(arena + 1);
     OSSetArenaHi(arena + 65535);
+    CHECK(OSAllocFromArenaHi(1, 32) == arena + 65472);
+    OSSetArenaLo(arena + 1);
+    OSSetArenaHi(arena + 65535);
     CHECK(OSAllocFromArenaLo(1, 64) == arena + 64);
     CHECK(OSGetArenaLo() == arena + 128);
     CHECK(OSAllocFromArenaLo(SIZE_MAX, 32) == NULL);
