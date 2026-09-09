@@ -372,22 +372,24 @@ loop_3:
             if (kern_enabled != 0) {
                 glyph_code = *(u16*) cursor;
                 if (glyph_code < 0x4000U) {
-                    kern_width =
-                        (s32) (uintptr_t) (default_kerning +
-                               (((glyph_code - 0x2000) * 2) & 0x1FFFE));
-                    kern_data = (TextKerning*) (uintptr_t) kern_width;
-                    kern_width = kern_data->right - 2;
-                    kern_data = (TextKerning*) (uintptr_t) kern_data->left;
-                    kern_width = (s32) (uintptr_t) kern_data + kern_width;
+                    /* The two bytes in a kerning entry are values. The
+                     * original code routed them through a 32-bit integer
+                     * that happened to hold an address on the GameCube.
+                     * Reconstructing that address truncates a native host
+                     * pointer and can fault when text uses kerning. */
+                    kern_data = (TextKerning*)
+                        (default_kerning +
+                         (((glyph_code - 0x2000) * 2) & 0x1FFFE));
+                    kern_width = (s32) kern_data->left +
+                                 (s32) kern_data->right - 2;
                     *out_width =
                         -((text->x80.x * (f32) kern_width) - *out_width);
                 } else {
                     kern_data_2 =
                         (TextKerning*) &glyph_tex
                             ->data[((glyph_code - 0x4000) * 2) & 0x1FFFE];
-                    kern_width = kern_data_2->right - 2;
-                    kern_data_2 = (TextKerning*) (uintptr_t) kern_data_2->left;
-                    kern_width = (s32) (uintptr_t) kern_data_2 + kern_width;
+                    kern_width = (s32) kern_data_2->left +
+                                 (s32) kern_data_2->right - 2;
                     *out_width =
                         -((text->x80.x * (f32) kern_width) - *out_width);
                 }
