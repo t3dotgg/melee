@@ -638,7 +638,11 @@ struct FtPartsDesc {
 };
 
 struct ftData_x20 {
+#ifdef MELEE_NATIVE
+    /* +0 */ HSD_Joint* x0;
+#else
     /* +0 */ HSD_Joint** x0;
+#endif
     /* +4 */ f32 x8;
 };
 
@@ -1884,14 +1888,20 @@ typedef struct ftData_UnkModelStruct {
 
 struct ftData_80085FD4_ret {
     /* +0 */ const char* x0;
+#ifdef MELEE_NATIVE
+    /* +4 */ s32 x4;
+    /* +8 */ s32 x8;
+    /* +C */ union CmdUnion* xC;
+    u32 native_flags_low : 30;
+    /* +10:1 */ u32 x10_b1 : 1;
+    /* +10:0 */ u32 x10_b0 : 1;
+    /* +14 */ uintptr_t x14;
+#else
     /* +4 */ UNK_T x4;
     /* +8 */ size_t x8;
     /* +C */ UNK_T xC;
     /* +10:0 */ u8 x10_b0 : 1;
     /* +10:1 */ u8 x10_b1 : 1;
-#ifdef MELEE_NATIVE
-    /* +14 */ uintptr_t x14;
-#else
     /* +14 */ u32 x14;
 #endif
 };

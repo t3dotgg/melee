@@ -207,5 +207,9 @@ HSD_Joint* ftKb_SpecialN_800F5898(Fighter_GObj* gobj)
 {
     Fighter* fp = GET_FIGHTER(gobj);
     ftData* ca = fp->ft_data;
+#ifdef MELEE_NATIVE
+    return ca->x48_items[4];
+#else
     return M2C_FIELD(&ca->x48_items[0], HSD_Joint**, 0x10);
+#endif
 }

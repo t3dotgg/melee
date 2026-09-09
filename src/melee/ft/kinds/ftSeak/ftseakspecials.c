@@ -1,5 +1,11 @@
 #include "ftseakspecials.h"
 
+#ifdef MELEE_NATIVE
+#define SHEIK_CHAIN_CHILD(item) ((item)->child)
+#else
+#define SHEIK_CHAIN_CHILD(item) ((item)[2])
+#endif
+
 #include <melee/ft/forward.h>
 #include <melee/lb/forward.h>
 
@@ -87,7 +93,11 @@ void ftSk_SpecialS_80110610(HSD_GObj* gobj, s32 arg1, float arg2)
 
     u8 _[4];
 
+#ifdef MELEE_NATIVE
+    HSD_Joint* item;
+#else
     HSD_Joint** item;
+#endif
 
     if (arg1 == 305) {
         item = items[4];
@@ -109,7 +119,8 @@ void ftSk_SpecialS_80110610(HSD_GObj* gobj, s32 arg1, float arg2)
 
             if (fp->mv.sk.specials.x14 < 1) {
                 ftAnim_80070108(fp, FtPart_TransN, 1 - fp->mv.sk.specials.x14,
-                                fp->mv.sk.specials.x14, item[2]);
+                                fp->mv.sk.specials.x14,
+                                SHEIK_CHAIN_CHILD(item));
             }
 
             if (arg2 < 1) {
@@ -123,11 +134,12 @@ void ftSk_SpecialS_80110610(HSD_GObj* gobj, s32 arg1, float arg2)
     }
 
     if (arg2 < 1) {
-        ftAnim_80070010(fp, FtPart_TransN, arg2, 1 - arg2, item[2]);
+        ftAnim_80070010(fp, FtPart_TransN, arg2, 1 - arg2,
+                        SHEIK_CHAIN_CHILD(item));
         return;
     }
 
-    ftAnim_8006FA58(fp, FtPart_TransN, item[2]);
+    ftAnim_8006FA58(fp, FtPart_TransN, SHEIK_CHAIN_CHILD(item));
 }
 
 void ftSk_SpecialS_80110788(HSD_GObj* gobj)

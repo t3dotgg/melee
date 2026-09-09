@@ -2,6 +2,8 @@
 
 #include <Runtime/platform.h>
 #ifdef MELEE_NATIVE
+#include <stdlib.h>
+
 #include <assets/archive.h>
 #endif
 
@@ -146,6 +148,74 @@ typedef struct ft_8045993C_t {
 /* 4598B8 */ ftData* gFtDataList[FTKIND_MAX];
 /* 45993C */ ft_8045993C_t ft_8045993C[6];
 /* 45996C */ int ft_8045996C[FTKIND_MAX];
+#ifdef MELEE_NATIVE
+typedef struct ftDataNativeMotion {
+    const void* source;
+    NativeArchive* archive;
+    NativeArchiveGraph* graph;
+    struct ftDataNativeMotion* next;
+} ftDataNativeMotion;
+
+static ftDataNativeMotion* ftData_native_motions[FTKIND_MAX];
+
+static void ftDataNativeClearMotions(void)
+{
+    for (int kind = 0; kind < FTKIND_MAX; ++kind) {
+        while (ftData_native_motions[kind] != NULL) {
+            ftDataNativeMotion* motion = ftData_native_motions[kind];
+            ftData_native_motions[kind] = motion->next;
+            NativeArchiveGraphClose(motion->graph);
+            NativeArchiveClose(motion->archive);
+            free(motion);
+        }
+    }
+}
+
+/* AJ files contain separate DAT archives at each motion's byte offset. */
+static FigaTree* ftDataNativeReadMotion(FighterKind kind, const void* bytes,
+                                        size_t size,
+                                        struct Fighter_WaitAnimData* motion)
+{
+    const u8* source;
+    NativeArchiveError error;
+    NativeArchiveStatus status;
+    ftDataNativeMotion* entry;
+    FigaTree* tree = NULL;
+    HSD_ASSERT(0x974, motion->x4 >= 0 && motion->x8 > 0 &&
+                           (size_t) motion->x4 <= size &&
+                           (size_t) motion->x8 <= size - motion->x4);
+    source = (const u8*) bytes + motion->x4;
+    for (entry = ftData_native_motions[kind]; entry != NULL;
+         entry = entry->next)
+    {
+        if (entry->source == source) {
+            break;
+        }
+    }
+    if (entry == NULL) {
+        entry = calloc(1, sizeof(*entry));
+        HSD_ASSERT(0x974, entry != NULL);
+        status =
+            NativeArchiveOpen(source, motion->x8, &entry->archive, &error);
+        HSD_ASSERTREPORT(0x9A0, status == NATIVE_ARCHIVE_OK,
+                         "native fighter archive open failed at %zu: %s\n",
+                         error.offset, error.message);
+        status = NativeArchiveGraphOpen(entry->archive, &entry->graph, &error);
+        HSD_ASSERTREPORT(0x9A1, status == NATIVE_ARCHIVE_OK,
+                         "native fighter graph open failed at %zu: %s\n",
+                         error.offset, error.message);
+        entry->source = source;
+        entry->next = ftData_native_motions[kind];
+        ftData_native_motions[kind] = entry;
+    }
+    status =
+        NativeArchiveFigaTreeByName(entry->graph, motion->x0, &tree, &error);
+    HSD_ASSERTREPORT(0x9AF, status == NATIVE_ARCHIVE_OK,
+                     "native fighter figatree decode failed at %zu: %s\n",
+                     error.offset, error.message);
+    return tree;
+}
+#endif
 
 /// @todo All one struct maybe?
 #ifdef MUST_MATCH
@@ -172,20 +242,34 @@ void ft_8008521C(HSD_GObj* gobj)
 static inline void ft_800852B0_Reset_ft_8045993C(ftData** list, int i)
 {
     /// @todo Bitfields seem off
+#ifdef MELEE_NATIVE
+    ft_8045993C[i].pad_x0 = 0;
+    ft_8045993C[i].x6_b0 = 0;
+    ft_8045993C[i].x6_b1_b2 = 0;
+#else
     ((ft_8045993C_t*) &list[FTKIND_MAX])[i].pad_x0 = 0;
     ((ft_8045993C_t*) &list[FTKIND_MAX])[i].x6_b0 = 0;
     ((ft_8045993C_t*) &list[FTKIND_MAX])[i].x6_b1_b2 = 0;
+#endif
 }
 
 void ft_800852B0(void)
 {
     ftData** list;
+#ifdef MELEE_NATIVE
+    ftData_UnkCountStruct* unk0 = ftData_Table_Unk0;
+    ftData_UnkCountStruct* pairs = ftData_UnkIntPairs;
+#else
     ftData_UnkCountStruct* unk0 =
         (ftData_UnkCountStruct*) &CostumeListsForeachCharacter[FTKIND_MAX];
     ftData_UnkCountStruct* pairs =
         (ftData_UnkCountStruct*) ((u8*) CostumeListsForeachCharacter + 5940);
+#endif
     int i;
     int new_var = 0;
+#ifdef MELEE_NATIVE
+    ftDataNativeClearMotions();
+#endif
 
     for (i = 0; i < FTKIND_MAX; ++i) {
         int costume_idx = new_var;
@@ -254,11 +338,6 @@ void ft_8008549C(void)
     { ftGk_CostumeList, ARRAY_SIZE(ftGk_CostumeList) },
     { ftSb_CostumeList, ARRAY_SIZE(ftSb_CostumeList) }
 };
-
-#ifdef MELEE_NATIVE
-static NativeArchive* ftData_native_archives[FTKIND_MAX];
-static NativeArchiveGraph* ftData_native_graphs[FTKIND_MAX];
-#endif
 
 ftData_UnkCountStruct ftData_Table_Unk0[FTKIND_MAX] = {
     { 0, 303 }, { 0, 327 }, { 0, 318 }, { 0, 337 }, { 0, 479 }, { 0, 316 },
@@ -1676,28 +1755,10 @@ void ftData_80085A14(FighterKind kind)
         a_head = sp18;
         HSD_ASSERT(0x974, a_head);
 #ifdef MELEE_NATIVE
-        NativeArchiveError error;
-        NativeArchiveStatus status = NativeArchiveOpen(
-            a_head, sp10, &ftData_native_archives[kind], &error);
-        HSD_ASSERTREPORT(0x9A0, status == NATIVE_ARCHIVE_OK,
-                         "native fighter archive open failed at %zu: %s\n",
-                         error.offset, error.message);
-        status = NativeArchiveGraphOpen(ftData_native_archives[kind],
-                                        &ftData_native_graphs[kind], &error);
-        HSD_ASSERTREPORT(0x9A1, status == NATIVE_ARCHIVE_OK,
-                         "native fighter graph open failed at %zu: %s\n",
-                         error.offset, error.message);
         for (i = 0; i < (u32) ftData_Table_Unk0[kind].count; i++) {
-            temp_r0 = temp_r27->xC[i].x8;
-            if (temp_r0 != 0) {
-                FigaTree* tree = NULL;
-                status = NativeArchiveFigaTree(
-                    ftData_native_graphs[kind], temp_r27->xC[i].x4, &tree,
-                    &error);
-                HSD_ASSERTREPORT(0x9AF, status == NATIVE_ARCHIVE_OK,
-                                 "native fighter figatree decode failed at %zu: %s\n",
-                                 error.offset, error.message);
-                temp_r27->xC[i].x14 = (uintptr_t) tree;
+            if (temp_r27->xC[i].x8 != 0) {
+                temp_r27->xC[i].x14 = (uintptr_t) ftDataNativeReadMotion(
+                    kind, a_head, sp10, &temp_r27->xC[i]);
             }
         }
 #else
@@ -1801,7 +1862,8 @@ void ftData_80085CD8(Fighter* fp, Fighter* arg1, int msid)
                         lbArq_80014BD0(temp_r4_2, fp->x59C,
                                        OSRoundUp32B(temp_r3->x8), 0, 0);
                     } else {
-                        memcpy(fp->x59C, (void*) (uintptr_t) temp_r4_2, temp_r3->x8);
+                        memcpy(fp->x59C, (void*) (uintptr_t) temp_r4_2,
+                               temp_r3->x8);
                     }
                     temp_ret_2 =
                         HSD_ArchiveParse(&sp14, fp->x59C->x0, temp_r3->x8);
@@ -1860,7 +1922,8 @@ FigaTree* ftData_80085E50(Fighter* arg0, int msid)
                         lbArq_80014BD0(temp_r4_2, arg0->x5A0,
                                        OSRoundUp32B(temp_r3->x8), 0, 0);
                     } else {
-                        memcpy(arg0->x5A0, (void*) (uintptr_t) temp_r4_2, temp_r3->x8);
+                        memcpy(arg0->x5A0, (void*) (uintptr_t) temp_r4_2,
+                               temp_r3->x8);
                     }
                     temp_ret_2 =
                         HSD_ArchiveParse(&sp10, arg0->x5A0->x0, temp_r3->x8);
