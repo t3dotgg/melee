@@ -79,10 +79,10 @@ The full direct-source target now links successfully with no undefined
 symbols. The host services include 64-bit heap and context storage, typed
 archive loading for the supported descriptor schemas, filesystem or ISO disc
 reads, ARAM, controller state, headless 60 Hz retraces with OS alarm
-callbacks, headless GX state, deterministic audio stubs, cache operations,
-card stubs, and an explicit unavailable THP decoder. The scheduler uses the
-host monotonic clock by default. Tests can advance a deterministic clock
-without sleeping.
+callbacks, a software GX EFB for direct vertices, cache operations, card
+stubs, and an explicit unavailable THP decoder. The scheduler uses the host
+monotonic clock by default. Tests can advance a deterministic clock without
+sleeping.
 
 The native archive bridge now loads `lbRumbleData`, `SIS_MessageData`, and
 `MemCardIconData` from the real image. An AddressSanitizer startup run reaches
@@ -93,11 +93,20 @@ descriptor lists, animations, cameras, and world objects. Remaining archive
 work includes the stage and menu roots, shape and envelope polygon
 descriptors, effects, and other callers.
 
-The Cocoa XFB preview only presents the RGB565 buffer copied by the video
-path. GX still has headless state and discards geometry and display lists, so
-the window is not a rendered game frame. Audio output, persistent card
-storage, and complete archive and font handling from the disc image also
-remain.
+The software GX EFB rasterizes direct vertex calls and `GXCopyDisp` copies the
+result to an RGB565 XFB. GX vertex arrays and display lists remain unsupported,
+as do most texture and TEV effects. The Cocoa XFB preview only presents that
+buffer. It does not make the unsupported GX paths render.
+
+The host PAD shim maps keyboard events to controller 0. Arrow keys provide the
+D-pad, `A`/`D` and `W`/`S` provide the main stick, `F`/`H` and `G`/`T` provide
+the C-stick, `J`/`K`/`U`/`I` provide A/B/X/Y, `O` provides Z, `Q` and `E`
+provide L/R, Shift and Control provide the analog triggers, and Return or
+Space provides Start. `C` and `V` provide the analog A and B buttons.
+
+AI DMA stereo PCM is now queued to a macOS AudioToolbox output unit when the
+device is available. Headless runs keep the state-only fallback. Persistent
+card storage and complete archive and font handling from the disc image remain.
 Do not treat a successful link as playable behavior.
 
 ## Work order
@@ -105,9 +114,9 @@ Do not treat a successful link as playable behavior.
 1. Complete the scene, stage, menu, shape, envelope, effects, and font archive
    schemas and their callers.
 2. Load a real model and animation from the supplied Melee image.
-3. Implement GX geometry and display-list rendering, then present the result
-   through the Cocoa XFB path.
-4. Add audio output and persistent card storage.
+3. Expand GX support to vertex arrays, display lists, and the texture and TEV
+   state used by the game, then present the result through the Cocoa XFB path.
+4. Validate sound playback and add persistent card storage.
 5. Boot menus, enter a match, check controls and match end, and return to the
    menu.
 
