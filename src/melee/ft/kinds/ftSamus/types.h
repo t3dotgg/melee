@@ -73,7 +73,11 @@ typedef struct _ftSamusAttributes {
     /* +C4 */ int xC4;
     /* +C8 */ int xC8;
     /* +CC */ f32 xCC;
+#ifdef MELEE_NATIVE
+    /* +D0 */ f32 xD0;
+#else
     /* +D0 */ UNK_T xD0;
+#endif
 } ftSs_DatAttrs;
 
 /// maybe Samus grapple?
