@@ -1,6 +1,7 @@
 #include "../assets/archive.h"
 
 #include <sysdolphin/baselib/aobj.h>
+#include <sysdolphin/baselib/cobj.h>
 #include <sysdolphin/baselib/jobj.h>
 #include <sysdolphin/baselib/wobj.h>
 
@@ -394,6 +395,89 @@ static void test_wobj(void)
     CHECK(root->robjdesc == NULL);
     check_host_pointer(&fixture, root);
     check_host_pointer(&fixture, root->class_name);
+    NativeArchiveGraphClose(graph);
+    NativeArchiveClose(archive);
+}
+
+static void test_cobj(void)
+{
+    Fixture fixture = fixture_new(128);
+    /* Camera at 0, WObj at 64, up vector at 84, strings at 96 and 105. */
+    public_symbol(&fixture, 0, "camera");
+    reference(&fixture, 0, 96);
+    reference(&fixture, 24, 64);
+    reference(&fixture, 28, 64);
+    reference(&fixture, 36, 84);
+    reference(&fixture, 64, 105);
+    word(&fixture, 4, (uint32_t) ((0x0001u << 16) | PROJ_PERSPECTIVE));
+    fixture.bytes[HEADER_SIZE + 8] = 0xff;
+    fixture.bytes[HEADER_SIZE + 9] = 0xf6; /* viewport xmin -10 */
+    fixture.bytes[HEADER_SIZE + 10] = 0x02;
+    fixture.bytes[HEADER_SIZE + 11] = 0x80; /* viewport xmax 640 */
+    fixture.bytes[HEADER_SIZE + 12] = 0;
+    fixture.bytes[HEADER_SIZE + 13] = 0; /* viewport ymin 0 */
+    fixture.bytes[HEADER_SIZE + 14] = 0x01;
+    fixture.bytes[HEADER_SIZE + 15] = 0xe0; /* viewport ymax 480 */
+    fixture.bytes[HEADER_SIZE + 16] = 0;
+    fixture.bytes[HEADER_SIZE + 17] = 10;
+    fixture.bytes[HEADER_SIZE + 18] = 0x02;
+    fixture.bytes[HEADER_SIZE + 19] = 0x86;
+    fixture.bytes[HEADER_SIZE + 20] = 0;
+    fixture.bytes[HEADER_SIZE + 21] = 20;
+    fixture.bytes[HEADER_SIZE + 22] = 0x01;
+    fixture.bytes[HEADER_SIZE + 23] = 0xf4;
+    word(&fixture, 32, 0x3f000000); /* roll 0.5 */
+    word(&fixture, 40, 0x3dcccccd); /* near 0.1 */
+    word(&fixture, 44, 0x447a0000); /* far 1000 */
+    word(&fixture, 48, 0x40490fdb); /* fov pi */
+    word(&fixture, 52, 0x3faaaaab); /* aspect 1.333333 */
+    word(&fixture, 64 + 4, 0x3f800000);
+    word(&fixture, 64 + 8, 0x40000000);
+    word(&fixture, 64 + 12, 0x40400000);
+    word(&fixture, 84, 0x40a00000);
+    word(&fixture, 88, 0x40c00000);
+    word(&fixture, 92, 0x40e00000);
+    memcpy(fixture.bytes + HEADER_SIZE + 96, "HSD_CObj", 9);
+    memcpy(fixture.bytes + HEADER_SIZE + 105, "HSD_WObj", 9);
+
+    NativeArchive* archive = open_fixture(&fixture);
+    NativeArchiveGraph* graph = open_graph(archive);
+    NativeArchiveError error = { 0 };
+    HSD_CObjDesc* root = NULL;
+    CHECK(NativeArchiveCObj(graph, 0, &root, &error) == NATIVE_ARCHIVE_OK);
+    CHECK(root != NULL);
+    CHECK(NativeArchiveCObjByName(graph, "camera", &root, &error) ==
+          NATIVE_ARCHIVE_OK);
+    CHECK(strcmp(root->common.class_name, "HSD_CObj") == 0);
+    CHECK(root->common.flags == 1);
+    CHECK(root->common.projection_type == PROJ_PERSPECTIVE);
+    CHECK(root->common.viewport.xmin == -10 &&
+          root->common.viewport.xmax == 640 && root->common.viewport.ymin == 0 &&
+          root->common.viewport.ymax == 480);
+    CHECK(root->common.scissor.left == 10 && root->common.scissor.right == 646 &&
+          root->common.scissor.top == 20 && root->common.scissor.bottom == 500);
+    CHECK(root->common.eyepos == root->common.interest);
+    CHECK(root->common.eyepos->pos.x == 1.0f &&
+          root->common.eyepos->pos.y == 2.0f &&
+          root->common.eyepos->pos.z == 3.0f);
+    CHECK(root->common.up_vector->x == 5.0f &&
+          root->common.up_vector->y == 6.0f &&
+          root->common.up_vector->z == 7.0f);
+    CHECK(root->perspective.fov > 3.14f && root->perspective.aspect > 1.33f);
+    check_host_pointer(&fixture, root);
+    check_host_pointer(&fixture, root->common.class_name);
+    check_host_pointer(&fixture, root->common.eyepos);
+    check_host_pointer(&fixture, root->common.up_vector);
+    NativeArchiveGraphClose(graph);
+    NativeArchiveClose(archive);
+
+    /* Unknown projection tags must fail before returning a partial descriptor. */
+    fixture.bytes[HEADER_SIZE + 7] = 7;
+    archive = open_fixture(&fixture);
+    graph = open_graph(archive);
+    root = (HSD_CObjDesc*) (uintptr_t) 1;
+    CHECK(NativeArchiveCObj(graph, 0, &root, &error) == NATIVE_ARCHIVE_INVALID);
+    CHECK(root == NULL && error.offset == HEADER_SIZE + 6);
     NativeArchiveGraphClose(graph);
     NativeArchiveClose(archive);
 }
@@ -795,6 +879,7 @@ int main(void)
     test_joint_graph();
     test_animation_graph();
     test_wobj();
+    test_cobj();
     test_truncation_and_counts();
     test_bad_relocations();
     test_bad_symbols();

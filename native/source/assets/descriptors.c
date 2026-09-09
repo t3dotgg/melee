@@ -1,6 +1,7 @@
 #include "archive_internal.h"
 
 #include <sysdolphin/baselib/aobj.h>
+#include <sysdolphin/baselib/cobj.h>
 #include <sysdolphin/baselib/jobj.h>
 #include <sysdolphin/baselib/wobj.h>
 #include <melee/lb/lbanim.h>
@@ -21,6 +22,8 @@ typedef enum Schema {
     SCHEMA_AOBJ,
     SCHEMA_FOBJ,
     SCHEMA_WOBJ,
+    SCHEMA_COBJ,
+    SCHEMA_VECTOR,
     SCHEMA_MATRIX,
     SCHEMA_STRING,
     SCHEMA_BYTES,
@@ -168,6 +171,16 @@ static void* add_node(NativeArchiveGraph* graph, uint32_t offset,
     case SCHEMA_WOBJ:
         disk_size = 20;
         host_size = sizeof(HSD_WObjDesc);
+        break;
+    case SCHEMA_COBJ:
+        /* HSD_CObjDesc is a 0x40-byte GameCube union. Its pointer fields are
+         * decoded below into the wider native union members. */
+        disk_size = 64;
+        host_size = sizeof(HSD_CObjDesc);
+        break;
+    case SCHEMA_VECTOR:
+        disk_size = 12;
+        host_size = sizeof(Vec3);
         break;
     case SCHEMA_MATRIX:
         disk_size = 48;
@@ -454,6 +467,58 @@ static bool convert_node(NativeArchiveGraph* graph, Node* node)
         wobj->pos = read_vec(bytes + 4);
         break;
     }
+    case SCHEMA_COBJ: {
+        HSD_CObjDesc* desc = node->value;
+        HSD_CameraDescCommon* common = &desc->common;
+        uint16_t projection_type =
+            (uint16_t) (((uint16_t) bytes[6] << 8) | bytes[7]);
+
+        if (projection_type != PROJ_PERSPECTIVE &&
+            projection_type != PROJ_FRUSTUM && projection_type != PROJ_ORTHO) {
+            graph_fail(graph, NATIVE_ARCHIVE_INVALID, offset + 6,
+                       "camera descriptor has an invalid projection type");
+            return false;
+        }
+        common->class_name = link_node(graph, offset, SCHEMA_STRING, 0);
+        common->flags = (uint16_t) (((uint16_t) bytes[4] << 8) | bytes[5]);
+        common->projection_type = projection_type;
+        common->viewport.xmin = (s16) (((uint16_t) bytes[8] << 8) | bytes[9]);
+        common->viewport.xmax =
+            (s16) (((uint16_t) bytes[10] << 8) | bytes[11]);
+        common->viewport.ymin =
+            (s16) (((uint16_t) bytes[12] << 8) | bytes[13]);
+        common->viewport.ymax =
+            (s16) (((uint16_t) bytes[14] << 8) | bytes[15]);
+        common->scissor.left =
+            (uint16_t) (((uint16_t) bytes[16] << 8) | bytes[17]);
+        common->scissor.right =
+            (uint16_t) (((uint16_t) bytes[18] << 8) | bytes[19]);
+        common->scissor.top =
+            (uint16_t) (((uint16_t) bytes[20] << 8) | bytes[21]);
+        common->scissor.bottom =
+            (uint16_t) (((uint16_t) bytes[22] << 8) | bytes[23]);
+        common->eyepos = link_node(graph, offset + 24, SCHEMA_WOBJ, 0);
+        common->interest = link_node(graph, offset + 28, SCHEMA_WOBJ, 0);
+        common->roll = read_float(bytes + 32);
+        common->up_vector = link_node(graph, offset + 36, SCHEMA_VECTOR, 0);
+        common->nnear = read_float(bytes + 40);
+        common->ffar = read_float(bytes + 44);
+        if (projection_type == PROJ_PERSPECTIVE) {
+            desc->perspective.fov = read_float(bytes + 48);
+            desc->perspective.aspect = read_float(bytes + 52);
+        } else {
+            desc->frustum.top = read_float(bytes + 48);
+            desc->frustum.bottom = read_float(bytes + 52);
+            desc->frustum.left = read_float(bytes + 56);
+            desc->frustum.right = read_float(bytes + 60);
+        }
+        break;
+    }
+    case SCHEMA_VECTOR: {
+        Vec3* vector = node->value;
+        *vector = read_vec(bytes);
+        break;
+    }
     case SCHEMA_MATRIX: {
         float* matrix = node->value;
         size_t i;
@@ -717,6 +782,7 @@ ROOT_READER(NativeArchiveJoint, HSD_Joint, SCHEMA_JOINT)
 ROOT_READER(NativeArchiveAnimation, HSD_AnimJoint, SCHEMA_ANIMATION)
 ROOT_READER(NativeArchiveAObj, HSD_AObjDesc, SCHEMA_AOBJ)
 ROOT_READER(NativeArchiveWObj, HSD_WObjDesc, SCHEMA_WOBJ)
+ROOT_READER(NativeArchiveCObj, HSD_CObjDesc, SCHEMA_COBJ)
 
 static NativeArchiveStatus find_named_root(NativeArchiveGraph* graph,
                                            const char* name, uint32_t* offset,
@@ -752,4 +818,5 @@ NAMED_ROOT_READER(NativeArchiveAnimationByName, HSD_AnimJoint,
                   NativeArchiveAnimation)
 NAMED_ROOT_READER(NativeArchiveAObjByName, HSD_AObjDesc, NativeArchiveAObj)
 NAMED_ROOT_READER(NativeArchiveWObjByName, HSD_WObjDesc, NativeArchiveWObj)
+NAMED_ROOT_READER(NativeArchiveCObjByName, HSD_CObjDesc, NativeArchiveCObj)
 NAMED_ROOT_READER(NativeArchiveFigaTreeByName, FigaTree, NativeArchiveFigaTree)

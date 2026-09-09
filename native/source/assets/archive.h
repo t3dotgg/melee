@@ -74,6 +74,7 @@ struct HSD_Joint;
 struct HSD_AnimJoint;
 struct HSD_AObjDesc;
 struct HSD_WObjDesc;
+union HSD_CObjDesc;
 struct FigaTree;
 NativeArchiveStatus NativeArchiveJoint(NativeArchiveGraph* graph,
                                       uint32_t offset,
@@ -105,6 +106,14 @@ NativeArchiveStatus NativeArchiveWObj(NativeArchiveGraph* graph,
 NativeArchiveStatus NativeArchiveWObjByName(NativeArchiveGraph* graph,
                                             const char* name,
                                             struct HSD_WObjDesc** output,
+                                            NativeArchiveError* error);
+NativeArchiveStatus NativeArchiveCObj(NativeArchiveGraph* graph,
+                                      uint32_t offset,
+                                      union HSD_CObjDesc** output,
+                                      NativeArchiveError* error);
+NativeArchiveStatus NativeArchiveCObjByName(NativeArchiveGraph* graph,
+                                            const char* name,
+                                            union HSD_CObjDesc** output,
                                             NativeArchiveError* error);
 NativeArchiveStatus NativeArchiveFigaTree(NativeArchiveGraph* graph,
                                          uint32_t offset,
