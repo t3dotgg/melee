@@ -23,6 +23,12 @@ int main()
     assert(geometry.indices[0] == 0 && geometry.indices[5] == 3);
     assert(geometry.vertices[0].color != geometry.vertices[4].color);
 
+    RenderCommandBuffer commands;
+    commands.append(snapshot.objects[0]);
+    const NativeRenderGeometry command_geometry = commands.build_proxy_geometry();
+    assert(command_geometry.draws.size() == 1);
+    assert(command_geometry.draws[0].object_id == snapshot.objects[0].id);
+
     bool rejected = false;
     try {
         (void)build_proxy_geometry(snapshot, 0.0F, 1.0F);

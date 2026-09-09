@@ -6,6 +6,8 @@
 
 namespace melee::native {
 
+struct NativeRenderGeometry;
+
 struct RenderTransform {
     float x = 0.0F;
     float y = 0.0F;
@@ -33,6 +35,11 @@ public:
     void clear() noexcept { commands_.clear(); }
     void append(RenderObject object) { commands_.push_back(object); }
     std::span<const RenderObject> commands() const noexcept { return commands_; }
+
+    // Material-independent proxy extraction for transitional renderers. The
+    // returned geometry owns its data and is safe to hand to another thread.
+    NativeRenderGeometry build_proxy_geometry(float half_width = 0.5F,
+                                              float half_height = 1.0F) const;
 
 private:
     std::vector<RenderObject> commands_;

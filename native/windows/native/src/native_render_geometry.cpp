@@ -72,4 +72,10 @@ NativeRenderGeometry build_proxy_geometry(std::span<const RenderObject> objects,
     return geometry;
 }
 
+NativeRenderGeometry RenderCommandBuffer::build_proxy_geometry(float half_width,
+                                                               float half_height) const
+{
+    return melee::native::build_proxy_geometry(commands(), half_width, half_height);
+}
+
 } // namespace melee::native
