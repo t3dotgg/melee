@@ -29,6 +29,7 @@ public:
     // back buffer, waits for GPU completion, and presents it. This is the
     // first concrete command-recording boundary used by the native renderer.
     bool clear_and_present(float red, float green, float blue, float alpha = 1.0f) noexcept;
+    void show() noexcept;
     void pump_messages() noexcept;
     bool available() const noexcept { return swap_chain_ != nullptr; }
     bool tearing_supported() const noexcept { return tearing_supported_; }

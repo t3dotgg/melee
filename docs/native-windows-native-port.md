@@ -153,8 +153,12 @@ The renderer backend contract now has a headless implementation for deterministi
 tests and a Windows D3D12 capability probe; a swap-chain frontend and GX/TEV
 translation still remain to be implemented.
 The native target also initializes and releases a real D3D12 device through the
-Windows loader, selecting the highest available feature level. Command lists,
-swap-chain ownership, shaders, and GX/TEV translation remain separate work.
+Windows loader, selecting the highest available feature level. The Win32
+frontend now owns RTV views for every flip-model back buffer, records a
+PRESENT/RENDER_TARGET clear pass, submits it on a direct queue, signals a fence,
+and presents at the independent render cadence. The shell uses this path when
+the device is available and polls XInput user 0 through the Switch-like action
+mapping. Shader/material pipelines and GX/TEV translation remain separate work.
 The native frontend now owns a real Win32 window handle and message pump,
 including hidden-window operation for headless tests.
 The current Windows target now also creates an `IDXGISwapChain3` flip-model

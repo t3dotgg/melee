@@ -266,6 +266,13 @@ void NativeWin32SwapChain::pump_messages() noexcept
 #endif
 }
 
+void NativeWin32SwapChain::show() noexcept
+{
+#ifdef _WIN32
+    if (window_ != nullptr) ShowWindow(static_cast<HWND>(window_), SW_SHOW);
+#endif
+}
+
 } // namespace melee::native
 
 
