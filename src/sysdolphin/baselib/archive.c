@@ -113,6 +113,18 @@ char* HSD_ArchiveGetExtern(HSD_Archive* archive, int extern_index)
 void HSD_ArchiveLocateExtern(HSD_Archive* archive, const char* symbol_name,
                              void* address)
 {
+#ifdef MELEE_NATIVE
+    /* DAT relocation fields are four-byte big-endian offsets. A host pointer
+     * does not fit in those fields, so the legacy in-place binding path is
+     * unsafe on a 64-bit build. Native callers must bind through
+     * NativeArchiveGraph instead. */
+    (void) archive;
+    (void) symbol_name;
+    (void) address;
+    OSReport("HSD_ArchiveLocateExtern is unavailable on native hosts; use "
+             "NativeArchive.\n");
+    return;
+#else
     uintptr_t next_offset;
     uintptr_t reference_offset = -1;
     u32 extern_index;
@@ -142,4 +154,5 @@ void HSD_ArchiveLocateExtern(HSD_Archive* archive, const char* symbol_name,
         *(u32*) (archive->data + reference_offset) = (uintptr_t) address;
         reference_offset = next_offset;
     }
+#endif
 }
