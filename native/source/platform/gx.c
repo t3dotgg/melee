@@ -18,6 +18,7 @@ static f32 gx_projection[7]; static f32 gx_viewport[6]={0,0,640,480,0,1}; static
 #define GX_SW_MAX_VERTICES 4096u
 typedef struct GXSWVertex {
     f32 x, y, z;
+    f32 s, t;
     GXColor color;
 } GXSWVertex;
 static u16 *gx_efb;
@@ -29,6 +30,7 @@ static GXSWVertex gx_vertices[GX_SW_MAX_VERTICES];
 static GXSWVertex gx_pending_vertex;
 static GXBool gx_pending_position;
 static GXColor gx_current_color = { 255, 255, 255, 255 };
+static f32 gx_current_tex_s, gx_current_tex_t;
 static GXColor gx_copy_clear_color;
 static GXBool gx_color_update = GX_TRUE;
 static GXBool gx_in_begin;
@@ -53,7 +55,7 @@ static u16 gx_pack_rgb565(GXColor c)
 
 static GXSWVertex gx_transform_vertex(f32 x, f32 y, f32 z)
 {
-    GXSWVertex v = { x, y, z, gx_current_color };
+    GXSWVertex v = { x, y, z, gx_current_tex_s, gx_current_tex_t, gx_current_color };
     if (gx_have_pos_mtx) {
         f32 tx = gx_pos_mtx[0][3] + gx_pos_mtx[0][0] * x +
                  gx_pos_mtx[0][1] * y + gx_pos_mtx[0][2] * z;
@@ -133,6 +135,12 @@ static void gx_triangle(const GXSWVertex *a, const GXSWVertex *b,
 static void gx_commit_vertex(void)
 {
     if (!gx_pending_position) return;
+    /* GX streams position first, then color and texture attributes. Delay the
+     * snapshot until the next position or GXEnd so those attributes belong to
+     * this vertex. */
+    gx_pending_vertex.color = gx_current_color;
+    gx_pending_vertex.s = gx_current_tex_s;
+    gx_pending_vertex.t = gx_current_tex_t;
     if (gx_vertex_count < (u16) (sizeof(gx_vertices) / sizeof(gx_vertices[0])))
         gx_vertices[gx_vertex_count++] = gx_pending_vertex;
     gx_pending_position = GX_FALSE;
@@ -200,7 +208,9 @@ V1(GXColor,u16)
 void GXColor1u32(u32 x) { gx_current_color=(GXColor){(u8)(x>>24),(u8)(x>>16),(u8)(x>>8),(u8)x}; }
 void GXColor3u8(u8 r,u8 g,u8 b) { gx_current_color=(GXColor){r,g,b,255}; }
 void GXColor4u8(u8 r,u8 g,u8 b,u8 a) { gx_current_color=(GXColor){r,g,b,a}; }
-V1(GXTexCoord,u8) V1(GXTexCoord,u16) V2(GXTexCoord,f32) V2(GXTexCoord,u8)
+void GXTexCoord2f32(f32 s, f32 t) { gx_current_tex_s = s; gx_current_tex_t = t; }
+void GXTexCoord1f32(f32 s) { gx_current_tex_s = s; }
+V1(GXTexCoord,u8) V1(GXTexCoord,u16) V2(GXTexCoord,u8)
 void GXColor1x16(u16 x){(void)x;} void GXColor1x8(u8 x){(void)x;} void GXTexCoord1x16(u16 x){(void)x;} void GXTexCoord1x8(u8 x){(void)x;}
 u32 GXGetTexBufferSize(u16 width, u16 height, u32 format, u8 mipmap,
                        u8 max_lod)
