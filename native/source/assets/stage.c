@@ -20,7 +20,7 @@ struct NativeStageArchive {
     NativeArchiveGraph* graph;
     StageAllocation* allocations;
     NativeArchiveError* error;
-    void* roots[5];
+    void* roots[9];
 };
 
 typedef struct {
@@ -88,6 +88,54 @@ static f32 read_float(const u8* data)
     u32 value = NativeArchiveBE32(data);
     f32 result;
     memcpy(&result, &value, sizeof(result));
+    return result;
+}
+
+static bool reference(NativeStageArchive* stage, uint32_t field,
+                      uint32_t* target, bool* present);
+
+/* DynamicsDesc roots store a pointer, a count, and a position. The pointed
+ * data is an array of lb_00F9_UnkDesc1Inner records. Each record is 0x3C
+ * bytes of big-endian scalar values. The game later copies these records into
+ * runtime DynamicsData entries, so native conversion only needs to preserve
+ * their scalar layout and expose a host pointer. */
+static void* dynamics_parameters(NativeStageArchive* stage, uint32_t offset)
+{
+    DynamicsDesc* result;
+    uint32_t target;
+    bool present;
+    if (!range(stage, offset, 0x14)) {
+        return NULL;
+    }
+    result = allocate(stage, 1, sizeof(*result));
+    if (result == NULL) {
+        return NULL;
+    }
+    result->count = NativeArchiveBE32(stage->archive->data + offset + 4);
+    if (!reference(stage, offset, &target, &present)) {
+        return NULL;
+    }
+    if (result->count != 0) {
+        if ((size_t) result->count > SIZE_MAX / (size_t) 0x3C || !present ||
+            !range(stage, target, (size_t) result->count * 0x3C)) {
+            return fail(stage, offset, "dynamics data count has no data");
+        }
+        result->data = allocate(stage, result->count, 0x3C);
+        if (result->data == NULL) {
+            return NULL;
+        }
+        for (size_t i = 0; i < (size_t) result->count; ++i) {
+            const u8* source = stage->archive->data + target + i * 0x3C;
+            u8* destination = (u8*) result->data + i * 0x3C;
+            for (size_t j = 0; j < 0x3C; j += 4) {
+                u32 value = NativeArchiveBE32(source + j);
+                memcpy(destination + j, &value, sizeof(value));
+            }
+        }
+    }
+    result->pos.x = read_float(stage->archive->data + offset + 8);
+    result->pos.y = read_float(stage->archive->data + offset + 12);
+    result->pos.z = read_float(stage->archive->data + offset + 16);
     return result;
 }
 
@@ -1137,15 +1185,17 @@ NativeArchiveStatus NativeStageArchiveRead(NativeStageArchive* stage,
     stage->error = error == NULL ? &local : error;
     *stage->error = local;
     *output = NULL;
-    const char* names[] = { "grGroundParam", "coll_data", "map_head",
-                            "map_plit", "yakumono_param" };
+    const char* names[] = {
+        "grGroundParam",       "coll_data",          "map_head",
+        "map_plit",             "yakumono_param",     "dynamicsdata_flag3",
+        "dynamicsdata_flag4",   "dynamicsdata_flag6", "dynamicsdata_shipflag" };
     size_t index;
-    for (index = 0; index < 5; ++index) {
+    for (index = 0; index < 9; ++index) {
         if (strcmp(symbol, names[index]) == 0) {
             break;
         }
     }
-    if (index == 5) {
+    if (index == 9) {
         return NATIVE_ARCHIVE_NOT_FOUND;
     }
     if (stage->roots[index] != NULL) {
@@ -1167,6 +1217,12 @@ NativeArchiveStatus NativeStageArchiveRead(NativeStageArchive* stage,
         break;
     case 4:
         *output = stage_parameters(stage, offset);
+        break;
+    case 5:
+    case 6:
+    case 7:
+    case 8:
+        *output = dynamics_parameters(stage, offset);
         break;
     }
     if (*output != NULL) {

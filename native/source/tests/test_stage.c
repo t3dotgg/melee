@@ -279,6 +279,55 @@ static void test_greatbay_parameters(void)
     NativeArchiveClose(archive);
 }
 
+static void test_dynamics_parameters(void)
+{
+    enum {
+        DATA_SIZE = 256,
+        ROOT_OFFSET = 128,
+        FILE_SIZE = 32 + DATA_SIZE + 4,
+    };
+    unsigned char file[FILE_SIZE] = { 0 };
+    unsigned char* data = file + 32;
+    NativeArchive* archive;
+    NativeArchiveGraph* graph;
+    NativeStageArchive* stage;
+    NativeArchiveError error;
+    void* result;
+    word(file, 0, FILE_SIZE);
+    word(file, 4, DATA_SIZE);
+    word(file, 8, 1);
+    word(data, ROOT_OFFSET, 0);
+    word(data, ROOT_OFFSET + 4, 2);
+    word(data, ROOT_OFFSET + 8, 0x3F800000);
+    word(data, ROOT_OFFSET + 12, 0x40000000);
+    word(data, ROOT_OFFSET + 16, 0x40400000);
+    word(data, 0, 0x3F800000);
+    word(data, 4, 0x40000000);
+    word(data, 8, 0x40400000);
+    word(data, 0x3C, 0x40800000);
+    word(data, 0x40, 0x40A00000);
+    word(data, 0x44, 0x40C00000);
+    word(file, 32 + DATA_SIZE, ROOT_OFFSET);
+    assert(NativeArchiveOpen(file, sizeof(file), &archive, &error) ==
+           NATIVE_ARCHIVE_OK);
+    assert(NativeArchiveGraphOpen(archive, &graph, &error) ==
+           NATIVE_ARCHIVE_OK);
+    stage = NativeStageArchiveOpen(archive, graph);
+    assert(NativeStageArchiveRead(stage, "dynamicsdata_flag3", ROOT_OFFSET,
+                                  &result, &error) == NATIVE_ARCHIVE_OK);
+    DynamicsDesc* dynamics = result;
+    assert(dynamics->count == 2);
+    assert(dynamics->pos.x == 1.0f && dynamics->pos.y == 2.0f &&
+           dynamics->pos.z == 3.0f);
+    assert(native_word(dynamics->data, 0) == 0x3F800000);
+    assert(native_word(dynamics->data, 4) == 0x40000000);
+    assert(native_word((unsigned char*) dynamics->data + 0x3C, 0) ==
+           0x40800000);
+    NativeStageArchiveClose(stage);
+    NativeArchiveGraphClose(graph);
+    NativeArchiveClose(archive);
+}
+
 /* Optional local DAT paths exercise full stage graphs without committing game
  * data. */
 static void test_real_stage(const char* path)
@@ -344,6 +393,7 @@ int main(int argc, char** argv)
     test_stage_layouts();
     test_zebes_parameters();
     test_greatbay_parameters();
+    test_dynamics_parameters();
     for (int i = 1; i < argc; ++i) {
         test_real_stage(argv[i]);
     }
