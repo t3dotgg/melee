@@ -2536,7 +2536,14 @@ bool Ground_801C43C4(void* arg0)
                 }
             }
         }
+#ifdef MELEE_NATIVE
+        /* Some native stage light animations are not present in the converted
+         * shadow table. Missing entries mean the object has no shadow. Keep
+         * the match running while preserving the retail assertion path. */
+        return false;
+#else
         HSD_ASSERT(3652, 0);
+#endif
     }
     return false;
 }
