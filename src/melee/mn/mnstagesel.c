@@ -254,7 +254,7 @@ void fn_8025A090(HSD_GObj* gobj)
     }
     if (temp_r30->x4 < 0x5A) {
         temp_r30->x4++;
-        if (temp_r30->x4 == 0x14) {
+        if (temp_r30->x4 == 0x14 && temp_r30->x0 < 0x1E) {
             HSD_JObjReqAnimAll(jobj,
                                50.0F * mnStageSel_803F06D0[temp_r30->x0].x9);
         }
