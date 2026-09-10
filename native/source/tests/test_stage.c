@@ -328,6 +328,86 @@ static void test_dynamics_parameters(void)
     NativeArchiveClose(archive);
 }
 
+static void test_mutecity_parameters(void)
+{
+    enum {
+        DATA_SIZE = 640,
+        RELOCS = 5,
+        FILE_SIZE = 32 + DATA_SIZE + RELOCS * 4,
+    };
+    unsigned char file[FILE_SIZE] = { 0 };
+    unsigned char* data = file + 32;
+    const uint32_t relocations[] = { 0xB0, 320, 324, 328, 332 };
+    NativeArchive* archive;
+    NativeArchiveGraph* graph;
+    NativeArchiveError error;
+    void* result;
+    word(file, 0, FILE_SIZE);
+    word(file, 4, DATA_SIZE);
+    word(file, 8, RELOCS);
+    word(data, 0xB0, 220);
+    word(data, 0xB4, 1);
+    word(data, 220, St_Kind_MuteCity);
+    word(data, 320, 416);
+    word(data, 324, 420);
+    word(data, 328, 432);
+    word(data, 332, 468);
+    word(data, 416, 0x12345678);
+    word(data, 420, 0x90ABCDEF);
+    word(data, 432, HitCapsule_Enabled);
+    word(data, 436, 8);
+    word(data, 440, 90);
+    word(data, 464, 7);
+    word(data, 468, HitCapsule_Enabled);
+    word(data, 472, 18);
+    word(data, 476, 80);
+    word(data, 500, 1);
+    for (size_t i = 0; i < 9; ++i) {
+        word(data, 320 + 0x2C + i * 4, 0x3F800000 + i * 0x100000);
+    }
+    for (size_t i = 0; i < RELOCS; ++i) {
+        word(file, 32 + DATA_SIZE + i * 4, relocations[i]);
+    }
+    for (size_t malformed = 0; malformed < 2; ++malformed) {
+        if (malformed) {
+            /* The hit pointer is valid, but its record is cut short. */
+            word(data, 328, DATA_SIZE - 4);
+        }
+        assert(NativeArchiveOpen(file, sizeof(file), &archive, &error) ==
+               NATIVE_ARCHIVE_OK);
+        assert(NativeArchiveGraphOpen(archive, &graph, &error) ==
+               NATIVE_ARCHIVE_OK);
+        NativeStageArchive* stage = NativeStageArchiveOpen(archive, graph);
+        assert(NativeStageArchiveRead(stage, "grGroundParam", 0, &result,
+                                      &error) == NATIVE_ARCHIVE_OK);
+        NativeArchiveStatus status = NativeStageArchiveRead(
+            stage, "yakumono_param", 320, &result, &error);
+        if (malformed) {
+            assert(status == NATIVE_ARCHIVE_BOUNDS && result == NULL);
+        } else {
+            void* pointers[4];
+            assert(status == NATIVE_ARCHIVE_OK);
+            memcpy(pointers, result, sizeof(pointers));
+            assert(memcmp(pointers[0], data + 416, 4) == 0);
+            assert(memcmp(pointers[1], data + 420, 4) == 0);
+            lbColl_80008D30_arg1* first = pointers[2];
+            lbColl_80008D30_arg1* second = pointers[3];
+            assert(first->state == HitCapsule_Enabled && first->damage == 8);
+            assert(first->kb_angle == 90 && first->sfx_kind == 7);
+            assert(second->state == HitCapsule_Enabled &&
+                   second->damage == 18);
+            assert(second->kb_angle == 80 && second->sfx_kind == 1);
+            for (size_t i = 0; i < 9; ++i) {
+                assert(native_word(result, sizeof(pointers) + 0x1C + i * 4) ==
+                       0x3F800000 + i * 0x100000);
+            }
+        }
+        NativeStageArchiveClose(stage);
+        NativeArchiveGraphClose(graph);
+        NativeArchiveClose(archive);
+    }
+}
+
 /* Optional local DAT paths exercise full stage graphs without committing game
  * data. */
 static void test_real_stage(const char* path)
@@ -394,6 +474,7 @@ int main(int argc, char** argv)
     test_zebes_parameters();
     test_greatbay_parameters();
     test_dynamics_parameters();
+    test_mutecity_parameters();
     for (int i = 1; i < argc; ++i) {
         test_real_stage(argv[i]);
     }

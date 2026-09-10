@@ -1061,6 +1061,66 @@ static void* greatbay_parameters(NativeStageArchive* stage, uint32_t offset)
     return result;
 }
 
+/* This matches grMc_YakumonoParam in grmutecity.c with host pointers. */
+typedef struct NativeMuteCityParameters {
+    union ColorOverlay_x8_t* x0;
+    union ColorOverlay_x8_t* x4;
+    DynamicsDesc* x8;
+    DynamicsDesc* xC;
+    u8 pad10[0x1C];
+    f32 x2C, x30, x34, x38, x3C, x40, x44, x48, x4C;
+} NativeMuteCityParameters;
+
+static void* mutecity_parameters(NativeStageArchive* stage, uint32_t offset)
+{
+    NativeMuteCityParameters* result;
+    const u8* data;
+    if (!range(stage, offset, 0x50)) {
+        return NULL;
+    }
+    result = allocate(stage, 1, sizeof(*result));
+    if (result == NULL) {
+        return NULL;
+    }
+    for (size_t i = 0; i < 4; ++i) {
+        uint32_t target;
+        bool present;
+        void* value = NULL;
+        if (!reference(stage, offset + i * 4, &target, &present)) {
+            return NULL;
+        }
+        if (present) {
+            if (i < 2) {
+                if (!range(stage, target, 4)) {
+                    return NULL;
+                }
+                /* ColorOverlay reads the serialized command words. */
+                value = (void*) (stage->archive->data + target);
+            } else {
+                /* Ground_801C5700 casts these callback results to hit
+                 * records. grmutecity.c gives them a DynamicsDesc type. */
+                value = scalar_array(stage, target, 9, 4);
+                if (value == NULL) {
+                    return NULL;
+                }
+            }
+        }
+        memcpy((u8*) result + i * sizeof(value), &value, sizeof(value));
+    }
+    data = stage->archive->data + offset;
+    memcpy(result->pad10, data + 0x10, sizeof(result->pad10));
+    result->x2C = read_float(data + 0x2C);
+    result->x30 = read_float(data + 0x30);
+    result->x34 = read_float(data + 0x34);
+    result->x38 = read_float(data + 0x38);
+    result->x3C = read_float(data + 0x3C);
+    result->x40 = read_float(data + 0x40);
+    result->x44 = read_float(data + 0x44);
+    result->x48 = read_float(data + 0x48);
+    result->x4C = read_float(data + 0x4C);
+    return result;
+}
+
 static void* stage_parameters(NativeStageArchive* stage, uint32_t offset)
 {
     uint32_t ground_offset;
@@ -1127,6 +1187,8 @@ static void* stage_parameters(NativeStageArchive* stage, uint32_t offset)
         return fourside_parameters(stage, offset);
     case St_Kind_GreatBay:
         return greatbay_parameters(stage, offset);
+    case St_Kind_MuteCity:
+        return mutecity_parameters(stage, offset);
     case St_Kind_Izumi:
         return scalar_array(stage, offset, 21, 4);
     case St_Kind_Story:
