@@ -138,8 +138,10 @@ The game reaches the title screen, VS scene setup, character select, stage
 select, and the gameplay scene on the real Rev 2 ISO. A bounded sanitizer run
 reached `mode=2 state=2 scene=2` and stayed there for 150 seconds with no
 sanitizer or archive errors. Button-only A and B attack routes also stayed in
-the gameplay scene for 110 seconds. Combined movement and attack input still
-hits an item assertion. Match end and return to the menu remain unverified.
+the gameplay scene for 110 seconds. The combined movement and attack route now reaches match end, the
+results scene, and the menu again under ASan and UBSan. It enters
+`mode=2 state=2 scene=2` for gameplay, `mode=2 state=3 scene=3` for match end,
+and `mode=2 state=4 scene=5` for results before returning to the menu.
 
 ## Current state
 
@@ -162,9 +164,9 @@ game.
 
 The software GX renderer applies matrix palettes, skinning, lighting, texture
 sampling, TEV materials, fog, clipping, depth tests, and framebuffer copies.
-The native Metal backend renders the title screen and character select screen.
-The gameplay routes above skip rasterization. Match rendering speed and the
-complete match lifecycle remain under test.
+The native Metal backend renders the title screen, character select screen,
+and gameplay at 60 frames per second in an optimized ARM64 build. The
+sanitized lifecycle route skips rasterization so it can run faster.
 
 Native audio decodes SFX and HPS music and sends stereo PCM to AudioToolbox.
 An independent HPS decoder check matched all 1920000 samples from a 30-second
@@ -173,9 +175,9 @@ uses linear interpolation. Sound during a real match remains unverified.
 
 Persistent native card storage and HSD save/load now pass focused tests,
 including process restart, corruption, full capacity, and queued callbacks.
-The game creates a save during normal startup and reads it on restart.
-Both runs advance beyond the memory card screen. Match and menu faults still
-need to be resolved before the full save flow can be verified.
+The game creates a valid 98,264-byte save during normal startup. A second run
+mounts and reads the card before it reaches a missing Kirby CopyFox archive
+needed only by that reload path. The card bridge itself has passed both runs.
 
 The host PAD shim maps keyboard events to controller 0. Arrow keys provide the
 D-pad, `A`/`D` and `W`/`S` provide the main stick, `F`/`H` and `G`/`T` provide
@@ -187,10 +189,9 @@ Do not treat a successful link as playable behavior.
 
 ## Remaining validation
 
-1. Check native rendering at playable speed during a match.
-2. Test movement and item interactions without archive assertions.
-3. Test sound, match end, and return to the menu.
-4. Repeat save creation and loading through the game screens.
+1. Verify sound output during a real match.
+2. Add the compact Kirby CopyFox archive reader for save reloads that select
+   Kirby.
 
 Agent worktrees isolate each subsystem. The integrated changes are published
 to the fork's `native-arm64-build` branch. Keep this record current as each
