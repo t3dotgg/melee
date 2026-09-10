@@ -3214,7 +3214,11 @@ void gm_80166CCC(MatchEnd* arg0, MatchEnd* arg1)
         }
     }
 
+#ifdef MELEE_NATIVE
+    for (i = 0; i < GM_MAX_TEAMS; i++) {
+#else
     for (i = 0; i < 6; i++) {
+#endif
         if (arg1->team_standings[i].active != 0) {
             team_count += 1;
         }
