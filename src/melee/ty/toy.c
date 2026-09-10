@@ -767,6 +767,12 @@ int _Toy_80304D30(void)
         if (Toy_80304CC8(i)) {
             if (Toy_80304D30_48C0(i)) {
                 x = Toy_803060BC(i, 6);
+#ifdef MELEE_NATIVE
+                /* Category 99 marks trophies outside the category table. */
+                if (x < 0 || x >= ARRAY_SIZE(sp14)) {
+                    continue;
+                }
+#endif
                 sp14[x]++;
                 if (x != 8 && x != 1) {
                     count++;
