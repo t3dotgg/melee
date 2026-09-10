@@ -153,8 +153,9 @@ The scheduler uses the host monotonic clock. Tests can use a deterministic
 clock. The THP intro movie decoder remains unavailable.
 
 The archive bridge converts typed records with host pointers. It loads the
-stage graphs, Great Bay parameters, Castle dynamics roots, scene roots, effect
-tables, command streams, item data, and fighter data used by the tested match.
+stage graphs, Great Bay parameters, Mute City hazard records, Castle dynamics
+roots, scene roots, effect tables, command streams, item data, and fighter data
+used by the tested match.
 Real item tests cover both common regional archives and all 71 extracted stage
 archives. The runtime routes above exercise these converted records in the
 game.
