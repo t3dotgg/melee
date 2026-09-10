@@ -1129,11 +1129,20 @@ void grMuteCity_801F0F4C(Ground_GObj* gobj)
 void grMuteCity_801F106C(s32 i)
 {
     typedef struct grMc_CarState {
+#ifdef MELEE_NATIVE
+        grMc_CarEntry* cars;
+#else
         s32 idx[30];
         grMc_CarEntry cars[30];
+#endif
     } grMc_CarState;
     f32 max_x8;
+#ifdef MELEE_NATIVE
+    grMc_CarState host_state = { grMc_8049F4B8 };
+    grMc_CarState* state = &host_state;
+#else
     grMc_CarState* state = (grMc_CarState*) grMc_8049F440;
+#endif
     grMc_CarEntry* cars = state->cars;
     u16 flags16 = state->cars[i].x20;
 
@@ -1228,7 +1237,14 @@ void grMuteCity_801F1328(void)
     PAD_STACK(8);
 
     for (i = 1; i < 30; i++) {
-        for (j = i; j >= 0; j--) {
+        for (j = i;
+#ifdef MELEE_NATIVE
+             j > 0;
+#else
+             j >= 0;
+#endif
+             j--)
+        {
             s32 temp = arr[j];
             if (grMc_8049F4B8[arr[j]].x0 > grMc_8049F4B8[arr[j - 1]].x0) {
                 arr[j] = arr[j - 1];
