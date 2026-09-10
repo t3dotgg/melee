@@ -960,7 +960,7 @@ void grGreens_802150C4(Ground_GObj* gobj, int arg1, int arg2)
                            gp->u.greens.x8_blocks[arg2][arg1 + 1].x18);
         }
     }
-    if (arg2 < 4 && arg1 < 5 &&
+    if (arg2 < 4 && arg1 > 0 && arg1 < 5 &&
         gp->u.greens.x8_blocks[arg2 + 1][arg1 + 1].status == 3)
     {
         if (gp->u.greens.x8_blocks[arg2 + 1][arg1].status == 3) {
