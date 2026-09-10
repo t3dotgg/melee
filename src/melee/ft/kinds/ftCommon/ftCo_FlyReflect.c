@@ -171,9 +171,13 @@ void ftCo_800C18A8(Fighter_GObj* gobj, ftCommon_MotionState msid, Vec3* normal,
 
     fp = GET_FIGHTER(gobj);
 
-    /// @todo fix stack padding
+    /* These calls only pad the original PowerPC stack frame.  A native
+     * pointer lookup on a null object is undefined behavior and can abort a
+     * match when a fighter reflects from a wall or ceiling. */
+#ifndef MELEE_NATIVE
     GET_FIGHTER(0);
     GET_FIGHTER(0);
+#endif
 
     vec0.x = fp->cur_pos.x + offset->x;
     vec0.y = fp->cur_pos.y + offset->y;
