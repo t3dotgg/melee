@@ -1319,7 +1319,9 @@ void* HSD_ArchiveNativePublicAddress(HSD_Archive* archive, const char* symbol)
         native_archive_error(symbol, &error);
         return NULL;
     }
-    if (native_name_ends_with(symbol, "_scene_data")) {
+    if (native_name_ends_with(symbol, "_scene_data") ||
+        strcmp(symbol, "pnlsce") == 0 || strcmp(symbol, "flmsce") == 0)
+    {
         root = native_scene_root(binding, offset, &error);
         if (root != NULL) {
             return root;

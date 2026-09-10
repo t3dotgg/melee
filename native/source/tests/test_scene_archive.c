@@ -201,7 +201,10 @@ static size_t test_real_scene(const char* path)
         assert(NativeArchivePublic(binding.archive, i, &symbol, &error) ==
                NATIVE_ARCHIVE_OK);
         void* root;
-        if (native_name_ends_with(symbol.name, "_scene_data")) {
+        if (native_name_ends_with(symbol.name, "_scene_data") ||
+            strcmp(symbol.name, "pnlsce") == 0 ||
+            strcmp(symbol.name, "flmsce") == 0)
+        {
             root = native_scene_root(&binding, symbol.offset, &error);
         } else if (native_name_ends_with(symbol.name, "_scene_modelset")) {
             size_t count;
