@@ -928,6 +928,40 @@ static void* fourside_parameters(NativeStageArchive* stage, uint32_t offset)
     return result;
 }
 
+static void* greatbay_parameters(NativeStageArchive* stage, uint32_t offset)
+{
+    u8* result;
+
+    if (!range(stage, offset, 0xA4)) {
+        return NULL;
+    }
+    result = allocate(stage, 1, 0xA4);
+    if (result == NULL) {
+        return NULL;
+    }
+    for (size_t i = 0; i < 0xA4; i += 2) {
+        u16 value;
+        if (i >= 4 && i < 0x44 || i >= 0x4C && i < 0x70 || i == 0x78) {
+            continue;
+        }
+        value = read16(stage->archive->data + offset + i);
+        memcpy(result + i, &value, sizeof(value));
+    }
+    for (size_t i = 4; i < 0x44; i += 4) {
+        u32 value = NativeArchiveBE32(stage->archive->data + offset + i);
+        memcpy(result + i, &value, sizeof(value));
+    }
+    for (size_t i = 0x4C; i < 0x70; i += 4) {
+        u32 value = NativeArchiveBE32(stage->archive->data + offset + i);
+        memcpy(result + i, &value, sizeof(value));
+    }
+    {
+        u32 value = NativeArchiveBE32(stage->archive->data + offset + 0x78);
+        memcpy(result + 0x78, &value, sizeof(value));
+    }
+    return result;
+}
+
 static void* stage_parameters(NativeStageArchive* stage, uint32_t offset)
 {
     uint32_t ground_offset;
@@ -992,6 +1026,8 @@ static void* stage_parameters(NativeStageArchive* stage, uint32_t offset)
         return scalar_array(stage, offset, 0x7C / 4, 4);
     case St_Kind_Fourside:
         return fourside_parameters(stage, offset);
+    case St_Kind_GreatBay:
+        return greatbay_parameters(stage, offset);
     case St_Kind_Izumi:
         return scalar_array(stage, offset, 21, 4);
     case St_Kind_Story:
