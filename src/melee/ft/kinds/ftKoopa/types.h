@@ -50,8 +50,12 @@ union ftKoopa_MotionVars {
 };
 
 #ifdef MELEE_NATIVE
+_Static_assert(offsetof(struct ftKoopa_State1Vars, x4) == 0x4,
+               "Koopa motion slots must stay four-byte aligned");
 _Static_assert(offsetof(struct ftKoopa_SpecialSVars, x4) == 0x4,
                "Koopa special motion slots must stay four-byte aligned");
+_Static_assert(sizeof(struct ftKoopa_State1Vars) == 0x10,
+               "Koopa motion state size changed");
 _Static_assert(sizeof(struct ftKoopa_SpecialSVars) == 0x1C,
                "Koopa special motion state size changed");
 #endif

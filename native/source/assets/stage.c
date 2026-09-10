@@ -117,7 +117,8 @@ static void* dynamics_parameters(NativeStageArchive* stage, uint32_t offset)
     }
     if (result->count != 0) {
         if ((size_t) result->count > SIZE_MAX / (size_t) 0x3C || !present ||
-            !range(stage, target, (size_t) result->count * 0x3C)) {
+            !range(stage, target, (size_t) result->count * 0x3C))
+        {
             return fail(stage, offset, "dynamics data count has no data");
         }
         result->data = allocate(stage, result->count, 0x3C);
@@ -1186,9 +1187,10 @@ NativeArchiveStatus NativeStageArchiveRead(NativeStageArchive* stage,
     *stage->error = local;
     *output = NULL;
     const char* names[] = {
-        "grGroundParam",       "coll_data",          "map_head",
-        "map_plit",             "yakumono_param",     "dynamicsdata_flag3",
-        "dynamicsdata_flag4",   "dynamicsdata_flag6", "dynamicsdata_shipflag" };
+        "grGroundParam",      "coll_data",          "map_head",
+        "map_plit",           "yakumono_param",     "dynamicsdata_flag3",
+        "dynamicsdata_flag4", "dynamicsdata_flag6", "dynamicsdata_shipflag"
+    };
     size_t index;
     for (index = 0; index < 9; ++index) {
         if (strcmp(symbol, names[index]) == 0) {
