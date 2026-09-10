@@ -906,6 +906,13 @@ void ftAnim_8006FCE4(Fighter* fp, bool do_blending)
 
 void ftAnim_8006FE08(Fighter* fp, bool do_blending)
 {
+#ifdef MELEE_NATIVE
+    /* Result-screen demo data can omit an optional motion archive. Keep the
+     * fighter alive so the result screen can still finish and accept input. */
+    if (fp->x590 == NULL && fp->kind == fp->x597_bits) {
+        return;
+    }
+#endif
     if (fp->kind != fp->x597_bits) {
         ftAnim_8006FCE4(fp, do_blending);
     } else {
