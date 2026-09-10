@@ -2120,7 +2120,7 @@ void lbAudioAx_8002838C(void)
      * reserve the largest voices selected for each category, while the host
      * loader keeps each requested file resident. Reserve the remaining native
      * bank space before HSD_SynthSFXAllocateBank assigns fixed boundaries. */
-    lbl_804D6444 += 0x200000;
+    lbl_804D6444 += 0x300000;
 #endif
 
     lbl_804D6438 = lbl_804D643C + lbl_804D6440 + lbl_804D6444;
