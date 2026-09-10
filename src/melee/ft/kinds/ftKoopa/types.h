@@ -13,28 +13,48 @@ struct ftKoopa_FighterVars {
 union ftKoopa_MotionVars {
     /// @todo Proper state name.
     struct ftKoopa_State1Vars {
+        /* Native builds use integers so each aliased value remains in its
+         * original four-byte slot.  x4 can contain an item ID, so it cannot be
+         * represented as a native bool. */
 #ifdef MELEE_NATIVE
-        bool x0;
-        bool x4;
-        int x8;
+        s32 x0;
+        s32 x4;
+        s32 x8;
+        s32 xC;
 #else
         UNK_T x0;
         bool x4;
         UNK_T x8;
-#endif
         bool xC;
+#endif
     } unk1;
     /// @todo Possibly #ftKoopa_State1Vars.
     struct ftKoopa_SpecialSVars {
+#ifdef MELEE_NATIVE
+        s32 b_held;
+        s32 x4;
+#else
         /* fp+2340 */ bool b_held;
         /* fp+2344 */ bool x4;
+#endif
         /* fp+2348 */ int facing_dir;
-        /* fp+2348 */ bool xC;
+#ifdef MELEE_NATIVE
+        /* fp+234C */ s32 xC;
+#else
+        /* fp+234C */ bool xC;
+#endif
         /* fp+234C */ s32 x10;
         /* fp+2350 */ s32 x14;
         /* fp+2354 */ s32 x18;
     } specials;
 };
+
+#ifdef MELEE_NATIVE
+_Static_assert(offsetof(struct ftKoopa_SpecialSVars, x4) == 0x4,
+               "Koopa special motion slots must stay four-byte aligned");
+_Static_assert(sizeof(struct ftKoopa_SpecialSVars) == 0x1C,
+               "Koopa special motion state size changed");
+#endif
 
 typedef struct _ftKoopaAttributes {
     float x0;
