@@ -203,6 +203,82 @@ static void test_zebes_parameters(void)
     NativeArchiveClose(archive);
 }
 
+static uint16_t native_half(const void* data, size_t offset)
+{
+    uint16_t value;
+    memcpy(&value, (const unsigned char*) data + offset, sizeof(value));
+    return value;
+}
+
+static uint32_t native_word(const void* data, size_t offset)
+{
+    uint32_t value;
+    memcpy(&value, (const unsigned char*) data + offset, sizeof(value));
+    return value;
+}
+
+static void test_greatbay_parameters(void)
+{
+    enum {
+        DATA_SIZE = 512,
+        FILE_SIZE = 32 + DATA_SIZE + 4,
+    };
+    unsigned char file[FILE_SIZE] = { 0 };
+    unsigned char* data = file + 32;
+    NativeArchive* archive;
+    NativeArchiveGraph* graph;
+    NativeArchiveError error;
+    void* result;
+    word(file, 0, FILE_SIZE);
+    word(file, 4, DATA_SIZE);
+    word(file, 8, 1);
+    word(data, 0xB0, 220);
+    word(data, 0xB4, 1);
+    word(data, 220, St_Kind_GreatBay);
+
+    word(data, 320, 0xFFFE0003);
+    word(data, 320 + 0x04, 0x3F800000);
+    word(data, 320 + 0x40, 0x41200000);
+    word(data, 320 + 0x44, 0xFFFD0004);
+    word(data, 320 + 0x4C, 0x40000000);
+    word(data, 320 + 0x6C, 0x40A00000);
+    word(data, 320 + 0x70, 0xFFFC0005);
+    word(data, 320 + 0x78, 0x3F000000);
+    word(data, 320 + 0x7C, 0x000A0014);
+    word(data, 320 + 0xA0, 0xFFFB0006);
+
+    word(file, 32 + DATA_SIZE, 0xB0);
+    assert(NativeArchiveOpen(file, sizeof(file), &archive, &error) ==
+           NATIVE_ARCHIVE_OK);
+    assert(NativeArchiveGraphOpen(archive, &graph, &error) ==
+           NATIVE_ARCHIVE_OK);
+    NativeStageArchive* stage = NativeStageArchiveOpen(archive, graph);
+    assert(NativeStageArchiveRead(stage, "grGroundParam", 0, &result,
+                                  &error) == NATIVE_ARCHIVE_OK);
+    assert(NativeStageArchiveRead(stage, "yakumono_param", 320, &result,
+                                  &error) == NATIVE_ARCHIVE_OK);
+
+    assert((int16_t) native_half(result, 0) == -2);
+    assert((int16_t) native_half(result, 2) == 3);
+    assert(native_word(result, 0x04) == 0x3F800000);
+    assert(native_word(result, 0x40) == 0x41200000);
+    assert((int16_t) native_half(result, 0x44) == -3);
+    assert((int16_t) native_half(result, 0x46) == 4);
+    assert(native_word(result, 0x4C) == 0x40000000);
+    assert(native_word(result, 0x6C) == 0x40A00000);
+    assert((int16_t) native_half(result, 0x70) == -4);
+    assert((int16_t) native_half(result, 0x72) == 5);
+    assert(native_word(result, 0x78) == 0x3F000000);
+    assert((int16_t) native_half(result, 0x7C) == 10);
+    assert((int16_t) native_half(result, 0x7E) == 20);
+    assert((int16_t) native_half(result, 0xA0) == -5);
+    assert((int16_t) native_half(result, 0xA2) == 6);
+
+    NativeStageArchiveClose(stage);
+    NativeArchiveGraphClose(graph);
+    NativeArchiveClose(archive);
+}
+
 /* Optional local DAT paths exercise full stage graphs without committing game
  * data. */
 static void test_real_stage(const char* path)
@@ -267,6 +343,7 @@ int main(int argc, char** argv)
     test_null_external_initialization();
     test_stage_layouts();
     test_zebes_parameters();
+    test_greatbay_parameters();
     for (int i = 1; i < argc; ++i) {
         test_real_stage(argv[i]);
     }

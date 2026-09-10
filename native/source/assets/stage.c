@@ -928,36 +928,86 @@ static void* fourside_parameters(NativeStageArchive* stage, uint32_t offset)
     return result;
 }
 
+typedef struct NativeGreatBayItem {
+    s16 kind;
+    s16 weight;
+} NativeGreatBayItem;
+
+typedef struct NativeGreatBayParameters {
+    s16 moon_fall_wait_a;
+    s16 moon_fall_wait_b;
+    f32 floatfloor_landing_rate;
+    f32 floatfloor_slant_mul;
+    f32 floatfloor_slant_add;
+    f32 floatfloor_slant_limit;
+    f32 floatfloor_slant_rate;
+    f32 floatfloor_slant_reb_rate;
+    f32 floatfloor_slide_mul;
+    f32 floatfloor_slide_add;
+    f32 floatfloor_slide_limit;
+    f32 floatfloor_slide_rate;
+    f32 floatfloor_slide_reb_rate;
+    f32 floatfloor_down_mul;
+    f32 floatfloor_down_add;
+    f32 floatfloor_down_limit;
+    f32 floatfloor_down_up_rate;
+    f32 floatfloor_down_down_rate;
+    s16 kame_wait_frame_a;
+    s16 kame_wait_frame_b;
+    s16 kame_rebirth_frame_a;
+    s16 kame_rebirth_frame_b;
+    f32 kame_x;
+    f32 kame_y;
+    f32 kame_x_offset_init;
+    f32 kame_x_lr_offset_a;
+    f32 kame_x_lr_offset_b;
+    f32 kame_x_fb_offset_a;
+    f32 kame_x_fb_offset_b;
+    f32 kame_scale;
+    f32 kame_ud_scale;
+    s16 kame_dir_prob[4];
+    f32 kame_item_prob;
+    NativeGreatBayItem items[10];
+} NativeGreatBayParameters;
+_Static_assert(sizeof(NativeGreatBayParameters) == 0xA4,
+               "native Great Bay parameter layout");
+
 static void* greatbay_parameters(NativeStageArchive* stage, uint32_t offset)
 {
-    u8* result;
-
+    NativeGreatBayParameters* result;
+    const u8* data;
     if (!range(stage, offset, 0xA4)) {
         return NULL;
     }
-    result = allocate(stage, 1, 0xA4);
+    result = allocate(stage, 1, sizeof(*result));
     if (result == NULL) {
         return NULL;
     }
-    for (size_t i = 0; i < 0xA4; i += 2) {
-        u16 value;
-        if (i >= 4 && i < 0x44 || i >= 0x4C && i < 0x70 || i == 0x78) {
-            continue;
-        }
-        value = read16(stage->archive->data + offset + i);
-        memcpy(result + i, &value, sizeof(value));
+    data = stage->archive->data + offset;
+    result->moon_fall_wait_a = (s16) read16(data);
+    result->moon_fall_wait_b = (s16) read16(data + 2);
+    for (size_t i = 0; i < 16; ++i) {
+        u32 value = NativeArchiveBE32(data + 4 + i * 4);
+        memcpy((u8*) result + 4 + i * 4, &value, sizeof(value));
     }
-    for (size_t i = 4; i < 0x44; i += 4) {
-        u32 value = NativeArchiveBE32(stage->archive->data + offset + i);
-        memcpy(result + i, &value, sizeof(value));
+    result->kame_wait_frame_a = (s16) read16(data + 0x44);
+    result->kame_wait_frame_b = (s16) read16(data + 0x46);
+    result->kame_rebirth_frame_a = (s16) read16(data + 0x48);
+    result->kame_rebirth_frame_b = (s16) read16(data + 0x4A);
+    for (size_t i = 0; i < 9; ++i) {
+        u32 value = NativeArchiveBE32(data + 0x4C + i * 4);
+        memcpy((u8*) result + 0x4C + i * 4, &value, sizeof(value));
     }
-    for (size_t i = 0x4C; i < 0x70; i += 4) {
-        u32 value = NativeArchiveBE32(stage->archive->data + offset + i);
-        memcpy(result + i, &value, sizeof(value));
+    for (size_t i = 0; i < 4; ++i) {
+        result->kame_dir_prob[i] = (s16) read16(data + 0x70 + i * 2);
     }
     {
-        u32 value = NativeArchiveBE32(stage->archive->data + offset + 0x78);
-        memcpy(result + 0x78, &value, sizeof(value));
+        u32 value = NativeArchiveBE32(data + 0x78);
+        memcpy((u8*) result + 0x78, &value, sizeof(value));
+    }
+    for (size_t i = 0; i < 10; ++i) {
+        result->items[i].kind = (s16) read16(data + 0x7C + i * 4);
+        result->items[i].weight = (s16) read16(data + 0x7E + i * 4);
     }
     return result;
 }
