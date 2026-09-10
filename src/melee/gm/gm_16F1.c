@@ -453,7 +453,12 @@ int fn_801701C0(void* arg0, int arg1, int arg2)
     u8* flags = rules->pad3F0;
     struct lbl_8046B6A0_24C_58_t* x58 = rules->x58;
     s32 player_net;
+#ifdef MELEE_NATIVE
+    /* Ranking compares all six player slots, including slots 4 and 5. */
+    s32 scores[6];
+#else
     s32 scores[4];
+#endif
     u8 rankings[7] = { 0 };
 
     if (lbl_804D65A0.x0 != 0) {
