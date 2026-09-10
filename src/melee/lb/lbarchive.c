@@ -105,37 +105,42 @@ static bool native_stage_select_model(NativeArchiveBinding* binding,
     }
     model->joint = NULL;
     if (present && NativeArchiveJoint(binding->graph, target, &model->joint,
-                                      error) != NATIVE_ARCHIVE_OK) {
+                                      error) != NATIVE_ARCHIVE_OK)
+    {
         return false;
     }
-    if (!native_scene_reference(binding, offset + 4, &target, &present,
-                                error)) {
+    if (!native_scene_reference(binding, offset + 4, &target, &present, error))
+    {
         return false;
     }
     model->animjoint = NULL;
-    if (present && NativeArchiveAnimation(binding->graph, target,
-                                          &model->animjoint,
-                                          error) != NATIVE_ARCHIVE_OK) {
+    if (present &&
+        NativeArchiveAnimation(binding->graph, target, &model->animjoint,
+                               error) != NATIVE_ARCHIVE_OK)
+    {
         return false;
     }
-    if (!native_scene_reference(binding, offset + 8, &target, &present,
-                                error)) {
+    if (!native_scene_reference(binding, offset + 8, &target, &present, error))
+    {
         return false;
     }
     model->matanim_joint = NULL;
     if (present && NativeArchiveMatAnimJoint(binding->graph, target,
                                              &model->matanim_joint,
-                                             error) != NATIVE_ARCHIVE_OK) {
+                                             error) != NATIVE_ARCHIVE_OK)
+    {
         return false;
     }
     if (!native_scene_reference(binding, offset + 12, &target, &present,
-                                error)) {
+                                error))
+    {
         return false;
     }
     model->shapeanim_joint = NULL;
     if (present && NativeArchiveShapeAnimJoint(binding->graph, target,
                                                &model->shapeanim_joint,
-                                               error) != NATIVE_ARCHIVE_OK) {
+                                               error) != NATIVE_ARCHIVE_OK)
+    {
         return false;
     }
     return true;
@@ -143,7 +148,7 @@ static bool native_stage_select_model(NativeArchiveBinding* binding,
 
 static NativeStageSelectData*
 native_stage_select_root(NativeArchiveBinding* binding, uint32_t offset,
-                          NativeArchiveError* error)
+                         NativeArchiveError* error)
 {
     NativeStageSelectData* root;
     uint32_t target;
@@ -161,36 +166,42 @@ native_stage_select_root(NativeArchiveBinding* binding, uint32_t offset,
         return NULL;
     }
     if (present && NativeArchiveCObj(binding->graph, target, &root->camera,
-                                     error) != NATIVE_ARCHIVE_OK) {
+                                     error) != NATIVE_ARCHIVE_OK)
+    {
         return NULL;
     }
-    if (!native_scene_reference(binding, offset + 4, &target, &present,
-                                error)) {
+    if (!native_scene_reference(binding, offset + 4, &target, &present, error))
+    {
         return NULL;
     }
     if (present && NativeArchiveLight(binding->graph, target, &root->light1,
-                                      error) != NATIVE_ARCHIVE_OK) {
+                                      error) != NATIVE_ARCHIVE_OK)
+    {
         return NULL;
     }
-    if (!native_scene_reference(binding, offset + 8, &target, &present,
-                                error)) {
+    if (!native_scene_reference(binding, offset + 8, &target, &present, error))
+    {
         return NULL;
     }
     if (present && NativeArchiveLight(binding->graph, target, &root->light2,
-                                      error) != NATIVE_ARCHIVE_OK) {
+                                      error) != NATIVE_ARCHIVE_OK)
+    {
         return NULL;
     }
     if (!native_scene_reference(binding, offset + 12, &target, &present,
-                                error)) {
+                                error))
+    {
         return NULL;
     }
     if (present && NativeArchiveFog(binding->graph, target, &root->fog,
-                                    error) != NATIVE_ARCHIVE_OK) {
+                                    error) != NATIVE_ARCHIVE_OK)
+    {
         return NULL;
     }
     for (size_t i = 0; i < 12; ++i) {
         if (!native_stage_select_model(binding, offset + 0x10 + i * 0x10,
-                                       &root->models[i], error)) {
+                                       &root->models[i], error))
+        {
             return NULL;
         }
     }
