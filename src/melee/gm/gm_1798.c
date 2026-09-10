@@ -40,10 +40,14 @@
 
 extern ResultsData lbl_8046DBE8;
 
+#ifdef MELEE_NATIVE
+ResultsDisplayLayout lbl_8046E1B0;
+#else
 ResultsDisplayData lbl_8046E1B0;
 HSD_GObj* lbl_8046E38C[4];
 HSD_JObj* lbl_8046E39C[4];
 lbl_8046E3AC_t lbl_8046E3AC;
+#endif
 
 static U32Pair lbl_804D3FD0 ATTRIBUTE_ALIGN(8) = { 0x00500050, 0x00460034 };
 static U32Pair lbl_804D3FD8 = { 0x006E0072, 0x0064004A };

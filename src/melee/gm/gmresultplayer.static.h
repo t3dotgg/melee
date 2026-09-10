@@ -118,9 +118,18 @@ extern u32 gmResultScoreTableInit[0x20 / sizeof(u32)];
 extern ResultsCharacterData gmResultCharacterData;
 extern HSD_CameraDescPerspective gmResultCameraDesc;
 
+#ifdef MELEE_NATIVE
+/* The original executable places these four objects in one contiguous
+ * global block. Keep that relationship explicit on the host. */
+extern ResultsDisplayLayout lbl_8046E1B0;
+#define lbl_8046E38C (lbl_8046E1B0.gobjs)
+#define lbl_8046E39C (lbl_8046E1B0.jobjs)
+#define lbl_8046E3AC (lbl_8046E1B0.state)
+#else
 extern ResultsDisplayData lbl_8046E1B0;
 extern HSD_GObj* lbl_8046E38C[4];
 extern HSD_JObj* lbl_8046E39C[4];
 extern lbl_8046E3AC_t lbl_8046E3AC;
+#endif
 
 #endif
