@@ -726,13 +726,34 @@ native_scene_cameras(NativeArchiveBinding* binding, uint32_t offset,
         native_scene_alloc(binding, sizeof(*camera));
     uint32_t target;
     bool present;
-    if (camera == NULL ||
-        !native_scene_reference(binding, offset, &target, &present, error) ||
-        !present ||
-        NativeArchiveCObj(binding->graph, target, &camera->desc, error) !=
-            NATIVE_ARCHIVE_OK)
+    if (camera == NULL) {
+        return NULL;
+    }
+    /* Most scene roots point to an eight-byte camera wrapper. Results scenes
+     * point directly to the camera descriptor. Detect the latter from its
+     * projection field before reading it as a reference. */
+    uint16_t projection =
+        (uint16_t) ((binding->archive->data[offset + 6] << 8) |
+                    binding->archive->data[offset + 7]);
+    bool direct = projection == PROJ_PERSPECTIVE ||
+                  projection == PROJ_FRUSTUM || projection == PROJ_ORTHO;
+    if (direct) {
+        target = offset;
+        present = true;
+    } else if (!native_scene_reference(binding, offset, &target, &present,
+                                       error) ||
+               !present)
     {
         return NULL;
+    }
+    if (NativeArchiveCObj(binding->graph, target, &camera->desc, error) !=
+        NATIVE_ARCHIVE_OK)
+    {
+        return NULL;
+    }
+    if (direct) {
+        camera->anims = NULL;
+        return camera;
     }
     if (!native_scene_reference(binding, offset + 4, &target, &present, error))
     {
