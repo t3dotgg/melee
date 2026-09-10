@@ -134,9 +134,12 @@ For isolated startup checks, `MELEE_SKIP_CARD=1` skips the memory card screen.
 `MELEE_SKIP_INTRO=1` skips the unavailable THP intro movie decoder. Save tests
 must set `MELEE_SAVE_ROOT` to an ignored build directory.
 
-The game reaches the title screen, VS scene setup, and the character select
-screen. A playable match is not verified yet. Use the complete match lifecycle
-in the completion requirements to judge the port.
+The game reaches the title screen, VS scene setup, character select, stage
+select, and the gameplay scene on the real Rev 2 ISO. A bounded sanitizer run
+reached `mode=2 state=2 scene=2` and stayed there for 150 seconds with no
+sanitizer or archive errors. Button-only A and B attack routes also stayed in
+the gameplay scene for 110 seconds. Combined movement and attack input still
+hits an item assertion. Match end and return to the menu remain unverified.
 
 ## Current state
 
@@ -149,17 +152,18 @@ ARAM, controller input, audio output, alarm callbacks, and 60 Hz retraces.
 The scheduler uses the host monotonic clock. Tests can use a deterministic
 clock. The THP intro movie decoder remains unavailable.
 
-The archive bridge converts typed records with host pointers. It loads five
-stage graphs, 24 of 25 scene roots, effect tables, command streams, item data,
-and common fighter data. Real item tests cover both common regional archives
-and all 71 extracted stage archives. Fighter loading and other runtime callers
-are still being integrated. A decoded archive alone does not prove its game
-code uses the converted records correctly.
+The archive bridge converts typed records with host pointers. It loads the
+stage graphs, Great Bay parameters, Castle dynamics roots, scene roots, effect
+tables, command streams, item data, and fighter data used by the tested match.
+Real item tests cover both common regional archives and all 71 extracted stage
+archives. The runtime routes above exercise these converted records in the
+game.
 
 The software GX renderer applies matrix palettes, skinning, lighting, texture
 sampling, TEV materials, fog, clipping, depth tests, and framebuffer copies.
 The native Metal backend renders the title screen and character select screen.
-Match rendering speed and the complete match lifecycle remain unverified.
+The gameplay routes above skip rasterization. Match rendering speed and the
+complete match lifecycle remain under test.
 
 Native audio decodes SFX and HPS music and sends stereo PCM to AudioToolbox.
 An independent HPS decoder check matched all 1920000 samples from a 30-second
@@ -182,9 +186,9 @@ Do not treat a successful link as playable behavior.
 
 ## Remaining validation
 
-1. Complete the scripted character and opponent selections and enter a match.
-2. Check native rendering at playable speed during a match.
-3. Test controls, sound, match end, and return to the menu.
+1. Check native rendering at playable speed during a match.
+2. Test movement and item interactions without archive assertions.
+3. Test sound, match end, and return to the menu.
 4. Repeat save creation and loading through the game screens.
 
 Agent worktrees isolate each subsystem. The integrated changes are published
