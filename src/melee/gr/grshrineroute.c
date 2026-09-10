@@ -953,8 +953,12 @@ void grShrineRoute_8020A21C(Ground_GObj* gobj)
     f32 dx;
     f32 dy;
     f32 dist_sq;
+    /* These lookups only pad the original PowerPC stack frame. A native
+     * lookup on a null object dereferences address zero. */
+#ifndef MELEE_NATIVE
     GET_GROUND(0);
     GET_GROUND(0);
+#endif
 
     gp = GET_GROUND(gobj);
     player = Ground_GetP1Fighter();
