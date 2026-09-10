@@ -125,7 +125,7 @@ typedef struct _AXVPB {
     /* 0x008 */ void* next1;
     /* 0x00C */ int priority;
     /* 0x010 */ void (*callback)(void*);
-    /* 0x014 */ u32 userContext;
+    /* 0x014 */ uptr userContext;
     /* 0x018 */ u32 index;
     /* 0x01C */ u32 sync;
     /* 0x020 */ u32 depop;
@@ -187,9 +187,9 @@ typedef struct _AXPROFILE {
 } AXPROFILE;
 
 struct AX_AUX_DATA {
-    /* 0x00 */ long* l;
-    /* 0x00 */ long* r;
-    /* 0x00 */ long* s;
+    /* 0x00 */ s32* l;
+    /* 0x00 */ s32* r;
+    /* 0x00 */ s32* s;
 };
 
 #define AX_DSP_SLAVE_LENGTH 3312
@@ -243,7 +243,7 @@ void AXQuit(void);
 
 // AXAlloc.c
 void AXFreeVoice(AXVPB* p);
-AXVPB* AXAcquireVoice(u32 priority, void (*callback)(void*), u32 userContext);
+AXVPB* AXAcquireVoice(u32 priority, void (*callback)(void*), uptr userContext);
 void AXSetVoicePriority(AXVPB* p, u32 priority);
 
 // AXAux.c

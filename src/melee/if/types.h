@@ -159,10 +159,10 @@ struct DevText {
 ASSERT_SIZE(struct DevText, 0x34);
 
 struct un_804D6EF4_t {
-    /* +0x00 */ u32 x00;
+    /* +0x00 */ HSD_GObj* x00;
     /* +0x04 */ HSD_GObj* unk4;
-    /* +0x08 */ u32 x08;
-    /* +0x0C */ u32 x0C;
+    /* +0x08 */ HSD_GObj* x08;
+    /* +0x0C */ HSD_GObj* x0C;
     /* +0x10 */ HSD_JObj* jobjs[16];
     /* +0x50 */ HSD_Archive* archive;
     /* +0x54 */ s16 x54;
@@ -220,6 +220,23 @@ struct IfStockUserData {
 
 struct ifStock_804A1378_per_player {
     HSD_GObj* x0;
+#ifdef MELEE_NATIVE
+    union {
+        HSD_JObj* x4[17];
+        struct {
+            HSD_JObj* stock_icons[8];
+            HSD_JObj* x24;
+            HSD_JObj* x28;
+            HSD_JObj* x2C;
+            HSD_JObj* x30;
+            HSD_JObj* x34;
+            HSD_JObj* x38;
+            HSD_JObj* x3C;
+            HSD_JObj* x40;
+            HSD_JObj* x44;
+        };
+    };
+#else
     HSD_JObj* x4[8];
     HSD_JObj* x24;
     HSD_JObj* x28;
@@ -230,6 +247,7 @@ struct ifStock_804A1378_per_player {
     HSD_JObj* x3C;
     HSD_JObj* x40;
     HSD_JObj* x44;
+#endif
     int coins;
     int stocks;
 };
@@ -255,12 +273,26 @@ struct ifStock_804A1378 {
     DynamicModelDesc* x4;
     struct ifStock_804A1378_per_player player[6];
     HSD_GObj* gobj;
+#ifdef MELEE_NATIVE
+    union {
+        HSD_JObj* jobj_slots[6];
+        struct {
+            HSD_JObj* jobj;
+            HSD_JObj* unused_jobj;
+            HSD_JObj* jobj_a;
+            HSD_JObj* jobj_b;
+            HSD_JObj* jobj_c;
+            HSD_JObj* jobj_d;
+        };
+    };
+#else
     HSD_JObj* jobj;
     char pad1F0[0x1F4 - 0x1F0];
     HSD_JObj* jobj_a;
     HSD_JObj* jobj_b;
     HSD_JObj* jobj_c;
     HSD_JObj* jobj_d;
+#endif
     struct ifStock_804A1378_x204 x204[6];
 };
 

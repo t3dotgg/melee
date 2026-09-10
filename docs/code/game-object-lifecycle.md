@@ -8,8 +8,10 @@ process callbacks, and a render callback.
 
 `p_link` selects an object list. `next` and `prev` link its members.
 `HSD_GObj_Entities` holds the heads, and `plinklow_gobjs` holds the tails.
-The declared `HSD_GObjList` type is a view used by game code. The library casts
-it to an array of `HSD_GObj*` entries indexed by `p_link`.
+`HSD_GObjPLinkHead` reads a head, and `HSD_GObjPLinkSlot` returns its address.
+The GameCube build casts the declared `HSD_GObjList` view to an array of
+`HSD_GObj*` entries indexed by `p_link`. The native build uses its `slots`
+array, which has 64 entries.
 
 `CreateGObj` allocates a record and chooses its position with `where`:
 
@@ -60,9 +62,9 @@ countdown expires. The HSD object remains attached through this operation.
 
 ## Moving and removing an owner
 
-`HSD_GObjPLink_8039032C` moves an existing owner using the same placement modes
-as `CreateGObj`. It removes the owner's processes from the scheduler while
-reversing their `child` list. It then unlinks and reinserts the owner.
+`HSD_GObjPLink_ChangeGObjPri_Unk` moves an existing owner using the same
+placement modes as `CreateGObj`. It removes the owner's processes from the
+scheduler while reversing their `child` list. It then unlinks and reinserts the owner.
 Reinserting each process restores the original `child` order and places its
 scheduler links according to the owner's new position. See the
 [process guide](game-object-processes.md) for the two process lists.
@@ -74,14 +76,14 @@ does not cause a process to run twice in the current pass. It replaces tags
 that would match the next pass with the previous tag, so the moved processes
 do not skip that pass because of an old tag.
 
-`HSD_GObjPLink_80390228` removes attachments in this order: user data, HSD
-object, processes, then render link. It then unlinks the owner and returns
+`HSD_GObjFree` removes attachments in this order: user data, HSD object,
+processes, then render link. It then unlinks the owner and returns
 its storage to `gobj_alloc_data`. The private `unlinkObject` helper updates
 both neighbors and the head or tail when needed.
 
 A process callback can request removal or movement of its active owner.
-These requests set fields in `HSD_GObj_804CE3E4`. The scheduler applies them
-after the callback returns. Removal takes precedence over movement and
+These requests set fields in `HSD_GObj_DelayedProcInfo`. The scheduler applies
+them after the callback returns. Removal takes precedence over movement and
 individual process removal. Keep this order and the process traversal
 updates when changing lifecycle code.
 

@@ -13,7 +13,7 @@ struct Heap {
     /// The heap's base *address*. `s32` would sign-extend when it is cast
     /// back to a pointer; the same four bytes on GameCube.
     /* 0x08 */ uintptr_t start;
-    /* 0x0C */ u32 size;
+    /* 0x0C */ size_t size;
     /* 0x10 */ s32 type;
     /* 0x14 */ s32 transient;
     /* 0x18 */ LbHeapStatus status;

@@ -148,12 +148,27 @@ typedef void (*lbl_803D9FD8_fn)(s32*, u32, u32);
 void fn_80190ABC(int mode)
 {
     struct Lbl804799B8_t* state = &lbl_804799B8;
+#ifdef MELEE_NATIVE
+    u16 native_table[sizeof(lbl_803D9F80) / 2];
+    u16* table = native_table;
+    const u8* table_bytes = (const u8*) &lbl_803D9F80;
+    size_t table_idx;
+#else
     u16* table = (u16*) &lbl_803D9F80;
+#endif
     TmData* tm;
     s32 cur_opt;
     s32 opt;
     /* Shared by cases 5/6 for matching base register coloring. */
     u8* start;
+
+#ifdef MELEE_NATIVE
+    /* The text IDs are stored as big-endian byte pairs. */
+    for (table_idx = 0; table_idx < ARRAY_SIZE(native_table); table_idx++) {
+        native_table[table_idx] =
+            (table_bytes[table_idx * 2] << 8) | table_bytes[table_idx * 2 + 1];
+    }
+#endif
 
     tm = gm_GetTournamentData();
     cur_opt = tm->cur_option;
@@ -1403,20 +1418,25 @@ void fn_80193230(void)
 #pragma pop
 #endif
 
-/// @todo Fix ::GXColor casts
 void fn_80193308(void)
 {
     HSD_Text* created_text2;
+#ifndef MELEE_NATIVE
     s32* text_color_word;
+#endif
     GXColor color;
     TmData* tm;
     HSD_Text* text;
+#ifndef MELEE_NATIVE
     GXColor* text_color;
+#endif
     HSD_Text** ptr;
     f32 y;
     s32 i;
     s32 idx;
+#ifndef MELEE_NATIVE
     s32* color_word;
+#endif
     s32 count;
     HSD_Text* created_text;
 
@@ -1463,7 +1483,9 @@ void fn_80193308(void)
     idx = 1;
     if ((!tm) && (!tm)) {
     }
+#ifndef MELEE_NATIVE
     color_word = (s32*) &color;
+#endif
     do {
         created_text = HSD_SisLib_803A6754(0, (s32) lbl_804D663C);
         ptr = &tm->x518[idx];
@@ -1473,7 +1495,11 @@ void fn_80193308(void)
         text->font_size.y = 0.55f;
         (*ptr)->default_kerning = 1;
         if (count != 0) {
+#ifdef MELEE_NATIVE
+            (*ptr)->text_color = color;
+#else
             *(text_color_word = (s32*) (&(*ptr)->text_color)) = *color_word;
+#endif
         }
         count += 1;
         idx = 2;
@@ -1483,7 +1509,11 @@ void fn_80193308(void)
     idx = 3;
     do {
         created_text2 = HSD_SisLib_803A6754(0, (s32) lbl_804D663C);
+#ifdef MELEE_NATIVE
+        ptr = &tm->x524[idx - 3];
+#else
         ptr = &tm->x518[idx];
+#endif
         *ptr = created_text2;
         text = *ptr;
         text->font_size.x = 0.85f;
@@ -1491,8 +1521,12 @@ void fn_80193308(void)
         (*ptr)->default_kerning = 1;
         (*ptr)->default_alignment = 1;
         if (count) {
+#ifdef MELEE_NATIVE
+            (*ptr)->text_color = color;
+#else
             *((s32*) (text_color = &(*ptr)->text_color)) = *color_word;
             ;
+#endif
         }
         count += 1;
         idx = 4;
@@ -1517,7 +1551,7 @@ void fn_801935B8(void)
     table = &lbl_803D9F80;
     tm = gm_GetTournamentData();
     fn_8018FBE0(0, 0, 0, 5, 5, 0x3e7, 3);
-    fn_801902F0((s32) fn_80190174(lbl_804D664C->cameras->desc));
+    fn_801902F0(fn_80190174(lbl_804D664C->cameras->desc));
     fn_80193308();
     fn_8019027C(lbl_804D664C->lights);
     fn_8019035C(0, lbl_804D664C->models[5], 0, 0x1A, 2, 1, fn_801910E0, 0.0f);
@@ -2251,7 +2285,7 @@ void fn_80194D84(s32* state, u32 buttons, u32 trigger)
     }
 }
 
-#ifdef MUST_MATCH
+#if defined(MUST_MATCH) || defined(MELEE_NATIVE)
 #pragma pack(push, 1)
 #endif
 typedef struct TmData_80194F30 {
@@ -2276,8 +2310,16 @@ typedef struct TmData_80194F30 {
         u8 pad_X10[0x12 - 0x10];
     } x37[64];
 } TmData_80194F30;
-#ifdef MUST_MATCH
+#if defined(MUST_MATCH) || defined(MELEE_NATIVE)
 #pragma pack(pop)
+#endif
+
+#ifdef MELEE_NATIVE
+_Static_assert(offsetof(TmData_80194F30, x37) == offsetof(TmData, x37),
+               "Tournament entrant overlays must have the same offset");
+_Static_assert(sizeof(((TmData_80194F30*) 0)->x37[0]) ==
+                   sizeof(((TmData*) 0)->x37[0]),
+               "Tournament entrant overlays must have the same stride");
 #endif
 
 /// Handles tournament settings menu input (entrant configuration).
@@ -2838,9 +2880,11 @@ void fn_8019610C(s32* state, u32 buttons, u32 trigger)
 {
     TmData* td;
     s32 i;
+#ifndef MELEE_NATIVE
     u8* src_ptr;
     u8* dst_ptr;
     s32 base_val;
+#endif
 
     i = 1;
 
@@ -2863,6 +2907,22 @@ void fn_8019610C(s32* state, u32 buttons, u32 trigger)
                 gm_SetNextGameModeStateId(1);
             } else {
                 td = gm_GetTournamentData();
+#ifdef MELEE_NATIVE
+                for (i = 0; i < td->x2E; i++) {
+                    struct TmUnkMenuData* entrant = &td->x37[i];
+                    entrant->xE = entrant->xD;
+                    entrant->xF = 0;
+                    if (i < td->x30) {
+                        struct UnkSelections* selection = &td->x4B8[i];
+                        selection->x6 = entrant->x9;
+                        selection->x5 = entrant->x2;
+                        selection->x1 = entrant->x3;
+                        selection->x0 = entrant->x0;
+                        selection->x3 = entrant->x7;
+                        selection->x2 = entrant->x5;
+                    }
+                }
+#else
                 i = 0;
                 src_ptr = (u8*) td;
                 dst_ptr = (u8*) td;
@@ -2882,6 +2942,7 @@ void fn_8019610C(s32* state, u32 buttons, u32 trigger)
                     dst_ptr += 0xA;
                     i++;
                 }
+#endif
                 gm_SetNextGameModeStateId(2);
             }
             gm_801A4B60();

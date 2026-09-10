@@ -114,7 +114,7 @@ StageData grPushOn_StageData = {
     0,
 };
 
-void grPushOn_802182C4(bool arg) {}
+void grPushOn_802182C4(int arg) {}
 
 void grPushOn_802182C8(void)
 {
@@ -334,8 +334,12 @@ void grPushOn_80218888(Ground_GObj* gobj)
     f32 dx;
     f32 dy;
     f32 dist_sq;
+    /* These lookups only pad the original PowerPC stack frame. A native
+     * lookup on a null object dereferences address zero. */
+#ifndef MELEE_NATIVE
     GET_GROUND(0);
     GET_GROUND(0);
+#endif
 
     gp = GET_GROUND(gobj);
     player = Ground_GetP1Fighter();

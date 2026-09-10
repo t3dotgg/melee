@@ -641,7 +641,11 @@ s32 JObjLoad(HSD_JObj* jobj, HSD_Joint* joint, HSD_JObj* parent)
         jobj->u.ptcl = joint->u.ptcl;
         slist = joint->u.ptcl;
         while (slist != NULL) {
+#ifdef MELEE_NATIVE
+            slist->data = HSD_JObjNativeParticleActivate(slist->data);
+#else
             *(u32*) &slist->data |= 0x80000000;
+#endif
             slist = slist->next;
         }
     } else {
@@ -659,8 +663,8 @@ s32 JObjLoad(HSD_JObj* jobj, HSD_Joint* joint, HSD_JObj* parent)
         jobj->envelopemtx = HSD_MtxAlloc();
         memcpy(jobj->envelopemtx, joint->mtx, sizeof(Mtx));
     }
-    HSD_IDInsertToTable(NULL, (u32) joint, jobj);
-    jobj->id = (u32) joint;
+    HSD_IDInsertToTable(NULL, (uintptr_t) joint, jobj);
+    jobj->id = (uintptr_t) joint;
     return 0;
 }
 
@@ -690,7 +694,8 @@ void HSD_JObjResolveRefs(HSD_JObj* jobj, HSD_Joint* joint)
     HSD_RObjResolveRefsAll(jobj->robj, joint->robjdesc);
     if (!!(jobj->flags & JOBJ_INSTANCE)) {
         HSD_JObjUnref(jobj->child);
-        jobj->child = HSD_IDGetDataFromTable(NULL, (u32) joint->child, NULL);
+        jobj->child =
+            HSD_IDGetDataFromTable(NULL, (uintptr_t) joint->child, NULL);
         HSD_ASSERT(1108, jobj->child);
         HSD_JObjRef(jobj->child);
     }
@@ -1514,7 +1519,7 @@ void JObjRelease(HSD_Class* o)
     HSD_JOBJ_METHOD(jobj)->release_child(jobj);
 
     if (HSD_IDGetDataFromTable(NULL, jobj->id, NULL) == jobj) {
-        u32 id = jobj->id;
+        uintptr_t id = jobj->id;
         HSD_IDRemoveByIDFromTable(NULL, id);
     }
     if (jobj->scl != NULL) {

@@ -1,10 +1,10 @@
 #include "gm_16F1.h"
 
 #include "gm_1601.h"
-#include "gm_16AE.h"
 #include "gm_16F1.static.h"
 #include "gm_unsplit.h"
 #include "gmmain_lib.h"
+#include "gmvs.h"
 #include <melee/if/textlib.h>
 #include <melee/lb/lb_00B0.h>
 #include <melee/lb/lblanguage.h>
@@ -453,7 +453,12 @@ int fn_801701C0(void* arg0, int arg1, int arg2)
     u8* flags = rules->pad3F0;
     struct lbl_8046B6A0_24C_58_t* x58 = rules->x58;
     s32 player_net;
+#ifdef MELEE_NATIVE
+    /* Ranking compares all six player slots, including slots 4 and 5. */
+    s32 scores[6];
+#else
     s32 scores[4];
+#endif
     u8 rankings[7] = { 0 };
 
     if (lbl_804D65A0.x0 != 0) {
@@ -1116,7 +1121,7 @@ int fn_801701C0(void* arg0, int arg1, int arg2)
 int fn_80171A88(void)
 {
     int result = 0;
-    if (gm_8016B41C()) {
+    if (gm_IsCurrently1PMode_inline()) {
         result = fn_8017E0E4();
         if (result == -1) {
             result = 1;
@@ -1276,7 +1281,7 @@ bool gm_801720B4(void)
     if (gm_8016B3D8()) {
         return fn_8017E160();
     }
-    return gm_GetRules()->is_teams == true;
+    return gm_GetStartMeleeRules()->is_teams == true;
 }
 
 bool gm_801720F8(void)
@@ -1284,7 +1289,7 @@ bool gm_801720F8(void)
     if (gm_8016B3D8()) {
         return true;
     }
-    return gm_GetRules()->match_kind == 1;
+    return gm_GetStartMeleeRules()->match_kind == 1;
 }
 
 int gm_80172140(void)

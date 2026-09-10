@@ -72,7 +72,11 @@ block_2:
         goto block_5;
     }
 
+#ifdef MELEE_NATIVE
+    part = fp->ft_data->x54[fp->x2220_b0];
+#else
     part = ((int*) fp->ft_data->x54)[fp->x2220_b0];
+#endif
 
     fp->x2220_b0++;
     if (fp->x2220_b0 < 5) {

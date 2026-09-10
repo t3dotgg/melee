@@ -3,6 +3,8 @@
 
 #include <Runtime/platform.h>
 
+#include "hsd_3915.h"
+
 /* 393C14 */ void fn_80393C14(const u8* buf, size_t);
 /* 393D2C */ s32 hsd_80393D2C(s32);
 /* 393DA0 */ void hsd_80393DA0(u8*, size_t);
@@ -14,8 +16,8 @@
 /* 3941E8 */ s32 hsd_803941E8(void*, void*);
 /* 394314 */ void hsd_80394314(void);
 /* 394434 */ void hsd_80394434(void*);
-/* 394544 */ void hsd_80394544(s32, s32, u32, u32, s32, s32, s32, s32, s32,
-                               s32, s32, void*);
+/* 394544 */ void hsd_80394544(s32, s32, u32, u32, s32, s32, HSD_XFBBuffer,
+                               s32, s32, s32, HSD_XFBBuffer, void*);
 /* 394668 */ void hsd_80394668(void);
 
 #endif

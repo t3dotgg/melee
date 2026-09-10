@@ -403,6 +403,13 @@ typedef struct itHeiho_ItemVars {
     f32 x78;
 } itHeiho_ItemVars;
 
+#ifdef MELEE_NATIVE
+typedef struct itHeihoAttributes {
+    s32* common;
+    f32 values[6];
+} itHeihoAttributes;
+#endif
+
 typedef struct itFlipper_ItemVars {
     s32 xDD4_flightTimer; // frames until settling (when thrown)
     bool xDD8_isSettled;
@@ -436,10 +443,24 @@ typedef struct itFoods_ItemVars {
 } itFoods_ItemVars;
 
 typedef struct itFoodsAttributes {
+#ifdef MELEE_NATIVE
+    union {
+        s32 x0;
+        f32 previous_y;
+    };
+#else
     s32 x0;
+#endif
     HSD_Joint* x4;
     s32 x8;
+#ifdef MELEE_NATIVE
+    union {
+        s32 xC;
+        f32 offset_x;
+    };
+#else
     s32 xC;
+#endif
 } itFoodsAttributes;
 
 typedef struct itWhispyApple_ItemVars {
@@ -448,7 +469,11 @@ typedef struct itWhispyApple_ItemVars {
 } itWhispyApple_ItemVars;
 
 typedef struct itWhispyAppleAttributes {
+#ifdef MELEE_NATIVE
+    s32* common;
+#else
     u8 x0[0x4];
+#endif
     s32 x4;
     s32 x8;
     u8 xC[0x8];
@@ -506,6 +531,7 @@ typedef struct {
     /* 0x3C */ s8 x3C;
     /* 0x3D */ s8 x3D;
     /* 0x3E */ s8 x3E;
+    /* 0x40 */ lbColl_80008D30_arg1 x40[2];
 } itLikelikeAttributes;
 
 typedef struct itLikelike_ItemVars {
@@ -569,7 +595,11 @@ typedef struct itTincle_ItemVars {
 } itTincle_ItemVars;
 
 typedef struct itTincleAttributes {
+#ifdef MELEE_NATIVE
+    /* 0x00 */ s32* common;
+#else
     /* 0x00 */ f32 x0;
+#endif
     /* 0x04 */ s32 x4;
     /* 0x08 */ s32 x8;
     /* 0x0C */ f32 xC;
@@ -1107,7 +1137,7 @@ typedef struct itChicoritaLeafAttr {
 } itChicoritaLeafAttr;
 
 typedef struct it_2728_DatAttrs {
-    Fighter* fighter;
+    s32 timer;
 } it_2728_DatAttrs;
 
 typedef struct itPokemonSpawn_ItemVars {
@@ -1280,6 +1310,9 @@ typedef struct it_2E5A_TierEntry {
     /* 0x14 */ s32 threshold;
     /* 0x18 */ f32 scale;
     /* 0x1C */ itECB ecb;
+#ifdef MELEE_NATIVE
+    struct ItemStateDesc* native_state;
+#endif
 } it_2E5A_TierEntry;
 
 /// Special attributes for it_2E5A items. Base physics parameters followed by

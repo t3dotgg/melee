@@ -62,24 +62,54 @@ void* efSync_Spawn(s32 gfx_id, HSD_GObj* gobj, ...)
     f32 rand_rot_x;
     PAD_STACK(0x2C);
 
+#ifdef MELEE_NATIVE
+    ret_obj = NULL;
+    efLib_AnimCount = 0;
+    efLib_LoadKind = 0;
+#else
     efLib_AnimCount = efLib_LoadKind = (u32) (ret_obj = NULL);
+#endif
     va_start(vlist, gobj);
     if ((gfx_id == 0x479) && (efAsync_DatEntries[1].data == NULL)) {
         gfx_id = 0x506;
     }
     if (gfx_id < 0x250) {
         va_vec3 = va_arg(vlist, Vec3*);
+#ifdef MELEE_NATIVE
+        ret_obj = efLib_CreateGenerator(gfx_id, va_vec3);
+        va_end(vlist);
+        return ret_obj;
+#else
         return efLib_CreateGenerator(gfx_id, va_vec3);
+#endif
     }
     if (gfx_id / 1000 == 0x1E) {
         va_vec3 = va_arg(vlist, Vec3*);
+#ifdef MELEE_NATIVE
+        ret_obj = efLib_CreateGenerator(gfx_id, va_vec3);
+        va_end(vlist);
+        return ret_obj;
+#else
         return efLib_CreateGenerator(gfx_id, va_vec3);
+#endif
     }
     if (gfx_id < 0x478) {
+#ifdef MELEE_NATIVE
+        ret_obj = efAsync_Dispatch(gfx_id, gobj, vlist);
+        va_end(vlist);
+        return ret_obj;
+#else
         return efAsync_Dispatch(gfx_id, gobj, vlist);
+#endif
     }
     if (gfx_id < 0x4BA) {
+#ifdef MELEE_NATIVE
+        ret_obj = efAlt_Spawn(gfx_id, gobj, vlist);
+        va_end(vlist);
+        return ret_obj;
+#else
         return efAlt_Spawn(gfx_id, gobj, vlist);
+#endif
     }
     efLib_LoadKind = EF_LOADKIND_SYNC;
     switch (gfx_id) {
@@ -654,8 +684,12 @@ void* efSync_Spawn(s32 gfx_id, HSD_GObj* gobj, ...)
     while (efLib_AnimCount != 0) {
         cnt_2 = efLib_AnimCount - 1;
         efLib_AnimCount = cnt_2;
+#ifdef MELEE_NATIVE
+        HSD_JObjAnimAll(efLib_AnimQueue[cnt_2]);
+#else
         HSD_JObjAnimAll(
             ((EF_ParamEntry*) (((u32*) efLib_AnimQueue) + cnt_2))->gobj);
+#endif
     }
 
     va_end(vlist);

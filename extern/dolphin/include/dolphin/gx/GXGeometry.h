@@ -25,6 +25,9 @@ static inline void GXSetTexCoordGen(GXTexCoordID dst_coord, GXTexGenType func,
 }
 
 void GXBegin(GXPrimitive type, GXVtxFmt vtxfmt, u16 nverts);
+#ifdef MELEE_NATIVE
+void GXEnd(void);
+#else
 static inline void GXEnd(void)
 {
 #if DEBUG
@@ -36,6 +39,7 @@ static inline void GXEnd(void)
     __GXinBegin = GX_FALSE;
 #endif
 }
+#endif
 void GXSetLineWidth(u8 width, GXTexOffset texOffsets);
 void GXSetPointSize(u8 pointSize, GXTexOffset texOffsets);
 void GXEnableTexOffsets(GXTexCoordID coord, u8 line_enable, u8 point_enable);

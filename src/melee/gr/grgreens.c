@@ -190,7 +190,7 @@ static inline struct grGreens_BlockVars* getBlock(Ground* gp, int i, int j)
     return &gp->u.greens.x8_blocks[i][j];
 }
 
-void grGreens_80213458(bool arg)
+void grGreens_80213458(int arg)
 {
     grGr_804D6AAC = 1;
 }
@@ -960,7 +960,7 @@ void grGreens_802150C4(Ground_GObj* gobj, int arg1, int arg2)
                            gp->u.greens.x8_blocks[arg2][arg1 + 1].x18);
         }
     }
-    if (arg2 < 4 && arg1 < 5 &&
+    if (arg2 < 4 && arg1 > 0 && arg1 < 5 &&
         gp->u.greens.x8_blocks[arg2 + 1][arg1 + 1].status == 3)
     {
         if (gp->u.greens.x8_blocks[arg2 + 1][arg1].status == 3) {
@@ -1082,7 +1082,11 @@ void fn_802159B4(Item_GObj* item_gobj, Ground* gp)
     return;
 }
 
+#ifdef MELEE_NATIVE
+void grGreens_802159B8(Ground* gp, int i, int j, HSD_GObj* value)
+#else
 void grGreens_802159B8(Ground* gp, int i, int j, int value)
+#endif
 {
     UNUSED u8 pad[8];
     Vec vec;
@@ -1152,7 +1156,7 @@ void fn_80215B84(Item_GObj* item_gobj, Ground* gp, Vec* arg2, HSD_GObj* gobj,
     if (!find_block(ground, item_gobj, &row, &col)) {
         HSD_ASSERT(1465, 0);
     }
-    grGreens_802159B8(ground, col, row, (s32) hit);
+    grGreens_802159B8(ground, col, row, hit);
 }
 
 void fn_80215D50(Item_GObj* item_gobj, Ground* gp, HSD_GObj* gobj)
@@ -1160,7 +1164,11 @@ void fn_80215D50(Item_GObj* item_gobj, Ground* gp, HSD_GObj* gobj)
     return;
 }
 
+#ifdef MELEE_NATIVE
+Ground_GObj* grGreens_80215D54(Ground_GObj* gobj, int arg1, int arg2)
+#else
 s32 grGreens_80215D54(Ground_GObj* gobj, int arg1, int arg2)
+#endif
 {
     Ground* gp = GET_GROUND(gobj);
     int row;
@@ -1184,7 +1192,7 @@ s32 grGreens_80215D54(Ground_GObj* gobj, int arg1, int arg2)
             row = 0;
         }
     }
-    return (s32) gobj;
+    return (Ground_GObj*) gobj;
 }
 
 void grGreens_80215ED8(Ground_GObj* gobj, int col, int row)
@@ -1215,7 +1223,7 @@ void grGreens_80215ED8(Ground_GObj* gobj, int col, int row)
         if (gp->u.greens.x8_blocks[row][col].x1_4) {
             gp->u.greens.x8_blocks[row][col].x4 = 0.0f;
             gp->u.greens.x8_blocks[row][col].x1_4 = 0;
-            grGreens_802159B8(gp, col, row, 0);
+            grGreens_802159B8(gp, col, row, NULL);
         } else {
             gp->u.greens.x8_blocks[row][col].x4 += yakumono_param->x30;
             if (gp->u.greens.x8_blocks[row][col].x4 > yakumono_param->x2C) {

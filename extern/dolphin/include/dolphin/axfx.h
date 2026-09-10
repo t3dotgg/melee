@@ -4,9 +4,9 @@
 #include <dolphin/types.h>
 
 struct AXFX_REVSTD_DELAYLINE {
-    /* 0x00 */ long inPoint;
-    /* 0x04 */ long outPoint;
-    /* 0x08 */ long length;
+    /* 0x00 */ s32 inPoint;
+    /* 0x04 */ s32 outPoint;
+    /* 0x08 */ s32 length;
     /* 0x0C */ float* inputs;
     /* 0x10 */ float lastOutput;
 };
@@ -19,7 +19,7 @@ struct AXFX_REVSTD_WORK {
     /* 0x10C */ float lpLastout[3];
     /* 0x118 */ float level;
     /* 0x11C */ float damping;
-    /* 0x120 */ long preDelayTime;
+    /* 0x120 */ s32 preDelayTime;
     /* 0x124 */ float* preDelayLine[3];
     /* 0x130 */ float* preDelayPtr[3];
 };
@@ -35,17 +35,17 @@ struct AXFX_REVERBSTD {
 };
 
 struct AXFX_BUFFERUPDATE {
-    /* 0x00 */ long* left;
-    /* 0x04 */ long* right;
-    /* 0x08 */ long* surround;
+    /* 0x00 */ s32* left;
+    /* 0x04 */ s32* right;
+    /* 0x08 */ s32* surround;
 };
 
 // REVHI Structs
 
 struct AXFX_REVHI_DELAYLINE {
-    /* 0x00 */ long inPoint;
-    /* 0x04 */ long outPoint;
-    /* 0x08 */ long length;
+    /* 0x00 */ s32 inPoint;
+    /* 0x04 */ s32 outPoint;
+    /* 0x08 */ s32 length;
     /* 0x0C */ float* inputs;
     /* 0x10 */ float lastOutput;
 };
@@ -58,7 +58,7 @@ struct AXFX_REVHI_WORK {
     /* 0x190 */ float lpLastout[3];
     /* 0x19C */ float level;
     /* 0x1A0 */ float damping;
-    /* 0x1A4 */ long preDelayTime;
+    /* 0x1A4 */ s32 preDelayTime;
     /* 0x1A8 */ float crosstalk;
     /* 0x1AC */ float* preDelayLine[3];
     /* 0x1B8 */ float* preDelayPtr[3];
@@ -80,18 +80,18 @@ struct AXFX_DELAY {
     /* 0x0C */ u32 currentPos[3];
     /* 0x18 */ u32 currentFeedback[3];
     /* 0x24 */ u32 currentOutput[3];
-    /* 0x30 */ long* left;
-    /* 0x34 */ long* right;
-    /* 0x38 */ long* sur;
+    /* 0x30 */ s32* left;
+    /* 0x34 */ s32* right;
+    /* 0x38 */ s32* sur;
     /* 0x3C */ u32 delay[3];
     /* 0x48 */ u32 feedback[3];
     /* 0x54 */ u32 output[3];
 };
 
 struct AXFX_CHORUS_SRCINFO {
-    /* 0x00 */ long* dest;
-    /* 0x04 */ long* smpBase;
-    /* 0x08 */ long* old;
+    /* 0x00 */ s32* dest;
+    /* 0x04 */ s32* smpBase;
+    /* 0x08 */ s32* old;
     /* 0x0C */ u32 posLo;
     /* 0x10 */ u32 posHi;
     /* 0x14 */ u32 pitchLo;
@@ -101,16 +101,16 @@ struct AXFX_CHORUS_SRCINFO {
 };
 
 struct AXFX_CHORUS_WORK {
-    /* 0x00 */ long* lastLeft[3];
-    /* 0x0C */ long* lastRight[3];
-    /* 0x18 */ long* lastSur[3];
+    /* 0x00 */ s32* lastLeft[3];
+    /* 0x0C */ s32* lastRight[3];
+    /* 0x18 */ s32* lastSur[3];
     /* 0x24 */ u8 currentLast;
-    /* 0x28 */ long oldLeft[4];
-    /* 0x38 */ long oldRight[4];
-    /* 0x48 */ long oldSur[4];
+    /* 0x28 */ s32 oldLeft[4];
+    /* 0x38 */ s32 oldRight[4];
+    /* 0x48 */ s32 oldSur[4];
     /* 0x58 */ u32 currentPosLo;
     /* 0x5C */ u32 currentPosHi;
-    /* 0x60 */ long pitchOffset;
+    /* 0x60 */ s32 pitchOffset;
     /* 0x64 */ u32 pitchOffsetPeriodCount;
     /* 0x68 */ u32 pitchOffsetPeriod;
     /* 0x6C */ struct AXFX_CHORUS_SRCINFO src;
@@ -123,7 +123,7 @@ struct AXFX_CHORUS {
     /* 0x98 */ u32 period;
 };
 
-extern void* (*__AXFXAlloc)(unsigned long);
+extern void* (*__AXFXAlloc)(u32);
 extern void (*__AXFXFree)(void*);
 
 // chorus.c
@@ -141,7 +141,7 @@ int AXFXDelayInit(struct AXFX_DELAY* delay);
 int AXFXDelayShutdown(struct AXFX_DELAY* delay);
 
 // reverb_hi.c
-void DoCrossTalk(long* l, long* r, float cross, float invcross);
+void DoCrossTalk(s32* l, s32* r, float cross, float invcross);
 int AXFXReverbHiInit(struct AXFX_REVERBHI* rev);
 int AXFXReverbHiShutdown(struct AXFX_REVERBHI* rev);
 int AXFXReverbHiSettings(struct AXFX_REVERBHI* rev);
@@ -156,9 +156,9 @@ void AXFXReverbStdCallback(struct AXFX_BUFFERUPDATE* bufferUpdate,
                            struct AXFX_REVERBSTD* reverb);
 
 // axfx.c
-void* AXFXAllocFunction(unsigned long size);
+void* AXFXAllocFunction(u32 size);
 void AXFXFreeFunction(void* ptr);
-void AXFXSetHooks(void* (*alloc_hook)(unsigned long),
+void AXFXSetHooks(void* (*alloc_hook)(u32),
                   void (*free_hook)(void*));
 
 #endif // _DOLPHIN_AXFX_H_

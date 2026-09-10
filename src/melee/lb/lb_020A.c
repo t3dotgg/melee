@@ -195,7 +195,13 @@ void fn_8002113C(HSD_JObj* jobj, Vec3* axis, f32 angle)
     Mtx tmpMtx;
     Mtx rotMtx;
     Mtx result;
+#ifdef MELEE_NATIVE
+    /* Joint rotation accessors copy four floats, including for Euler joints.
+     */
+    Quaternion rot;
+#else
     Vec3 rot;
+#endif
     Quaternion rot2;
     Vec3 localAxis;
     Mtx mtx;
@@ -210,9 +216,9 @@ void fn_8002113C(HSD_JObj* jobj, Vec3* axis, f32 angle)
 
     if (!(jobj->flags & JOBJ_USE_QUATERNION)) {
         HSD_JObjGetRotation(jobj, (Quaternion*) &rot);
-        HSD_MkRotationMtx(tmpMtx, &rot);
+        HSD_MkRotationMtx(tmpMtx, (Vec3*) &rot);
         PSMTXConcat(tmpMtx, rotMtx, result);
-        HSD_QuatLib_8037EB28(result, &rot);
+        HSD_QuatLib_8037EB28(result, (Vec3*) &rot);
         HSD_JObjSetRotation(jobj, (Quaternion*) &rot);
     } else {
         HSD_JObjGetRotation(jobj, &rot2);

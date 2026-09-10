@@ -234,12 +234,12 @@ static void fn_80109714(HSD_GObj* gobj)
 static void fn_801097B8(HSD_GObj* gobj)
 {
     Fighter* fp = GET_FIGHTER(gobj);
-    int new_var;
+    Fighter_GObj* new_var;
     int new_var2;
     new_var2 = ftKb_MS_YsSpecialAirNCapture1_0;
     new_var = 0;
     Fighter_ChangeMotionState(gobj, new_var2, 0x81092, fp->cur_anim_frame,
-                              1.0f, 0.0f, (void*) new_var);
+                              1.0f, 0.0f, new_var);
     fp->x2222_b2 = true;
     ftCommon_8007E2F4(fp, 0x1FF);
     ftCommon_8007E2FC(gobj);

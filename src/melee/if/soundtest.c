@@ -1025,8 +1025,8 @@ void un_802FFF2C(StartMeleeData* arg0)
     }
     r->stkind = s->x130.x8;
     r->x20 = -1;
-    r->xB = s->x130.xCC[3] - 1;
-    r->xC = -1;
+    r->item_freq = s->x130.xCC[3] - 1;
+    r->sd_penalty = -1;
     r->x30 = s->x130.xEC;
     gm_SetupAllPlayerDefaults(arg0->players);
     sp = &s->x130;
@@ -1037,7 +1037,7 @@ void un_802FFF2C(StartMeleeData* arg0)
         arg0->players[i].sub_color = sp->x48[i];
         arg0->players[i].team = sp->x58[i];
         arg0->players[i].rumble_enabled = sp->xDC[i];
-        arg0->players[i].x12 = sp->x68[i];
+        arg0->players[i].damage1 = sp->x68[i];
         arg0->players[i].attack_ratio = sp->x78[i];
         arg0->players[i].defense_ratio = sp->x88[i];
         arg0->players[i].cpu_kind = sp->xA8[i];
@@ -2027,7 +2027,7 @@ bool un_80301964(enum soundtest_callback_arg0 arg0)
             HSD_SObj* sobj;
 
             if (un_804D6E08 != NULL) {
-                HSD_GObjPLink_80390228(un_804D6E08);
+                HSD_GObjFree(un_804D6E08);
             }
 
             gobj = GObj_Create(0xE, 0xF, 0);

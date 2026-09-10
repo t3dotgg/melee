@@ -14,7 +14,7 @@
 #include <melee/cm/camera.h>
 #include <melee/cm/types.h>
 #include <melee/ft/ftlib.h>
-#include <melee/gm/gm_16AE.h>
+#include <melee/gm/gmvs.h>
 #include <melee/if/ifhazard.h>
 #include <melee/it/it_2725.h>
 #include <melee/it/item.h>
@@ -118,7 +118,7 @@ static struct grOnett_StageParam* yakumono_param;
 
 static s32 grOt_804D69C4;
 
-void grOnett_801E3734(bool arg) {}
+void grOnett_801E3734(int arg) {}
 
 void grOnett_801E3738(void)
 {

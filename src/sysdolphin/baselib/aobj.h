@@ -51,7 +51,7 @@ struct HSD_AObjDesc {
     u32 flags;
     f32 end_frame;
     HSD_FObjDesc* fobjdesc;
-    u32 obj_id;
+    uintptr_t obj_id; // Joint descriptor address used as its lookup ID.
 };
 
 struct HSD_AnimJoint {

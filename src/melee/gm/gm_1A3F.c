@@ -23,6 +23,10 @@
 #include <sysdolphin/baselib/sislib.h>
 #include <sysdolphin/baselib/video.h>
 
+#ifdef MELEE_NATIVE
+#include <stdlib.h>
+#endif
+
 struct routingInfo {
     u8 curr_mode;     ///< ::GameModeKind
     u8 pending_mode;  ///< ::GameModeKind
@@ -45,6 +49,20 @@ ASSERT_SIZE(struct stateMachine, 0x14);
 /* 1A4014 */ static void gm_801A4014(GameMode*);
 /* 1A43A0 */ static u8 runGameMode(u8 mode);
 /* 479D30 */ static struct stateMachine state_machine;
+
+#ifdef MELEE_NATIVE
+/* Keep scene tracing opt-in. It is useful for headless input scripts because
+ * the native window may not be visible in a CI session. */
+static bool native_mode_trace_enabled(void)
+{
+    static int enabled = -1;
+    if (enabled < 0) {
+        const char* value = getenv("MELEE_TRACE_GAME_MODE");
+        enabled = value != NULL && value[0] != '\0' && value[0] != '0';
+    }
+    return enabled != 0;
+}
+#endif
 
 void preloadState(GameModeState* state)
 {
@@ -136,6 +154,13 @@ void gm_801A4014(GameMode* mode)
     state = findState(mode->states);
     sm->routing.curr_state_id = state->id;
 
+#ifdef MELEE_NATIVE
+    if (native_mode_trace_enabled()) {
+        OSReport("[native-mode] enter mode=%u state=%u scene=%u\n", mode->kind,
+                 state->id, state->info.scene_kind);
+    }
+#endif
+
     preloadState(state);
     if (state->on_enter != NULL) {
         state->on_enter(state);
@@ -187,6 +212,14 @@ void gm_801A4014(GameMode* mode)
         gm_ChangeGameModeAfterCurrentScene(GM_BOOT);
         HSD_VISetBlack(0);
     }
+
+#ifdef MELEE_NATIVE
+    if (native_mode_trace_enabled()) {
+        OSReport("[native-mode] leave mode=%u state=%u pending=%u reset=%u\n",
+                 mode->kind, sm->routing.curr_state_id,
+                 sm->routing.pending_mode, gmMainLib_8046B0F0.resetting);
+    }
+#endif
 }
 
 void* gm_GetGameModeStateEnterData(GameModeState* scene)

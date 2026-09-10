@@ -125,9 +125,9 @@ void ftLk_SpecialHi_Coll(HSD_GObj* gobj)
 void ftLk_SpecialAirHi_Coll(HSD_GObj* gobj)
 {
     u8 _[8];
-    Fighter* fp = GET_FIGHTER(gobj)->dat_attrs;
+    ftLk_DatAttrs* da = GET_FIGHTER(gobj)->dat_attrs;
     if (ft_CheckGroundAndLedge(gobj, 0)) {
-        ftCo_LandingFallSpecial_Enter(gobj, false, fp->facing_dir1);
+        ftCo_LandingFallSpecial_Enter(gobj, false, da->x30);
     } else if (ftCliffCommon_80081298(gobj)) {
         return;
     }

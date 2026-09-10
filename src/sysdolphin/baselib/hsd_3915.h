@@ -18,9 +18,16 @@ typedef struct DebugFontGlyph {
 /* 391F28 */ void hsd_80391F28(GXColor*, f32, f32, f32, f32, f32);
 /* 392194 */ void hsd_80392194(u8* dst, s32 flags, s32 unused1, s32 unused2,
                                const u8* src);
-/* 3921B8 */ void hsd_803921B8(void*, s32, s32, s32, s32, s32, s32, void*);
-/* 3922FC */ void hsd_803922FC(void*, s32, s32, s32, s32, s32, s32, s32,
+#ifdef MELEE_NATIVE
+/* Native XFB addresses are host pointers. */
+typedef void* HSD_XFBBuffer;
+#else
+typedef s32 HSD_XFBBuffer;
+#endif
+/* 3921B8 */ void hsd_803921B8(void*, s32, s32, HSD_XFBBuffer, s32, s32, s32,
                                void*);
+/* 3922FC */ void hsd_803922FC(void*, s32, s32, s32, HSD_XFBBuffer, s32, s32,
+                               s32, void*);
 /* 4088B8 */ extern DebugFontGlyph HSD_DebugFontAtlas[];
 
 #endif

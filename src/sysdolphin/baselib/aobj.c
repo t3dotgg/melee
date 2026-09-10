@@ -191,7 +191,7 @@ HSD_AObj* HSD_AObjLoadDesc(HSD_AObjDesc* aobjdesc)
     u8 _[4];
 
     HSD_FObj* fobj;
-    u32 id;
+    uintptr_t id;
     HSD_Obj* attached_obj;
 
     if (aobjdesc != NULL) {

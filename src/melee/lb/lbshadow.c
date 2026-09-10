@@ -334,7 +334,7 @@ void lbShadow_8000F38C(s32 arg0)
     PAD_STACK(0x10);
 
     noLight = 0;
-    nextGx = (HSD_GObj*) (arg0 - arg0);
+    nextGx = NULL;
 
     for (
 #ifdef MUST_MATCH
@@ -345,12 +345,12 @@ void lbShadow_8000F38C(s32 arg0)
     {
         LbShadow* lbs = ftLib_800872B0(gobj);
         if (lbs != NULL) {
-            lbs->x0_b2 = (s32) nextGx;
+            lbs->x0_b2 = false;
         }
     }
 
     {
-        HSD_LObj* lobj = lobj = (HSD_LObj*) (arg0 - arg0);
+        HSD_LObj* lobj = lobj = NULL;
         HSD_LObj* fallback = fallback = lobj;
         {
             HSD_GObj* lgobj;
@@ -474,7 +474,7 @@ void lbShadow_8000F38C(s32 arg0)
                         }
                     }
 
-                    if ((s32) lobj) {
+                    if (lobj != NULL) {
                         fp2->x20A4.x0_b3 = false;
                     } else {
                         fp2->x20A4.x0_b3 = true;

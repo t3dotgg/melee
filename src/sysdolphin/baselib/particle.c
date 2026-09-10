@@ -21,8 +21,14 @@ typedef struct {
 
 #include <math.h>
 #include <string.h>
+#ifdef MELEE_NATIVE
+#include <stdlib.h>
+#endif
 
 #include "cobj.h"
+#ifdef MELEE_NATIVE
+#include "archive.h"
+#endif
 #include "gobjobject.h"
 #include "mtx.h"
 #include "particle.static.h"
@@ -44,10 +50,10 @@ typedef struct {
 /* 4D78E4 */ static u16 hsd_804D78E4 = 0;
 #pragma pop
 #endif
-/* 4D78E8 */ u32 hsd_804D78E8 = 0;
-/* 4D78EC */ u32 hsd_804D78EC = 0;
+/* 4D78E8 */ uintptr_t hsd_804D78E8 = 0;
+/* 4D78EC */ uintptr_t hsd_804D78EC = 0;
 /* 4D78F0 */ HSD_CObj* psCamera = NULL;
-/* 4D78F4 */ u32 hsd_804D78F4 = 0;
+/* 4D78F4 */ uintptr_t hsd_804D78F4 = 0;
 static HSD_JObj* hsd_804D08E8[8];
 /* 4D0908 */ HSD_Particle* hsd_804D0908[16];
 /* 4D0948 */ u32* hsd_804D0948[65];
@@ -70,6 +76,175 @@ typedef union {
 } ParticleFloatBytes;
 
 static volatile const f32 particle_zero = 0.0F;
+
+#ifdef MELEE_NATIVE
+static u16 particle_be16(const void* p)
+{
+    const u8* b = p;
+    return (u16) ((u16) b[0] << 8 | b[1]);
+}
+
+static u32 particle_be32(const void* p)
+{
+    const u8* b = p;
+    return (u32) b[0] << 24 | (u32) b[1] << 16 | (u32) b[2] << 8 | b[3];
+}
+
+static f32 particle_be_float(const void* p)
+{
+    u32 bits = particle_be32(p);
+    f32 value;
+    memcpy(&value, &bits, sizeof(value));
+    return value;
+}
+
+/* Particle banks store offsets relative to each bank. Convert their small
+ * fixed headers to host objects before the normal particle code reads them. */
+static void particle_native_load(int bank, const u8* cmdBank,
+                                 const u8* texBank)
+{
+    size_t cmd_bank_size = HSD_ArchiveNativeDataLimit(cmdBank);
+    size_t tex_bank_size = HSD_ArchiveNativeDataLimit(texBank);
+    u32 cmd_count;
+    u32 tex_count;
+    HSD_PSCmdList** commands;
+    HSD_PSTexGroup** textures;
+    u32 i;
+    if (cmd_bank_size < 12) {
+        OSPanic(__FILE__, 108, "invalid native particle command bank\n");
+        return;
+    }
+    cmd_count = particle_be32(cmdBank + 8);
+    if (cmd_count > (cmd_bank_size - 12) / sizeof(u32) || tex_bank_size < 4) {
+        OSPanic(__FILE__, 108, "invalid native particle bank tables\n");
+        return;
+    }
+    tex_count = particle_be32(texBank);
+    if (tex_count > (tex_bank_size - 4) / sizeof(u32)) {
+        OSPanic(__FILE__, 108, "invalid native particle texture bank\n");
+        return;
+    }
+    commands = calloc((size_t) cmd_count + 1, sizeof(*commands));
+    textures = calloc((size_t) tex_count + 1, sizeof(*textures));
+    if (commands == NULL || textures == NULL) {
+        free(commands);
+        free(textures);
+        OSPanic(__FILE__, 130, "cannot allocate native particle bank\n");
+        return;
+    }
+    for (i = 0; i < cmd_count; ++i) {
+        u32 target = particle_be32(cmdBank + 12 + i * 4);
+        u32 next_target = (u32) cmd_bank_size;
+        u32 j;
+        HSD_PSCmdList* src;
+        HSD_PSCmdList* dst;
+        size_t size;
+        if (target == 0 || target > cmd_bank_size ||
+            cmd_bank_size - target < 60)
+        {
+            continue;
+        }
+        for (j = 0; j < cmd_count; ++j) {
+            u32 candidate = particle_be32(cmdBank + 12 + j * 4);
+            if (candidate > target && candidate < next_target &&
+                candidate <= cmd_bank_size)
+            {
+                next_target = candidate;
+            }
+        }
+        if (next_target < target + 60 || next_target > cmd_bank_size) {
+            continue;
+        }
+        src = (HSD_PSCmdList*) (cmdBank + target);
+        size = (size_t) (next_target - target);
+        dst = calloc(1, size + sizeof(*dst));
+        if (dst == NULL) {
+            continue;
+        }
+        dst->type = particle_be16((u8*) src);
+        dst->texGroup = particle_be16((u8*) src + 2);
+        dst->genLife = particle_be16((u8*) src + 4);
+        dst->life = particle_be16((u8*) src + 6);
+        dst->kind = particle_be32((u8*) src + 8);
+        dst->grav = particle_be_float((u8*) src + 12);
+        dst->fric = particle_be_float((u8*) src + 16);
+        dst->vx = particle_be_float((u8*) src + 20);
+        dst->vy = particle_be_float((u8*) src + 24);
+        dst->vz = particle_be_float((u8*) src + 28);
+        dst->radius = particle_be_float((u8*) src + 32);
+        dst->angle = particle_be_float((u8*) src + 36);
+        dst->random = particle_be_float((u8*) src + 40);
+        dst->size = particle_be_float((u8*) src + 44);
+        dst->param1 = particle_be_float((u8*) src + 48);
+        dst->param2 = particle_be_float((u8*) src + 52);
+        dst->param3 = particle_be_float((u8*) src + 56);
+        memcpy(dst->cmdList, (u8*) src + 60, size - 60);
+        dst->cmdList[size - 60] = 0xFF;
+        commands[i] = dst;
+    }
+    for (i = 0; i < tex_count; ++i) {
+        u32 target = particle_be32(texBank + 4 + i * 4);
+        HSD_PSTexGroup* src;
+        HSD_PSTexGroup* dst;
+        size_t num;
+        size_t entries;
+        u32 fmt;
+        u16 palnum;
+        u16 palflag;
+        bool valid = true;
+        size_t j;
+        if (target == 0) {
+            continue;
+        }
+        if (target > tex_bank_size || tex_bank_size - target < 24) {
+            OSPanic(__FILE__, 183, "invalid native particle texture group\n");
+            continue;
+        }
+        src = (HSD_PSTexGroup*) (texBank + target);
+        num = particle_be32((u8*) src);
+        fmt = particle_be32((u8*) src + 4);
+        palnum = particle_be16((u8*) src + 20);
+        palflag = particle_be16((u8*) src + 22);
+        entries = num;
+        if (fmt >= 8 && fmt <= 10) {
+            entries += (palflag & 1) ? 1 : palnum != 0 ? palnum : num;
+        }
+        if (entries > (tex_bank_size - target - 24) / sizeof(u32)) {
+            OSPanic(__FILE__, 183, "invalid native particle texture table\n");
+            continue;
+        }
+        dst = calloc(1, offsetof(HSD_PSTexGroup, texTable) +
+                            (entries + 1) * sizeof(*dst->texTable));
+        if (dst == NULL) {
+            continue;
+        }
+        dst->num = num;
+        dst->fmt = fmt;
+        dst->tlutfmt = particle_be32((u8*) src + 8);
+        dst->width = particle_be32((u8*) src + 12);
+        dst->height = particle_be32((u8*) src + 16);
+        dst->palnum = palnum;
+        dst->palflag = palflag;
+        for (j = 0; j < entries; ++j) {
+            u32 image = particle_be32((u8*) src + 24 + j * 4);
+            if (image >= tex_bank_size) {
+                OSPanic(__FILE__, 183, "invalid native particle image\n");
+                valid = false;
+                break;
+            }
+            dst->texTable[j] = image == 0 ? NULL : (u8*) (texBank + image);
+        }
+        if (!valid) {
+            free(dst);
+            continue;
+        }
+        textures[i] = dst;
+    }
+    psCmdListArray[bank] = (int) cmd_count;
+    ptclref_804D0E5C[bank] = commands;
+    psTexGroupArray[bank] = textures;
+}
+#endif
 
 void hsd_803983A4(HSD_Generator* gen)
 {
@@ -136,7 +311,16 @@ void psInitDataBankLoad(int bank, const int* cmdBank, const int* texBank,
         psNumCmdList[bank] = NULL;
     }
 
-    version = *(u16*) cmdBank;
+    version =
+#ifdef MELEE_NATIVE
+        particle_be16(cmdBank);
+#else
+        *(u16*) cmdBank;
+#endif
+#ifdef MELEE_NATIVE
+    particle_native_load(bank, (const u8*) cmdBank, (const u8*) texBank);
+    return;
+#endif
     switch (version) {
     case 0:
         psCmdListArray[bank] = cmdBank[1];
@@ -159,6 +343,14 @@ void psInitDataBankLoad(int bank, const int* cmdBank, const int* texBank,
 void psInitDataBankLocate(HSD_Archive* cmdBank, HSD_Archive* texBank,
                           int* formBank)
 {
+#ifdef MELEE_NATIVE
+    // Native DAT decoding resolves archive pointers before particle setup.
+    (void) cmdBank;
+    (void) texBank;
+    (void) formBank;
+    return;
+}
+#else
     s32 num;
     s32* ptr;
     s32* group;
@@ -322,6 +514,7 @@ done_cmd:
         }
     }
 }
+#endif
 
 void psInitDataBank(int bank, int* cmdBank, int* texBank, u32* ref,
                     int* formBank)
@@ -502,10 +695,10 @@ HSD_Particle* psGenerateParticle0(HSD_Particle** head, int linkNo, int bank,
 #pragma push
 #pragma dont_inline on
 #endif
-void hsd_80398F0C(s32 linkNo, s32 bank, s32 kind, u16 texGroup, s32 cmdList,
-                  s32 life, s32 zero, s32 gen, f32 pos_x, f32 pos_y, f32 pos_z,
-                  f32 vel_x, f32 vel_y, f32 vel_z, f32 fric, f32 rate,
-                  f32 angle3)
+void hsd_80398F0C(s32 linkNo, s32 bank, s32 kind, u16 texGroup,
+                  uintptr_t cmdList, s32 life, s32 zero, uintptr_t gen,
+                  f32 pos_x, f32 pos_y, f32 pos_z, f32 vel_x, f32 vel_y,
+                  f32 vel_z, f32 fric, f32 rate, f32 angle3)
 {
     psGenerateParticle0(0, linkNo, bank, kind, texGroup, (u8*) cmdList, life,
                         zero, pos_x, pos_y, pos_z, vel_x, vel_y, vel_z, fric,
@@ -3036,6 +3229,21 @@ void hsd_8039D048(void* particle)
 
 void hsd_8039D0A0(HSD_Generator* gen)
 {
+#ifdef MELEE_NATIVE
+    HSD_Particle* prev;
+    HSD_Particle* prt;
+    HSD_Particle* next;
+    HSD_Particle** head;
+    u16 idnum;
+
+    if (gen->linkNo >= 16) {
+        return;
+    }
+    prev = NULL;
+    idnum = gen->idnum;
+    head = &hsd_804D0908[gen->linkNo];
+    prt = *head;
+#else
     typedef struct {
         HSD_JObj* jobj[8];
         HSD_Particle* particle[146];
@@ -3053,6 +3261,7 @@ void hsd_8039D0A0(HSD_Generator* gen)
     idnum = gen->idnum;
     head = &data->particle[gen->linkNo];
     prt = *head;
+#endif
 
     while (prt != NULL) {
         next = prt->next;
@@ -3079,13 +3288,24 @@ void hsd_8039D0A0(HSD_Generator* gen)
 
             if (prt->kind & 0x8000) {
                 s32 jidx = (prt->kind >> 12) & 7;
+#ifdef MELEE_NATIVE
+                if (hsd_804D08E8[jidx] != NULL) {
+                    HSD_JObjUnref(hsd_804D08E8[jidx]);
+                    hsd_804D08E8[jidx] = NULL;
+                }
+#else
                 if (data->jobj[jidx] != NULL) {
                     HSD_JObjUnref(data->jobj[jidx]);
                     data->jobj[jidx] = NULL;
                 }
+#endif
             }
 
+#ifdef MELEE_NATIVE
+            HSD_ObjFree(&hsd_804D0F60.alloc_data, prt);
+#else
             HSD_ObjFree(&data->alloc_data, prt);
+#endif
             hsd_804D78E2--;
         } else {
             prev = prt;

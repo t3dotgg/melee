@@ -270,6 +270,49 @@ u8 hsd_80394128(s32 col, s32 row)
     return result;
 }
 
+#ifdef MELEE_NATIVE
+s32 hsd_803941E8(void* xfb_out_ptr, void* xfb_cur_ptr)
+{
+    void** xfb_out = xfb_out_ptr;
+    void** xfb_cur = xfb_cur_ptr;
+    s32 last_draw;
+    s32 nb_xfb;
+    s32 i;
+
+    HSD_VIWaitXFBFlushNoYield();
+    last_draw = HSD_VIGetXFBLastDrawDone();
+    if (last_draw != -1) {
+        *xfb_cur = HSD_VIData.xfb[last_draw].buffer;
+    }
+
+    xfb_out[0] = NULL;
+    xfb_out[1] = NULL;
+    nb_xfb = HSD_VIData.nb_xfb;
+    for (i = 0; i < nb_xfb; i++) {
+        if (i != last_draw && (xfb_out[0] = HSD_VIData.xfb[i].buffer) != NULL)
+        {
+            break;
+        }
+    }
+    i++;
+    for (; i < nb_xfb; i++) {
+        if (i != last_draw && (xfb_out[1] = HSD_VIData.xfb[i].buffer) != NULL)
+        {
+            break;
+        }
+    }
+
+    if (xfb_out[0] == NULL) {
+        if (xfb_cur != NULL && *xfb_cur != NULL) {
+            xfb_out[0] = *xfb_cur;
+            *xfb_cur = NULL;
+        } else {
+            return 0;
+        }
+    }
+    return xfb_out[1] != NULL ? 2 : 1;
+}
+#else
 s32 hsd_803941E8(void* xfb_out_ptr, void* xfb_cur_ptr)
 {
     s32* xfb_out = xfb_out_ptr;
@@ -285,7 +328,7 @@ s32 hsd_803941E8(void* xfb_out_ptr, void* xfb_cur_ptr)
     last_draw = HSD_VIGetXFBLastDrawDone();
 
     if (last_draw != -1) {
-        *xfb_cur = (u32) HSD_VIData.xfb[last_draw].buffer;
+        *xfb_cur = (u32) (uintptr_t) HSD_VIData.xfb[last_draw].buffer;
     }
 
     vi_base = (u8*) &HSD_VIData;
@@ -332,3 +375,4 @@ s32 hsd_803941E8(void* xfb_out_ptr, void* xfb_cur_ptr)
     }
     return 1;
 }
+#endif

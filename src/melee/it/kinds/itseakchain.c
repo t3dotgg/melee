@@ -68,7 +68,7 @@ static inline HSD_JObj* it_802BAF2C_Load_x68(Item* ip)
     return HSD_JObjLoadJoint(attrs->x68_joint);
 }
 
-int it_802BAF2C(Item* ip, HSD_JObj* jobj)
+HSD_JObj* it_802BAF2C(Item* ip, HSD_JObj* jobj)
 {
     ItemLink* prev_link;
     ItemLink* head_link;
@@ -86,10 +86,10 @@ int it_802BAF2C(Item* ip, HSD_JObj* jobj)
 
         if (link_gobj == NULL) {
             while (prev_link != NULL) {
-                HSD_GObjPLink_80390228(prev_link->gobj);
+                HSD_GObjFree(prev_link->gobj);
                 prev_link = prev_link->next;
             }
-            return 0;
+            return NULL;
         }
 
         link = HSD_ObjAlloc(&item_link_alloc_data);
@@ -142,7 +142,7 @@ int it_802BAF2C(Item* ip, HSD_JObj* jobj)
     }
     ip->xDD4_itemVar.seakchain.x0 = tail_link;
     ip->xDD4_itemVar.seakchain.x4 = head_link;
-    return (int) result;
+    return result;
 }
 
 static void inlineA0(Item_GObj* gobj)
@@ -159,7 +159,7 @@ static void inlineA0(Item_GObj* gobj)
             for (cur = ip->xDD4_itemVar.seakchain.x0; cur != NULL;) {
                 HSD_GObj* cur_gobj = cur->gobj;
                 cur = cur->next;
-                HSD_GObjPLink_80390228(cur_gobj);
+                HSD_GObjFree(cur_gobj);
             }
         }
     }

@@ -20,6 +20,10 @@ indent_style = unset
 # clang-format handles Objective-C continuation alignment.
 indent_style = unset
 
+[/native/source/platform/*.m]
+# clang-format handles Objective-C continuation alignment.
+indent_style = unset
+
 [{*.yml,*.yaml,.clang-format,.clang-tidy,.clangd,*.nix,flake.lock,*.json,*.xml,*.iml}]
 indent_size = 2
 

@@ -12,7 +12,7 @@
 #include "types.h"
 #include <melee/ft/ftdevice.h>
 #include <melee/ft/ftlib.h>
-#include <melee/gm/gm_16AE.h>
+#include <melee/gm/gmvs.h>
 #include <melee/it/item.h>
 #include <melee/lb/lb_00B0.h>
 #include <melee/lb/lb_00F9.h>
@@ -69,7 +69,7 @@ StageData grGd_StageData = {
 
 static struct grGarden_YakumonoParam* yakumono_param;
 
-void grGarden_80202B6C(bool arg) {}
+void grGarden_80202B6C(int arg) {}
 
 void grGarden_80202B70(void)
 {

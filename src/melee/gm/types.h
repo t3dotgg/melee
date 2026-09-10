@@ -418,9 +418,9 @@ ASSERT_SIZE(struct gmm_x0, 0x8518);
 
 /// @todo ::MatchEnd
 struct lbl_8046B6A0_24C_t {
-    UNK_T x0;
-    u8 x4; ///< MatchOutcome
-    u8 x5; ///< match mode
+    u32 x0; ///< timer
+    u8 x4;  ///< MatchOutcome
+    u8 x5;  ///< match mode
     u8 is_teams;
     u8 x7;
     u32 x8;
@@ -503,7 +503,7 @@ struct lbl_8046B6A0_FighterMatchInfoFlags {
     u8 x4_b7 : 1;
 };
 
-struct lbl_8046B6A0_FighterMatchInfo {
+struct VsSceneFighter {
     u8 x0; ///< CharacterKind
     u8 x1;
     u8 slot_type;
@@ -530,7 +530,7 @@ struct lbl_8046B6A0_FighterMatchInfo {
     u16 xC;
 };
 
-struct lbl_8046B6A0_t {
+struct VsSceneController {
     /* 0x0000 */ u8 unk_0; ///< 0 During a match
                            ///< 1 While GAME! or "TIMEOUT!" is displayed/match
                            ///< is frozen on final frame 2 While in 1p and
@@ -546,7 +546,7 @@ struct lbl_8046B6A0_t {
         unpause_timer; ///< Frames remaining before pause input is accepted
                        ///< after unpausing. Set to @c 0xA on unpause and
                        ///< decremented each frame while unpaused. Mirrors
-                       ///< #lbl_8046B6A0_t::pause_timer semantics.
+                       ///< #VsSceneController::pause_timer semantics.
     /* 0x0005 */ u8 hud_enabled;
     /* 0x0006 */ u8 terminate_match;
     /* 0x0007 */ u8 is_singleplayer;
@@ -571,12 +571,12 @@ struct lbl_8046B6A0_t {
     /* 0x002E */ u16 unk_2E;
     /* 0x0030 */ u8 unk_30;
     /* 0x0034 */ f32 unk_34;
-    /* 0x0038 */ struct lbl_8046B6A0_FighterMatchInfo FighterMatchInfo[6];
+    /* 0x0038 */ struct VsSceneFighter fighters[GM_MAX_PLAYERS];
     /* 0x0038 */ char pad_8C[0x24C - 0x8C]; /* maybe part of unk_34[0x925]? */
     /* 0x024C */ struct lbl_8046B6A0_24C_t x24C;
-    /* 0x24C8 */ struct StartMeleeRules x24C8;
+    /* 0x24C8 */ struct StartMeleeRules start;
 }; /* size = 0x2528 */
-ASSERT_SIZE(struct lbl_8046B6A0_t, 0x2528);
+ASSERT_SIZE(struct VsSceneController, 0x2528);
 
 struct datetime {
     u16 year;
@@ -623,7 +623,7 @@ struct gmMainLib_8046B0F0_t {
 
 typedef struct gm_803DF94C_t {
     void (*x0)(HSD_GObj*);
-    void (*x4)(int);
+    GmEventPlayerInitCallback x4;
 } gm_803DF94C_t;
 
 struct MatchTeamData {
@@ -636,7 +636,7 @@ struct MatchTeamData {
 ASSERT_SIZE(struct MatchTeamData, 0xC);
 
 struct MatchPlayerData {
-    u8 slot_type;
+    u8 pkind;  ///< ::Gm_PKind
     s8 ckind;  ///< ::CharacterKind
     s8 ftkind; ///< ::FighterKind
     u8 x3 : 6;
@@ -651,7 +651,11 @@ struct MatchPlayerData {
     u16 self_destructs;
     u16 percent;
     u16 xE;
+#ifdef MELEE_NATIVE
+    u16 kills[GM_MAX_PLAYERS];
+#else
     u16 kills[4];
+#endif
     u16 x18;
     s32 x1C;
     s32 x20;
@@ -766,12 +770,12 @@ struct Unk1PData {
         /* 20 */ u32 x20;
         struct Unk1PData_x24 {
             /* 24 */ s8 ckind;
-            /* 25 */ u8 x1;
-            /* 26 */ u8 x2;
-            /* 27 */ u8 x3;
-            /* 28 */ f32 x4;
-            /* 2C */ f32 x8;
-        } x24[3]; ///< @todo ::gmPlayerData?
+            /* 25 */ u8 color;
+            /* 26 */ u8 cpu_level;
+            /* 27 */ u8 cpu_kind;
+            /* 28 */ float attack_ratio;
+            /* 2C */ float defense_ratio;
+        } x24[3];
     } xC;
     /* 48 */ u8 (*x48)(u8, u8);
     /* 4C */ u8 (*x4C)(u8, u8, u8);
@@ -831,7 +835,7 @@ struct TmData {
     u8 x32;
     u8 x33;
     u8 pad_x34[0x37 - 0x34];
-#if defined(MUST_MATCH) || defined(LINT)
+#if defined(MUST_MATCH) || defined(LINT) || defined(MELEE_NATIVE)
 #pragma pack(push, 1)
 #endif
     struct TmUnkMenuData {
@@ -852,7 +856,7 @@ struct TmData {
         u8 xF;
         u8 pad_X10[0x12 - 0x10];
     } x37[64];
-#if defined(MUST_MATCH) || defined(LINT)
+#if defined(MUST_MATCH) || defined(LINT) || defined(MELEE_NATIVE)
 #pragma pack(pop)
 #endif
     u8 pad_x4B7[0x4B8 - 0x4B7];
@@ -1233,7 +1237,7 @@ struct lbl_8046B488_t {
     /* 0x1B2 */ u8 x1B2;
     /* 0x1AE */ s8 x1B3[0x1B8 - 0x1B3];
     /* 0x1B8 */ GmRouteCallback x1B8;
-    /* 0x1BC */ char pad_1BC[0x1C0 - 0x1BC];
+    /* 0x1BC */ GmEventPlayerInitCallback event_player_init_cb;
     /* 0x1C0 */ s8 x1C0[0x1B];
     /* 0x1DB */ char pad_1DB[0x1E0 - 0x1DB];
 }; /* size = 0x1E0 */
@@ -1339,5 +1343,102 @@ typedef struct gm_8019ECAC_OnEnter_t {
     u8 pad_x8[0x14 - 0x8];
     u32 x14;
 } gm_8019ECAC_OnEnter_t;
+
+/// @todo ::PlayerInitData
+struct gm_801BAB40_src {
+    /* 0x00 */ s8 c_kind;
+    /* 0x01 */ u8 slot_type;
+    /* 0x02 */ u8 stocks;
+    /* 0x03 */ u8 color;
+    /* 0x04 */ u8 x5;
+    /* 0x05 */ u8 sub_color;
+    /* 0x06 */ u8 team;
+    /* 0x07 */ u8 xB;
+    /* 0x08 */ u8 flags;
+    /* 0x09 */ u8 xE;
+    /* 0x0A */ u8 cpu_level;
+    /* 0x0B */ u8 pad;
+    /* 0x0C */ u16 x12;
+    /* 0x0E */ u16 hp;
+    /* 0x10 */ f32 x18;
+    /* 0x14 */ f32 x1C;
+    /* 0x18 */ f32 x20;
+};
+
+struct gm_event_char_list {
+    u8 c_kind[33];
+};
+
+/// Per-level match init data; shares its first two bytes' bitfield layout
+/// with #StartMeleeRules.
+struct gm_evinit {
+    /* 0x00 */ u32 x0_0 : 3;
+    /* 0x00 */ u32 x0_3 : 3;
+    /* 0x00 */ u32 x0_6 : 1;
+    /* 0x00 */ u32 x0_7 : 1;
+    /* 0x01 */ u32 x1_0 : 1;
+    /* 0x01 */ u32 x1_1 : 1;
+    /* 0x01 */ u32 x1_2 : 1;
+    /* 0x01 */ u32 x1_3 : 1;
+    /* 0x01 */ u32 x1_4 : 1;
+    /* 0x01 */ u32 x1_5 : 3;
+    /* 0x02 */ u8 is_teams;
+    /* 0x03 */ s8 item_freq;
+    /* 0x04 */ s8 sd_penalty;
+    /* 0x05 */ u8 unk5;
+    /* 0x06 */ u16 stkind;
+    /* 0x08 */ u32 time_limit;
+    /* 0x0C */ u8 padC[4];
+    /* 0x10 */ u64 x10;
+    /* 0x18 */ s32 x18;
+    /* 0x1C */ f32 x1C;
+    /* 0x20 */ f32 game_speed;
+    /* 0x24 */ f32 unk24;
+};
+
+/// Per-round stage and opponent table, for levels with multiple rounds.
+struct gm_evstage_table {
+    /* 0x00 */ u8 count;
+    /* 0x01 */ u8 pad1;
+    /* 0x02 */ u16 stage[7];
+    /* 0x10 */ struct gm_801BAB40_src* entries[GM_MAX_PLAYERS];
+};
+
+struct gm_evbonus {
+    /* 0x00 */ s8 c_kind;
+    /* 0x01 */ u8 x1;
+    /* 0x02 */ u8 x2;
+    /* 0x03 */ u8 x3;
+    /* 0x04 */ u8 x4;
+    /* 0x05 */ u8 x5;
+    /* 0x06 */ u8 color;
+    /* 0x07 */ u8 pad7;
+    /* 0x08 */ f32 x8;
+    /* 0x0C */ f32 xC;
+    /* 0x10 */ f32 x10;
+    /* 0x14 */ u8 flags;
+    /* 0x15 */ u8 x15;
+    /* 0x16 */ u8 x16;
+    /* 0x17 */ u8 x17;
+};
+
+struct gm_804D6900_t {
+    /* 0x00 */ u8 kind;
+    /* 0x01 */ u8 flags; ///< top 3 bits: player count
+    /* 0x02 */ u8 pad2[2];
+    /* 0x04 */ struct gm_804D6900_x4_t {
+        int x0;
+        intptr_t x4;
+    }* x4;
+    /* 0x08 */ struct gm_evinit* evinit;
+    /* 0x0C */ struct gm_evbonus* evbonus;
+    /* 0x10 */ struct gm_evstage_table* evstage_table;
+#ifdef MELEE_NATIVE
+    /* Event 37 has six players in the serialized record. */
+    /* 0x14 */ struct gm_801BAB40_src* player_init[GM_MAX_PLAYERS];
+#else
+    /* 0x14 */ struct gm_801BAB40_src* player_init[5];
+#endif
+};
 
 #endif

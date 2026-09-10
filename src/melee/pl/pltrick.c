@@ -444,6 +444,11 @@ bool pl_80038628(HSD_GObj* fighter_gobj, int kind)
     Fighter* fighter;
 
     HSD_ASSERT(0x1A1, PlATK_AttackNormal_Start <= kind && kind <= PlATK_AttackNormal_End);
+#ifdef MELEE_NATIVE
+    if (fighter_gobj == NULL) {
+        return true;
+    }
+#endif
     fighter = GET_FIGHTER(fighter_gobj);
     if (pl_803BCE70[kind - 1] == -1) {
         return true;

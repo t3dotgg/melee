@@ -18,8 +18,6 @@ class CompilerWrapperTests(unittest.TestCase):
             ("darwin", "x86_64"),
             ("linux", "i386"),
             ("linux", "x86_64"),
-            ("linux", "aarch64"),
-            ("linux", "arm64"),
         )
         for system, machine in hosts:
             with self.subTest(system=system, machine=machine):
@@ -43,7 +41,12 @@ class CompilerWrapperTests(unittest.TestCase):
             self.assertEqual(self.config.compiler_wrapper(), self.config.wrapper)
 
     def test_unsupported_hosts_keep_wine_fallback(self):
-        for system, machine in (("linux", "ppc64le"), ("darwin", "ppc")):
+        for system, machine in (
+            ("linux", "aarch64"),
+            ("linux", "arm64"),
+            ("linux", "ppc64le"),
+            ("darwin", "ppc"),
+        ):
             with self.subTest(system=system, machine=machine):
                 with (
                     patch("tools.project.sys.platform", system),

@@ -85,9 +85,16 @@ struct itSword_UnkBytes {
 };
 
 struct itSword_UnkArticle1 {
+#ifdef MELEE_NATIVE
+    /* These timer words have no archive relocations. */
+    /*  +0 */ s32 x0;
+    /*  +4 */ s32 x4;
+    /*  +8 */ s32 x8;
+#else
     /*  +0 */ UNK_T x0;
     /*  +4 */ UNK_T x4;
     /*  +8 */ UNK_T x8;
+#endif
     /*  +C */ float xC;
     /* +10 */ float x10;
     /* +14 */ float x14;

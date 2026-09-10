@@ -63,18 +63,6 @@ static bool itColl_chkECBOverlap(f32 pos_x, f32 pos_y, itECB* ecb_a,
 
 const Quaternion it_803B8560 = { 0.0f, 0.0f, 1.0f, 0.0f };
 
-typedef struct ItCollDynamicsDesc {
-    s32 bone_id;
-    Vec3 offset;
-    f32 size;
-} ItCollDynamicsDesc;
-
-typedef struct ItCollDynamics {
-    u8 _pad[8];
-    s32 count;
-    ItCollDynamicsDesc* descs;
-} ItCollDynamics;
-
 void it_8026F9A0(void)
 {
     it_804D6D18 = 0;
@@ -1005,7 +993,7 @@ void it_8027163C(Item_GObj* item_gobj)
     Item* item;
     Article* article;
     ItHurtBoneList* it_hurtbox;
-    ItCollDynamics* it_dynams;
+    ItemDynamics* it_dynams;
     u32 cnt;
     HurtCapsule* hurt;
     ItHurtBoneDesc* hurt_dyn_desc;
@@ -1015,7 +1003,7 @@ void it_8027163C(Item_GObj* item_gobj)
     item = item_gobj->user_data;
     article = item->xC4_article_data;
     it_hurtbox = article->x8_hurtbones;
-    it_dynams = (ItCollDynamics*) article->x14_dynamics;
+    it_dynams = article->x14_dynamics;
     if (it_hurtbox != NULL) {
         if (it_hurtbox->count > 2) {
             HSD_ASSERTREPORT(0x3F4, 0, "item hit num over!\n");
@@ -1046,15 +1034,16 @@ void it_8027163C(Item_GObj* item_gobj)
         item->xAC8_hurtboxNum = 0;
     }
     if (it_dynams != NULL) {
-        if (it_dynams->count > 2) {
+        if (it_dynams->collision_count > 2) {
             HSD_ASSERTREPORT(0x415, 0, "item dynamics hit num over!\n");
         }
         cnt = 0U;
-        item->xB68 = it_dynams->count;
+        item->xB68 = it_dynams->collision_count;
         index = 0;
-        while (cnt < it_dynams->count) {
+        while (cnt < it_dynams->collision_count) {
             struct xB6C_t* vars = &item->xB6C_vars[cnt];
-            ItCollDynamicsDesc* bone_dyn_desc = &it_dynams->descs[index];
+            struct ItCollDynamicsDesc* bone_dyn_desc =
+                &it_dynams->collision_descs[index];
             vars->xB90 = bone_dyn_desc->bone_id;
             vars->xB7C =
                 item->xBBC_dynamicBoneTable->bones[bone_dyn_desc->bone_id];

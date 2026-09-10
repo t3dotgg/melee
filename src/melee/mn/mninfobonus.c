@@ -7,8 +7,8 @@
 #include "mninfobonus.static.h"
 #include "mnmain.h"
 #include <melee/db/db.h>
-#include <melee/gm/gm_16AE.h>
 #include <melee/gm/gm_16F1.h>
+#include <melee/gm/gmvs.h>
 #include <melee/lb/lb_00B0.h>
 #include <melee/lb/lbarchive.h>
 #include <melee/lb/lbaudio_ax.h>
@@ -189,7 +189,7 @@ void fn_80252C50(HSD_GObj* gobj)
             HSD_SisLib_803A5CC4(o->x18[i]);
         }
         HSD_SisLib_803A5CC4(o->x40);
-        HSD_GObjPLink_80390228(o->x4C);
+        HSD_GObjFree(o->x4C);
         o->x4C = NULL;
         return;
     } ///< @todo inline button getter

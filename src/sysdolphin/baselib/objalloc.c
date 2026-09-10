@@ -10,7 +10,7 @@ static objheap obj_heap = { 0, 0, -1, -1 };
 
 static HSD_ObjAllocData* alloc_datas;
 
-static inline u32 getHeapFreeSize(void)
+static inline size_t getHeapFreeSize(void)
 {
     if (obj_heap.top != 0) {
         return obj_heap.remain;
@@ -18,43 +18,62 @@ static inline u32 getHeapFreeSize(void)
     return OSCheckHeap(HSD_GetHeap());
 }
 
-void HSD_ObjSetHeap(u32 size, void* ptr)
+void HSD_ObjSetHeap(size_t size, void* ptr)
 {
-    obj_heap.curr = (u32) ptr;
-    obj_heap.top = (u32) ptr;
+    obj_heap.curr = (uintptr_t) ptr;
+    obj_heap.top = (uintptr_t) ptr;
     obj_heap.remain = size;
     obj_heap.size = size;
 }
 
 s32 HSD_ObjAllocAddFree(HSD_ObjAllocData* data, u32 num)
 {
-    u32 aligned_start;
-    u32 pool_end;
-    u32 pool_size;
+    uintptr_t aligned_start;
+    uintptr_t pool_end;
+    size_t pool_size;
     u8* pool_start;
 
     u8 _[4];
 
     HSD_ASSERT(0xEE, data);
+#ifdef MELEE_NATIVE
+    if (num == 0 || num > S32_MAX || data->size == 0 ||
+        num > SIZE_MAX / data->size)
+    {
+        return 0;
+    }
+#endif
     pool_size = data->size * num;
     if (obj_heap.top != 0) {
+#ifdef MELEE_NATIVE
+        if (obj_heap.size > UINTPTR_MAX - obj_heap.top ||
+            data->align > UINTPTR_MAX - obj_heap.curr)
+        {
+            return 0;
+        }
+#endif
         pool_end = obj_heap.top + obj_heap.size;
         aligned_start = (obj_heap.curr + data->align) & ~data->align;
         pool_start = (u8*) aligned_start;
         if (aligned_start > pool_end) {
             return 0;
         }
-        if (pool_end - (u32) pool_start < pool_size) {
-            pool_size = pool_end - (u32) pool_start -
-                        (pool_end - (u32) pool_start) % data->size;
+        if (pool_end - (uintptr_t) pool_start < pool_size) {
+            pool_size = pool_end - (uintptr_t) pool_start -
+                        (pool_end - (uintptr_t) pool_start) % data->size;
         }
         num = pool_size / data->size;
         if (num == 0) {
             return 0;
         }
-        obj_heap.curr = (u32) pool_start + pool_size;
+        obj_heap.curr = (uintptr_t) pool_start + pool_size;
         obj_heap.remain = pool_end - obj_heap.curr;
     } else {
+#ifdef MELEE_NATIVE
+        if (pool_size > PTRDIFF_MAX) {
+            return 0;
+        }
+#endif
         pool_start = HSD_MemAlloc(pool_size);
         if (pool_start == NULL) {
             return 0;
@@ -80,7 +99,7 @@ s32 HSD_ObjAllocAddFree(HSD_ObjAllocData* data, u32 num)
 void* HSD_ObjAlloc(HSD_ObjAllocData* data)
 {
     HSD_ObjAllocLink* object;
-    u32 free_heap_bytes;
+    size_t free_heap_bytes;
 
     if (data->num_limit_flag && data->used >= data->num_limit) {
         return NULL;
@@ -142,6 +161,17 @@ static inline void removeAll(HSD_ObjAllocData* data)
 void HSD_ObjAllocInit(HSD_ObjAllocData* data, size_t size, u32 align)
 {
     HSD_ASSERT(0x185, data);
+#ifdef MELEE_NATIVE
+    // Free objects store a pointer in their first bytes.
+    HSD_ASSERT(0x185, align != 0 && (align & (align - 1)) == 0);
+    if (align < _Alignof(HSD_ObjAllocLink)) {
+        align = _Alignof(HSD_ObjAllocLink);
+    }
+    if (size < sizeof(HSD_ObjAllocLink)) {
+        size = sizeof(HSD_ObjAllocLink);
+    }
+    HSD_ASSERT(0x185, size <= SIZE_MAX - (align - 1));
+#endif
     if (data != NULL) {
         removeAll(data);
     } else {

@@ -290,9 +290,14 @@ void it_8026CB9C(s32* counts, u64 mask, f32 weight)
 
 void it_8026CD50(s32* counts, u64 mask, f32 weight)
 {
-    /// @todo #it_804A0E50 immediately follows #it_804A0E30; the original
-    ///       addressed it relative to the spawner.
+#ifdef MELEE_NATIVE
+    /* Host globals have different sizes and sanitizer padding. */
+    ItemPickTable* table = &it_804A0E50;
+#else
+    /* Retain the original compiler's relative global access. */
     RandomItemSpawner* spawner = &it_804A0E30;
+    ItemPickTable* table = (ItemPickTable*) (spawner + 1);
+#endif
     s32* p;
     s32 cnt;
     ItemKind it_kind;
@@ -317,10 +322,9 @@ void it_8026CD50(s32* counts, u64 mask, f32 weight)
         it_kind++;
         mask >>= 1;
     }
-    ((ItemPickTable*) (spawner + 1))->size = cnt;
-    *(item_kinds = &((ItemPickTable*) (spawner + 1))->x4) =
-        HSD_MemAlloc(cnt * 4);
-    *(weights = &((ItemPickTable*) (spawner + 1))->xC) = HSD_MemAlloc(cnt * 4);
+    table->size = cnt;
+    *(item_kinds = &table->x4) = HSD_MemAlloc(cnt * 4);
+    *(weights = &table->xC) = HSD_MemAlloc(cnt * 4);
 
     idx = (cnt2 = 0);
     mask = backup;
@@ -368,7 +372,7 @@ void it_8026CF04(void)
         for (; i < 4; i++, idx++) {
             it_804A0E60.x4[i] = It_Kind_Kuriboh + i;
             it_804A0E60.xC[idx] = cumulative;
-            (void) it_804A0E60.xC[(u32) (p = &item_common->x128[idx])];
+            p = &item_common->x128[idx];
             cumulative += *p;
         }
     }

@@ -40,10 +40,14 @@
 
 extern ResultsData lbl_8046DBE8;
 
+#ifdef MELEE_NATIVE
+ResultsDisplayLayout lbl_8046E1B0;
+#else
 ResultsDisplayData lbl_8046E1B0;
 HSD_GObj* lbl_8046E38C[4];
 HSD_JObj* lbl_8046E39C[4];
 lbl_8046E3AC_t lbl_8046E3AC;
+#endif
 
 static U32Pair lbl_804D3FD0 ATTRIBUTE_ALIGN(8) = { 0x00500050, 0x00460034 };
 static U32Pair lbl_804D3FD8 = { 0x006E0072, 0x0064004A };
@@ -87,7 +91,7 @@ void fn_80179854(void)
                     .is_big_loser;
         }
 
-        if (match_end->player_standings[i].slot_type != 3 && lookup != 0) {
+        if (match_end->player_standings[i].pkind != 3 && lookup != 0) {
             HSD_JObjSetTranslateX(GET_JOBJ(gobjs[i]), -300.0f);
             disp->state.x0_6 = 1;
         }
@@ -110,10 +114,10 @@ static inline void fn_80179990_set_erase_color(MatchEnd* match_end, int slot)
 {
     GXColor color;
 
-    color = gm_80160968(
-        gm_80160854((u8) slot, match_end->player_standings[slot].team,
-                    (u8) (match_end->is_teams == 1),
-                    match_end->player_standings[slot].slot_type));
+    color = gm_80160968(gm_80160854((u8) slot,
+                                    match_end->player_standings[slot].team,
+                                    (u8) (match_end->is_teams == 1),
+                                    match_end->player_standings[slot].pkind));
     HSD_SetEraseColor(color.r, color.g, color.b, color.a);
 }
 
@@ -368,7 +372,17 @@ HSD_GObj* fn_8017A318(s32 arg0)
 {
     static Scissor const scissor_init = { 270, 370, 124, 276 };
     u32* config = (u32*) &lbl_803B7B68;
+#ifdef MELEE_NATIVE
+    CameraKindParams* kind_params =
+        (CameraKindParams*) gmResultCharacterScaleData;
+    f32(*slot_offsets)[3][4] = gmResultCharacterData.slot_off;
+    HSD_CObjDesc* camera_desc = (HSD_CObjDesc*) &gmResultCameraDesc;
+#else
     CameraKindData* data = (CameraKindData*) gmResultPlayerColors;
+    CameraKindParams* kind_params = data->kind;
+    f32(*slot_offsets)[3][4] = data->slot_off;
+    HSD_CObjDesc* camera_desc = &data->cobj_desc;
+#endif
     ResultsDisplayLayout* disp = (ResultsDisplayLayout*) &lbl_8046E1B0;
     MatchEnd* match_end = &disp->state.match_end;
     s32 _pad[2];
@@ -401,7 +415,7 @@ HSD_GObj* fn_8017A318(s32 arg0)
     }
 
     gobj = GObj_Create(0x13, 0x14, 0);
-    cobj = HSD_CObjLoadDesc(&data->cobj_desc);
+    cobj = HSD_CObjLoadDesc(camera_desc);
     HSD_GObjObject_80390A70(gobj, HSD_GObj_CameraKind, cobj);
 
     {
@@ -416,28 +430,28 @@ HSD_GObj* fn_8017A318(s32 arg0)
 
     kind_data = disp->state.char_kind[arg0];
     (void) kind_data;
-    eye.y += data->kind[kind_data].y_off[vi];
+    eye.y += kind_params[kind_data].y_off[vi];
 
     vi = ((s32) variant <= 2) ? variant : 3;
-    interest.y += data->kind[kind_data].y_off[vi];
+    interest.y += kind_params[kind_data].y_off[vi];
 
     vi = ((s32) variant <= 2) ? variant : 3;
-    eye.x += data->kind[kind_data].x_off[vi];
+    eye.x += kind_params[kind_data].x_off[vi];
 
     {
         f32 interest_x;
         vi = ((s32) variant <= 2) ? variant : 3;
-        interest_x = interest.x + data->kind[kind_data].x_off[vi];
+        interest_x = interest.x + kind_params[kind_data].x_off[vi];
 
         {
             f32 x_off, y_off;
 
             interest.x = interest_x;
-            x_off = data->slot_off[kind_data][0][slot];
+            x_off = slot_offsets[kind_data][0][slot];
             eye.x += x_off;
             interest.x += x_off;
 
-            eye.y = eye.y + (y_off = data->slot_off[kind_data][1][slot]);
+            eye.y = eye.y + (y_off = slot_offsets[kind_data][1][slot]);
             interest.y += y_off;
         }
     }
@@ -447,12 +461,12 @@ HSD_GObj* fn_8017A318(s32 arg0)
     }
 
     vi = ((s32) variant <= 2) ? variant : 3;
-    if ((1.0f - data->kind[kind_data].z_scale[vi]) < 0.0f) {
+    if ((1.0f - kind_params[kind_data].z_scale[vi]) < 0.0f) {
         vi = ((s32) variant <= 2) ? variant : 3;
-        eye.z += 100.0f * (1.0f - data->kind[kind_data].z_scale[vi]);
+        eye.z += 100.0f * (1.0f - kind_params[kind_data].z_scale[vi]);
     } else {
         vi = ((s32) variant <= 2) ? variant : 3;
-        eye.z += 300.0f * (1.0f - data->kind[kind_data].z_scale[vi]);
+        eye.z += 300.0f * (1.0f - kind_params[kind_data].z_scale[vi]);
     }
 
     HSD_CObjSetEyePosition(cobj, &eye);

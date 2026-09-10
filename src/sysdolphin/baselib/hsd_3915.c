@@ -297,8 +297,7 @@ void hsd_80391E18(const u8* list, f32 x1, f32 y1, f32 x2, f32 y2)
 
         GXBegin(0xA8, 0, 2);
 
-        GXWGFifo.f32 = prev_x;
-        GXWGFifo.f32 = prev_y;
+        GXPosition2f32(prev_x, prev_y);
 
         prev_x = t * dx + x1;
         prev_y = t * dy + y1;
@@ -417,14 +416,22 @@ GlyphEntry lbl_80408898[4] = {
 };
 
 DebugFontGlyph HSD_DebugFontAtlas[] = {
+#ifdef MELEE_NATIVE
+    [0 ... 127] = { { 0 } },
+#else
 #include <sysdolphin/baselib/debug_font.inc>
+#endif
 };
 
-void hsd_803921B8(void* bitmap, s32 x, s32 y, s32 dst, s32 w, s32 h,
+void hsd_803921B8(void* bitmap, s32 x, s32 y, HSD_XFBBuffer dst, s32 w, s32 h,
                   s32 stride, void* tbl)
 {
     s32 bit_x;
+#ifdef MELEE_NATIVE
+    u8* cur_dst;
+#else
     s32 cur_dst;
+#endif
     u32 max_x;
     s32 off_x;
     s32 off_y;
@@ -433,7 +440,11 @@ void hsd_803921B8(void* bitmap, s32 x, s32 y, s32 dst, s32 w, s32 h,
     s32 x2;
     s32 data_off;
     u32 word;
+#ifdef MELEE_NATIVE
+    u8* shift;
+#else
     s32 shift;
+#endif
     s32 val;
     u8* bmp;
     GlyphEntry* entry;
@@ -459,7 +470,11 @@ void hsd_803921B8(void* bitmap, s32 x, s32 y, s32 dst, s32 w, s32 h,
         s32 col;
         col = x;
         bit_x = off_x;
+#ifdef MELEE_NATIVE
+        cur_dst = (u8*) dst + (u32) y * (u32) stride + x2;
+#else
         cur_dst = dst + (s32) ((u32) y * (u32) stride) + x2;
+#endif
         while ((u32) col < max_x) {
             word =
                 *(u32*) (bmp + data_off + (((u32) bit_x >> 2) & 0x3FFFFFFC));
@@ -468,7 +483,12 @@ void hsd_803921B8(void* bitmap, s32 x, s32 y, s32 dst, s32 w, s32 h,
             while (bit_off < 16 && (u32) col < max_x) {
                 val = (word >> ((15 - bit_off) * 2)) & 3;
                 entry = &table[val];
-                entry->callback((u8*) shift, col, y, val, (const u8*) entry);
+#ifdef MELEE_NATIVE
+                entry->callback(shift, col, y, val, (const u8*) entry);
+#else
+                entry->callback((u8*) (uintptr_t) shift, col, y, val,
+                                (const u8*) entry);
+#endif
                 bit_off++;
                 bit_x++;
                 shift += 2;
@@ -482,11 +502,15 @@ void hsd_803921B8(void* bitmap, s32 x, s32 y, s32 dst, s32 w, s32 h,
     }
 }
 
-void hsd_803922FC(void* bitmap, s32 x, s32 y, s32 parity, s32 dst, s32 w,
-                  s32 h, s32 stride, void* tbl)
+void hsd_803922FC(void* bitmap, s32 x, s32 y, s32 parity, HSD_XFBBuffer dst,
+                  s32 w, s32 h, s32 stride, void* tbl)
 {
     s32 bit_x;
+#ifdef MELEE_NATIVE
+    u8* cur_dst;
+#else
     s32 cur_dst;
+#endif
     u32 max_x;
     s32 off_x;
     s32 off_y;
@@ -495,7 +519,11 @@ void hsd_803922FC(void* bitmap, s32 x, s32 y, s32 parity, s32 dst, s32 w,
     s32 data_off;
     s32 row_idx;
     u32 word;
+#ifdef MELEE_NATIVE
+    u8* shift;
+#else
     s32 shift;
+#endif
     s32 val;
     u8* bmp;
     GlyphEntry* entry;
@@ -526,7 +554,11 @@ void hsd_803922FC(void* bitmap, s32 x, s32 y, s32 parity, s32 dst, s32 w,
         s32 col;
         col = x;
         bit_x = off_x;
+#ifdef MELEE_NATIVE
+        cur_dst = (u8*) dst + (u32) row_idx * (u32) stride + x2;
+#else
         cur_dst = dst + (s32) ((u32) row_idx * (u32) stride) + x2;
+#endif
         while ((u32) col < max_x) {
             word =
                 *(u32*) (bmp + data_off + (((u32) bit_x >> 2) & 0x3FFFFFFC));
@@ -535,7 +567,12 @@ void hsd_803922FC(void* bitmap, s32 x, s32 y, s32 parity, s32 dst, s32 w,
             while (bit_off < 16 && (u32) col < max_x) {
                 val = (word >> ((15 - bit_off) * 2)) & 3;
                 entry = &((GlyphEntry*) tbl)[val];
-                entry->callback((u8*) shift, col, y, val, (const u8*) entry);
+#ifdef MELEE_NATIVE
+                entry->callback(shift, col, y, val, (const u8*) entry);
+#else
+                entry->callback((u8*) (uintptr_t) shift, col, y, val,
+                                (const u8*) entry);
+#endif
                 bit_off++;
                 bit_x++;
                 shift += 2;

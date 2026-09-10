@@ -8,7 +8,7 @@
 #include <melee/ft/ftdrawcommon.h>
 #include <melee/ft/ftlib.h>
 #include <melee/gm/gm_1601.h>
-#include <melee/gm/gm_16AE.h>
+#include <melee/gm/gmvs.h>
 #include <melee/gm/types.h>
 #include <melee/gr/ground.h>
 #include <melee/gr/stage.h>
@@ -70,7 +70,7 @@ static u8 ifMagnify_803F984C[16][4] = {
 
 static inline bool ifMagnify_IsHUDVisible(void)
 {
-    if ((gm_16AE_GetUnkData_0()->hud_enabled == 0) || ifAll_IsHUDHidden() ||
+    if ((gmVs_GetController_0()->hud_enabled == 0) || ifAll_IsHUDHidden() ||
         Camera_80030130())
     {
         return false;
@@ -459,7 +459,7 @@ void ifMagnify_802FC3C0(s32 slot)
 
     player = &ifMagnify_804A1DE0.player[slot];
     if (player->gobj != NULL) {
-        HSD_GObjPLink_80390228(player->gobj);
+        HSD_GObjFree(player->gobj);
     }
 
     gobj = GObj_Create(HSD_GOBJ_CLASS_UI, 15, 0);
@@ -547,14 +547,10 @@ void ifMagnify_802FC750(void)
     ifMagnify* base = &ifMagnify_804A1DE0;
     s32 i;
 
-    /// @todo Member accesses in the body fold into the condition's address.
     for (i = 0; i < 6; i++) {
         if (base->player[i].gobj != NULL) {
-            HSD_GObjPLink_80390228(
-                *(HSD_GObj**) ((u32) base + i * (s32) sizeof(ifMagnifyPlayer) +
-                               (s32) offsetof(ifMagnify, player)));
-            *(HSD_GObj**) ((u32) base + i * (s32) sizeof(ifMagnifyPlayer) +
-                           (s32) offsetof(ifMagnify, player)) = NULL;
+            HSD_GObjFree(base->player[i].gobj);
+            base->player[i].gobj = NULL;
         }
     }
 }
@@ -598,7 +594,11 @@ void ifMagnify_802FC870(void)
     HSD_Archive** archive;
     s32 i;
 
+#ifdef MELEE_NATIVE
+    memzero(&ifMagnify_804A1DE0, sizeof(ifMagnify_804A1DE0));
+#else
     memzero(&ifMagnify_804A1DE0, 0x74);
+#endif
     ifMagnify_802FC7C0(&ifMagnify_804A1DE0);
     archive = ifAll_GetArchive();
     lbArchive_LoadSections(*archive, (void**) &ifMagnify_804A1DE0,

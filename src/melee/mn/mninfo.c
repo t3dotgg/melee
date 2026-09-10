@@ -151,6 +151,22 @@ void mnInfo_80251AFC(void)
     }
 }
 
+#ifdef MELEE_NATIVE
+static MnInfoDataLayout mnInfo_NativeData = {
+    .anim = { 0.0f, 199.0f, 0.0f },
+    .sis_ids = { 0x505, 0x506, 0x507, 0x508 },
+    .date_format = "%s.%s.%s",
+    .time_format = "%s:%s:%s",
+    .assert_report = "Can't get user_data.\n",
+    .assert_file = "mninfo.c",
+    .assert_expr = "user_data",
+    .top_joint = "MenMainConCo_Top_joint",
+    .top_animjoint = "MenMainConCo_Top_animjoint",
+    .top_matanim_joint = "MenMainConCo_Top_matanim_joint",
+    .top_shapeanim_joint = "MenMainConCo_Top_shapeanim_joint",
+};
+#define mnInfo_803EFC08 (&mnInfo_NativeData.anim)
+#else
 static AnimLoopSettings mnInfo_803EFC08[0x12] = {
     { 0.0f, 199.0f, 0.0f },
     { 1.8e-42f, 1.802e-42f, 1.803e-42f },
@@ -171,6 +187,7 @@ static AnimLoopSettings mnInfo_803EFC08[0x12] = {
     { 7.3738955e28f, 1.5307577e19f, 1.7539375e19f },
     { 2.8395941e29f, 1.7935375e25f, 7.2243537e28f },
 };
+#endif
 #ifdef MUST_MATCH
 #pragma push
 #pragma force_active on
@@ -200,8 +217,13 @@ s32 mnInfo_80251D58(mnInfo_GObj* arg0, s32 arg1, u32 arg2, u32 arg3)
 
     data = arg0->user_data;
     layout = (MnInfoDataLayout*) mnInfo_803EFC08;
+#ifdef MELEE_NATIVE
+    slot = &data->left_column[arg1];
+    if (*slot != NULL) {
+#else
     slot = (HSD_Text**) ((u8*) data + (arg1 * 4));
     if (*(slot += 2) != NULL) {
+#endif
         HSD_SisLib_803A5CC4(data->left_column[arg1]);
     }
     text = HSD_SisLib_803A6754(0, 1);
@@ -247,8 +269,13 @@ void mnInfo_80251F04(mnInfo_GObj* arg0, s32 arg1, u32 arg2)
     MnInfoData* data;
 
     data = arg0->user_data;
+#ifdef MELEE_NATIVE
+    slot = &data->right_column[arg1];
+    if (*slot != NULL) {
+#else
     slot = (HSD_Text**) ((u8*) data + (arg1 * 4));
     if (*(slot += 6) != NULL) {
+#endif
         HSD_SisLib_803A5CC4(data->right_column[arg1]);
     }
     text = HSD_SisLib_803A5ACC(0, 0, -5.0f, (3.45f * (f32) arg1) + -5.9f,
@@ -277,7 +304,7 @@ static inline s32 mnInfo_CountUnlocked(void)
     return count;
 }
 
-inline void mnInfo_CreateEntries(u32 id)
+static inline void mnInfo_CreateEntries(u32 id)
 {
     u8* trophy;
     s32 i;
@@ -412,7 +439,7 @@ void mnInfo_802522B8(HSD_GObj* gobj)
 
 void fn_802523B8(HSD_GObj* gobj)
 {
-    HSD_GObjPLink_80390228(gobj);
+    HSD_GObjFree(gobj);
 }
 
 static inline void fn_802523D8_inline(MnInfoData* data, HSD_GObj* gobj)
@@ -421,7 +448,7 @@ static inline void fn_802523D8_inline(MnInfoData* data, HSD_GObj* gobj)
     HSD_JObj* jobj;
     PAD_STACK(16);
     if (mn_804A04F0.cur_menu != MENU_KIND_DATA_SPECIAL) {
-        HSD_GObjProc_8038FE24(HSD_GObj_804D7838);
+        HSD_GObjProc_RemoveProc(HSD_GObj_CurrentInvokedProc);
         proc = HSD_GObj_SetupProc(gobj, fn_802523B8, 0);
         proc->flags_3 = HSD_GObj_804D783C;
         {
@@ -480,7 +507,7 @@ static inline void fn_80252548_inline(MnInfoData* data, HSD_GObj* gobj)
     s32 i;
     PAD_STACK(16);
     if (mn_804A04F0.cur_menu != MENU_KIND_DATA_SPECIAL) {
-        HSD_GObjProc_8038FE24(HSD_GObj_804D7838);
+        HSD_GObjProc_RemoveProc(HSD_GObj_CurrentInvokedProc);
         proc = HSD_GObj_SetupProc(gobj, fn_802523B8, 0);
         proc->flags_3 = HSD_GObj_804D783C;
         {
@@ -528,7 +555,7 @@ static inline void fn_80252548_inline(MnInfoData* data, HSD_GObj* gobj)
         }
         HSD_JObjReqAnimAll(jobj, 0.0f);
         mnInfo_802522B8(gobj);
-        HSD_GObjProc_8038FE24(HSD_GObj_804D7838);
+        HSD_GObjProc_RemoveProc(HSD_GObj_CurrentInvokedProc);
         proc = HSD_GObj_SetupProc(gobj, fn_802523D8, 0);
         proc->flags_3 = HSD_GObj_804D783C;
     }
@@ -563,7 +590,7 @@ void mnInfo_80252720(MnInfoData* data)
 #pragma pop
 #endif
 
-s32 mnInfo_80252758(void)
+HSD_GObjProc* mnInfo_80252758(void)
 {
     MnInfoData* user_data;
     HSD_GObjProc* proc;
@@ -621,5 +648,5 @@ s32 mnInfo_80252758(void)
     proc = HSD_GObj_SetupProc(GObj_Create(0, 1, 0x80),
                               (HSD_GObjEvent) fn_80251FE4, 0);
     proc->flags_3 = (u16) HSD_GObj_804D783C;
-    return (s32) proc;
+    return proc;
 }

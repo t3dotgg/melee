@@ -20,14 +20,6 @@ struct gm_8016A22C_header {
     /* 0x0A2 */ u8 xA2[0x124 - 0xA2];
 };
 
-typedef void (*GmEventPlayerInitCallback)(s32 slot, u8 remaining_count);
-
-struct lbl_8046B488_event_player_init_cb_t {
-    char pad_0[0x1BC];
-    GmEventPlayerInitCallback event_player_init_cb;
-};
-ASSERT_SIZE(struct lbl_8046B488_event_player_init_cb_t, 0x1C0);
-
 struct lbl_8046B488_t* gm_1601_GetUnkData(void)
 {
     return &lbl_8046B488;
@@ -521,7 +513,7 @@ void fn_8016A09C(void)
     PAD_STACK(4);
     var_r29 = 0;
 
-    gm_16AE_GetUnkData_1();
+    gmVs_GetController_1();
     lbl_8046B488.unk_10_b1 = 1;
     lbl_8046B488.unk_10_b0 = 0;
 
@@ -548,7 +540,7 @@ void gm_8016A164(void)
 {
     int i;
     struct lbl_8046B488_t* gp = gm_1601_GetUnkData();
-    lbl_8046B6A0_t* match_info = gm_16AE_GetUnkData_1();
+    VsSceneController* match_info = gmVs_GetController_1();
     PAD_STACK(4);
     if (gp == 0) {
         if (match_info == 0) {
@@ -584,14 +576,6 @@ bool gm_8016A1F8(void)
 void gm_8016A21C(StartMeleeRules* arg0)
 {
     arg0->x54 = (void*) gm_1601_GetUnkData();
-}
-
-static inline GmEventPlayerInitCallback*
-gm_8016A404_event_player_init_cb(struct lbl_8046B488_t* gp)
-{
-    struct lbl_8046B488_event_player_init_cb_t* state =
-        (struct lbl_8046B488_event_player_init_cb_t*) gp;
-    return &state->event_player_init_cb;
 }
 
 static inline struct gm_8016A22C_header*
@@ -674,10 +658,9 @@ void gm_8016A22C(s8 k0, s8 k1, s8 k2, u8 a3, u8 a4, u8 a5, int mode, int a7,
     fn_80169A84(gp->xE, gp->x124, gp->x20);
 }
 
-void gm_8016A404(s32 arg0)
+void gm_8016A404(GmEventPlayerInitCallback callback)
 {
-    *gm_8016A404_event_player_init_cb(&lbl_8046B488) =
-        (GmEventPlayerInitCallback) arg0;
+    lbl_8046B488.event_player_init_cb = callback;
 }
 
 void gm_8016A414(f32 arg8)
@@ -707,7 +690,7 @@ void fn_8016A46C(void)
 
 void fn_8016A488(int arg0)
 {
-    if (gm_16AE_GetUnkData_1()->hud_enabled == true) {
+    if (gmVs_GetController_1()->hud_enabled == true) {
         Player_80031848(arg0);
     }
 }
@@ -859,11 +842,8 @@ void fn_8016A4C8(void)
                     Player_SetUnk4D(spawn_slot, tmp);
                     Player_SetFlagsAEBit1(spawn_slot, 1);
                 }
-                if (((struct lbl_8046B488_event_player_init_cb_t*) gp)
-                        ->event_player_init_cb != NULL)
-                {
-                    ((struct lbl_8046B488_event_player_init_cb_t*) gp)
-                        ->event_player_init_cb(spawn_slot, lbl_8046B488.x7);
+                if (gp->event_player_init_cb != NULL) {
+                    gp->event_player_init_cb(spawn_slot, lbl_8046B488.x7);
                 }
                 Player_SetStructFunc(spawn_slot, fn_8016A488);
                 Player_80031AD0(spawn_slot);
@@ -905,7 +885,7 @@ void gm_8016A92C(StartMeleeRules* arg0)
 
 bool gm_8016A944(void)
 {
-    if (gm_GetRules()->x58 != NULL) {
+    if (gm_GetStartMeleeRules()->x58 != NULL) {
         return true;
     }
     return false;
@@ -966,7 +946,7 @@ bool gm_8016AC44(s8 ckind, s8 costume_id)
     s32 idx;
     s32 i;
 
-    if ((gm_GetRules()->x58 != NULL ? 1 : 0) == 1) {
+    if ((gm_GetStartMeleeRules()->x58 != NULL ? 1 : 0) == 1) {
         struct lbl_8046B668_t* ptr = &lbl_8046B668;
         idx = -1;
         for (i = 0; i < 27; i++) {

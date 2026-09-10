@@ -1,6 +1,8 @@
 #ifndef _DOLPHIN_OSSERIAL_H
 #define _DOLPHIN_OSSERIAL_H
 
+#include <dolphin/types.h>
+
 #include <dolphin/hw_regs.h>
 
 #define CHAN_NONE -1
@@ -27,23 +29,23 @@
 #define SI_COMCSR_CHANNEL_MASK (1 << 2) | (1 << 1)
 #define SI_COMCSR_TSTART_MASK (1 << 0)
 
-typedef void (*SITypeAndStatusCallback)(long chan, unsigned long type);
+typedef void (*SITypeAndStatusCallback)(s32 chan, u32 type);
 
 struct SIControl {
-    long chan;
-    unsigned long poll;
-    unsigned long inputBytes;
+    s32 chan;
+    u32 poll;
+    u32 inputBytes;
     void* input;
-    void (*callback)(long, unsigned long, struct OSContext*);
+    void (*callback)(s32, u32, struct OSContext*);
 };
 
 struct SIPacket {
-    long chan;
+    s32 chan;
     void* output;
-    unsigned long outputBytes;
+    u32 outputBytes;
     void* input;
-    unsigned long inputBytes;
-    void (*callback)(long, unsigned long, struct OSContext*);
+    u32 inputBytes;
+    void (*callback)(s32, u32, struct OSContext*);
     long long time;
 };
 
@@ -52,20 +54,20 @@ BOOL SIIsChanBusy(int chan);
 BOOL SIRegisterPollingHandler(__OSInterruptHandler);
 BOOL SIUnregisterPollingHandler(__OSInterruptHandler);
 void SIInit();
-unsigned long SISync();
-unsigned long SIGetStatus(int);
-void SISetCommand(long chan, unsigned long command);
-unsigned long SIGetCommand(long chan);
+u32 SISync();
+u32 SIGetStatus(int);
+void SISetCommand(s32 chan, u32 command);
+u32 SIGetCommand(s32 chan);
 void SITransferCommands();
-unsigned long SISetXY(unsigned long x, unsigned long y);
-unsigned long SIEnablePolling(unsigned long poll);
-unsigned long SIDisablePolling(unsigned long poll);
-int SIGetResponse(long chan, void* data);
-int SITransfer(long chan, void* output, unsigned long outputBytes, void* input,
-               unsigned long inputBytes,
-               void (*callback)(long, unsigned long, struct OSContext*),
+u32 SISetXY(u32 x, u32 y);
+u32 SIEnablePolling(u32 poll);
+u32 SIDisablePolling(u32 poll);
+int SIGetResponse(s32 chan, void* data);
+int SITransfer(s32 chan, void* output, u32 outputBytes, void* input,
+               u32 inputBytes,
+               void (*callback)(s32, u32, struct OSContext*),
                OSTime delay);
-unsigned long SIGetType(long chan);
-unsigned long SIGetTypeAsync(long chan, SITypeAndStatusCallback callback);
+u32 SIGetType(s32 chan);
+u32 SIGetTypeAsync(s32 chan, SITypeAndStatusCallback callback);
 
 #endif // _DOLPHIN_OSSERIAL_H

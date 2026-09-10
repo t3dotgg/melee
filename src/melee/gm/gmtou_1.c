@@ -1248,7 +1248,7 @@ void fn_80198D18(void)
     gm_GetTournamentData();
     gobj = fn_80190174(lbl_804D666C->cameras->desc);
     fn_801901F8(lbl_804D666C->cameras->desc);
-    fn_801902F0((int) gobj);
+    fn_801902F0(gobj);
     fn_8019027C(lbl_804D666C->lights);
     fn_8019035C(0, lbl_804D666C->models[5], 0, 0x1A, 2, 1, fn_80196DBC, 0.0f);
     fn_8019035C(0, lbl_804D666C->models[4], 0, 0x1A, 2, 1, fn_80196E30, 80.0f);
@@ -1291,7 +1291,7 @@ void fn_80198EBC(void)
 
     gobj = fn_80190174(lbl_804D666C->cameras->desc);
     fn_801901F8(lbl_804D666C->cameras->desc);
-    fn_801902F0((int) gobj);
+    fn_801902F0(gobj);
     fn_8019027C(lbl_804D666C->lights);
 
     fn_8019035C(0, lbl_804D666C->models[5], 0, 0x1A, 2, 1, fn_80196DBC, 0.0f);
@@ -1509,7 +1509,7 @@ void fn_80199AF0(void)
 
     gobj = fn_80190174(lbl_804D666C->cameras->desc);
     fn_801901F8(lbl_804D666C->cameras->desc);
-    fn_801902F0((int) gobj);
+    fn_801902F0(gobj);
     fn_8019027C(lbl_804D666C->lights);
     fn_8019035C(0, lbl_804D666C->models[5], 0, 0x1A, 2, 1, fn_80196DBC, 0.0f);
     fn_8019035C(0, lbl_804D666C->models[4], 0, 0x1A, 2, 1, fn_80196E30, 80.0f);
@@ -1646,7 +1646,7 @@ void fn_8019A158(void)
         state.slot = local2;
     } else {
         for (i = 0; i < 4; i++) {
-            if (me->player_standings[i].slot_type != 3 &&
+            if (me->player_standings[i].pkind != 3 &&
                 me->player_standings[i].is_small_loser == 0)
             {
                 state.slot = i;
@@ -1666,6 +1666,15 @@ void fn_8019A158(void)
 
     if (mode == 1) {
         bracket = fn_8019A158_GetBracketEntry(bracket_idx);
+#ifdef MELEE_NATIVE
+        for (i = 0; i < 4; i++) {
+            if (i == state.slot) {
+                bracket->slots[i].x4C = 0;
+            } else {
+                bracket->slots[i].x4C = 3;
+            }
+        }
+#else
         cursor = (u8*) bracket;
         for (i = 0; i < 4; i++) {
             if (i == state.slot) {
@@ -1675,8 +1684,26 @@ void fn_8019A158(void)
             }
             cursor += 0x2C;
         }
+#endif
     } else if (td1->x2D == 1) {
         bracket = fn_8019A158_GetBracketEntry(bracket_idx);
+#ifdef MELEE_NATIVE
+        for (i = 0; i < 4; i++) {
+            BracketEntrySlot* slot = &bracket->slots[i];
+            if (slot->x4E == 3) {
+                slot->x4C = 3;
+            } else {
+                MatchEndStanding* standing =
+                    &((MatchEndStanding*) *x48_ptr)[i];
+                u8 v = standing->is_small_loser;
+                standing->is_big_loser = v;
+                slot->x4C = v;
+                if ((*x48_ptr)->player_standings[i].is_small_loser == 0) {
+                    sel = i;
+                }
+            }
+        }
+#else
         cursor = (u8*) bracket;
         for (i = 0; i < 4; i++) {
             if (cursor[0x4E] == 3) {
@@ -1695,6 +1722,7 @@ void fn_8019A158(void)
             }
             cursor += 0x2C;
         }
+#endif
     } else {
         counter = 0;
         for (i = 0; i < 4; i++) {
@@ -1766,11 +1794,18 @@ void fn_8019A158(void)
             }
         }
 
+#ifdef MELEE_NATIVE
+        {
+            u8 model_idx = lbl_80473AB8[bracket_idx].slots[sel].x50;
+            fn_8018F00C(base_ptr->x4E, td1->x37[model_idx].x9);
+        }
+#else
         cursor = (u8*) &lbl_80473AB8[bracket_idx] + sel * 0x2C;
         {
             u8 model_idx = cursor[0x50];
             fn_8018F00C(base_ptr->x4E, td1->x37[model_idx].x9);
         }
+#endif
     }
 }
 
@@ -2127,6 +2162,16 @@ void fn_8019AF50(s32* arg0, u32 arg1, u32 arg2)
                 lbl_804D6680[0] = 3;
             }
         } else if (lbl_804D6680[0] == 0) {
+#ifdef MELEE_NATIVE
+            s32 j;
+            for (j = 0; j < 4; j++) {
+                BracketEntrySlot* slot = &lbl_80473AB8[bracketIdx].slots[j];
+                if (slot->x30 != 0 && slot->x4C == 0) {
+                    lbl_804D6680[1] = slot->x4D;
+                    break;
+                }
+            }
+#else
             u8* bp = (u8*) &lbl_80473AB8[bracketIdx];
             s32 j = 0;
             s32 n;
@@ -2140,6 +2185,7 @@ void fn_8019AF50(s32* arg0, u32 arg1, u32 arg2)
                 bp += 0x2C;
                 j++;
             }
+#endif
 
             lbAudioAx_80023F28(fn_80160400(fn_8018F6FC(lbl_804D6680[1])));
             lbl_804D6680[0] = 1;

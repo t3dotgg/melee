@@ -11,12 +11,15 @@ struct DebugContext {
 
 static ReportCallback reportCallback;
 static PanicCallback panicCallback;
+#ifndef MELEE_NATIVE
 static __io_proc logFunc;
+#endif
 
 #ifdef MUST_MATCH
 #pragma peephole off
 #endif
 
+#ifndef MELEE_NATIVE
 static int report_func(__file_handle arg0, unsigned char* arg1, size_t* arg2,
                        __idle_proc arg3)
 {
@@ -26,14 +29,20 @@ static int report_func(__file_handle arg0, unsigned char* arg1, size_t* arg2,
     logFunc(arg0, arg1, arg2, arg3);
     return 0;
 }
+#endif
 
 void HSD_LogInit(void)
 {
+#ifdef MELEE_NATIVE
+    // Native stderr/report routing is provided by the host runtime.
+    return;
+#else
     if (logFunc == NULL) {
         logFunc = stdout->write_proc;
     }
     stdout->write_proc = report_func;
     stdout->state.error = 0;
+#endif
 }
 
 void __assert(char* str, u32 arg1, char* arg2)

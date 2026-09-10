@@ -180,7 +180,7 @@ void fn_80259D84(HSD_GObj* gobj)
         break;
     case 2:
         if (++temp_r31->x4 > 0xAU) {
-            HSD_GObjPLink_80390228(gobj);
+            HSD_GObjFree(gobj);
             temp_r31->x2++;
         }
         break;
@@ -235,7 +235,9 @@ void fn_8025A090(HSD_GObj* gobj)
     jobj = GET_JOBJ(gobj);
     temp_r30 = HSD_GObjGetUserData(gobj);
     var_r3 = mnStageSel_804D6CAE;
-    if (mnStageSel_803F06D0[mnStageSel_804D6CAE].x8 < 2) {
+    if (mnStageSel_804D6CAE < 0x1E &&
+        mnStageSel_803F06D0[mnStageSel_804D6CAE].x8 < 2)
+    {
         var_r3 = 0x1E;
     }
     if (temp_r30->x0 != var_r3) {
@@ -253,7 +255,7 @@ void fn_8025A090(HSD_GObj* gobj)
     }
     if (temp_r30->x4 < 0x5A) {
         temp_r30->x4++;
-        if (temp_r30->x4 == 0x14) {
+        if (temp_r30->x4 == 0x14 && temp_r30->x0 < 0x1E) {
             HSD_JObjReqAnimAll(jobj,
                                50.0F * mnStageSel_803F06D0[temp_r30->x0].x9);
         }
@@ -772,7 +774,7 @@ void mnStageSel_Scene_OnFrame(void)
     if (sss_data->no_lras == 0 && mn_8022F218()) {
         sfxBack();
         lb_800145F4();
-        HSD_GObjPLink_80390228(mnStageSel_804D6C9C);
+        HSD_GObjFree(mnStageSel_804D6C9C);
         mn_8022F268();
         gm_ChangeGameModeAfterCurrentScene(GM_MENU);
         gm_801A4B60();

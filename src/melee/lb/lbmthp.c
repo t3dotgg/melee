@@ -30,7 +30,12 @@ typedef struct THPDecComp {
     /* 0x40 */ u32 unk_40;
     /* 0x44 */ u32 width;
     /* 0x48 */ u32 height;
-    /* 0x4C */ u32* frame_buffers;
+    /* 0x4C */
+#ifdef MELEE_NATIVE
+    u8** frame_buffers;
+#else
+    u32* frame_buffers;
+#endif
     /* 0x50 */ void* unk_50;
     /* 0x54 */ void* unk_54;
     /* 0x58 */ void* unk_58;
@@ -48,7 +53,12 @@ typedef struct THPDecComp {
     /* 0x8C */ u32 unk_8C;
     /* 0x90 */ u32 unk_90;
     /* 0x94 */ s32 unk_94;
-    /* 0x98 */ s32 unk_98;
+    /* 0x98 */
+#ifdef MELEE_NATIVE
+    uintptr_t unk_98;
+#else
+    s32 unk_98;
+#endif
     /* 0x9C */ THPDec_8032FD40_Data unk_9C;
     /* 0xA8 */ u16 unk_A8;
     /* 0xAA */ u16 unk_AA;
@@ -92,7 +102,7 @@ struct lbl_803BAFE8_t {
 /* 01F294 */ static s32 fn_8001F294(void);
 /* 4333E0 */ static THPDecComp MoviePlayer;
 
-static void fn_8001E910(int arg0, int arg1, void* arg2, int cancelflag)
+static void fn_8001E910(int arg0, intptr_t arg1, void* arg2, bool cancelflag)
 {
     THPDecComp* streamPlayer = &MoviePlayer;
     s32 tick_diff;
@@ -165,7 +175,7 @@ static s32 fn_8001EB14(THPDecComp* data, const char* path)
 {
     THPInit();
     data->file_entrynum = DVDConvertPathToEntrynum(path);
-    lbFile_800161C4(data->file_entrynum, 0, (u32) data, 0x40, 0x21, 1);
+    lbFile_800161C4(data->file_entrynum, 0, (uintptr_t) data, 0x40, 0x21, 1);
 
     data->unk_40 = data->num_frames;
     data->width = data->x_size;
@@ -241,7 +251,7 @@ size_t fn_8001EBF0(THPDecComp* data)
     data->unk_AA = data->height;
     data->unk_AC = 0;
 
-    size += ALIGN_32(data->unk_104 * 4);
+    size += ALIGN_32(data->unk_104 * sizeof(*data->frame_buffers));
     size += ALIGN_32(data->unk_40 * 4);
 
     return size;
@@ -261,18 +271,22 @@ static void fn_8001ECF4(THPDecComp* data, void* buf)
     width = data->width;
     height = data->height;
     y_size = width * height;
-    data->frame_buffers = (u32*) buf;
+    data->frame_buffers = buf;
     count = data->unk_104;
     data->unk_64 = 0;
     uv_size = (width * height) >> 2U;
-    var_r29 = (u8*) buf + (((count * 4) + 0x1F) & 0xFFFFFFE0);
+    var_r29 = (u8*) buf + ALIGN_32(count * sizeof(*data->frame_buffers));
     if ((data->unk_6C != 0) && (data->unk_11C != 0)) {
         var_r24 = data->first_frame_size;
         csizep = (u8*) &data->first_frame_size;
         var_r25 = 0;
         data->curr_file_offset = data->first_frame;
         for (; var_r25 < data->unk_104; var_r25++) {
-            data->frame_buffers[var_r25] = (u32) var_r29;
+#ifdef MELEE_NATIVE
+            data->frame_buffers[var_r25] = var_r29;
+#else
+            data->frame_buffers[var_r25] = (u32) (uintptr_t) var_r29;
+#endif
             if (var_r24 == 0) {
                 OSReport("by sugano & yoshiki.\n");
                 OSReport("base %x\n", var_r29);
@@ -293,8 +307,8 @@ static void fn_8001ECF4(THPDecComp* data, void* buf)
                 HSD_ASSERT(266, 0);
             }
             lbFile_800161C4(data->file_entrynum, data->curr_file_offset,
-                            (u32) var_r29, (var_r24 + 0x1F) & 0xFFFFFFE0, 0x21,
-                            1);
+                            (uintptr_t) var_r29, (var_r24 + 0x1F) & 0xFFFFFFE0,
+                            0x21, 1);
             csizep = var_r29;
             data->curr_file_offset += var_r24;
             var_r24 = *(u32*) var_r29;
@@ -321,7 +335,11 @@ static void fn_8001ECF4(THPDecComp* data, void* buf)
     data->unk_58 = var_r29;
     DCInvalidateRange(var_r29, uv_size);
     var_r29 = var_r29 + uv_size;
-    data->unk_98 = (s32) var_r29;
+#ifdef MELEE_NATIVE
+    data->unk_98 = (uintptr_t) var_r29;
+#else
+    data->unk_98 = (s32) (uintptr_t) var_r29;
+#endif
 }
 
 static s32 fn_8001F13C(THPDecComp* streamPlayer);
@@ -410,7 +428,7 @@ s32 fn_8001F13C(THPDecComp* streamPlayer)
                              streamPlayer->curr_file_offset);
             HSD_DevComRequest(
                 streamPlayer->file_entrynum, streamPlayer->curr_file_offset,
-                streamPlayer->frame_buffers[streamPlayer->unk_8C],
+                (uintptr_t) streamPlayer->frame_buffers[streamPlayer->unk_8C],
                 ALIGN_32(streamPlayer->currPackedSize), 0x21, 1, fn_8001E910,
                 NULL);
             streamPlayer->unk_74++;

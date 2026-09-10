@@ -148,7 +148,7 @@ static const lbColl_80008D30_arg1 grKg_803B7FB0 = {
     HitCapsule_Enabled, 1, 361, 0, 0, 180, 0, 0, 0,
 };
 
-void grKongo_801D5238(bool arg) {}
+void grKongo_801D5238(int arg) {}
 
 void grKongo_801D523C(void)
 {

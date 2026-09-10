@@ -14,7 +14,7 @@
 #include <melee/lb/lb_00F9.h>
 #include <sysdolphin/baselib/gobjproc.h>
 
-void grTZelda_OnDemoInit(bool);                           /* static */
+void grTZelda_OnDemoInit(int);                            /* static */
 void grTZelda_OnInit(void);                               /* static */
 void grTZelda_OnLoad(void);                               /* static */
 void grTZelda_OnStart(void);                              /* static */

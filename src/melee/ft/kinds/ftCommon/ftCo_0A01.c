@@ -115,7 +115,11 @@
 /* 0A5CE0 */ static Fighter* ftCo_800A5CE0(Fighter* fp);
 /* 0A5F4C */ static Item* ftCo_800A5F4C(Fighter* fp, ItemKind);
 /* 0A61D8 */ static Item* ftCo_800A61D8(Fighter* fp);
+#ifdef MELEE_NATIVE
+/* 0A648C */ static Item* ftCo_800A648C(Fighter* fp);
+#else
 /* 0A648C */ static int ftCo_800A648C(Fighter* fp);
+#endif
 /* 0A6700 */ static bool ftCo_800A6700(Fighter* fp, Vec3*, Vec3*);
 /* 0A6A98 */ static s32 ftCo_800A6A98(Fighter* fp, Vec3* arg1);
 /* 0A6D2C */ static s32 ftCo_800A6D2C(Fighter* fp, Vec3* arg1);
@@ -1574,9 +1578,8 @@ s32 ftCo_800A2C80(Fighter* fp)
     ey = 1000.0f * dir.y + ay;
     line_id = -1;
     blocked = 0;
-    result =
-        mpCheckFloor(ax, ay, ex, ey, 0.0f, &floor_pos, &line_id, &flags,
-                     &floor_normal, -1, -1, -1, NULL, (Fighter_GObj*) blocked);
+    result = mpCheckFloor(ax, ay, ex, ey, 0.0f, &floor_pos, &line_id, &flags,
+                          &floor_normal, -1, -1, -1, NULL, NULL);
     if (result != 0) {
         line = line_id;
         if (grBigBlue_801EF844(line) || grInishie1_801FCAAC(line) ||
@@ -1979,9 +1982,9 @@ static inline bool ftCo_800A3908_inline0(Fighter* fp, struct CpuFighter* data,
     return false;
 }
 
-inline s32 ftCo_800A3908_inline1(float x, float y, Vec3* out_pos,
-                                 Vec3* out_normal, int* out_line,
-                                 u32* out_flags)
+static inline s32 ftCo_800A3908_inline1(float x, float y, Vec3* out_pos,
+                                        Vec3* out_normal, int* out_line,
+                                        u32* out_flags)
 {
     s32 result;
     s32 valid;
@@ -3027,10 +3030,12 @@ Item* ftCo_800A5F4C(Fighter* fp, ItemKind arg1)
         return NULL;
     }
     closest_ip = NULL;
-    for (cur = HSD_GObj_Entities->items; cur != NULL; cur = cur->next) {
-        /// @todo stupid stack padding hack
+    for (cur = HSD_GObj_Entities->items; cur != NULL;
+         cur = HSD_GObjGetNext(cur))
+    {
         cur_ip = GET_ITEM(cur);
-        cur_ip = GET_ITEM(cur);
+        /// The repeated accessor call emits no code but reserves the stack
+        /// slot the target has below the sqrtf temporaries.
         cur_ip = GET_ITEM(cur);
 
         if (!Item_IsGrabbable(cur)) {
@@ -3146,7 +3151,11 @@ static inline HSD_GObj* ftCo_800A648C_inline3(HSD_GObj* cur)
     return cur->next;
 }
 
+#ifdef MELEE_NATIVE
+Item* ftCo_800A648C(Fighter* fp)
+#else
 int ftCo_800A648C(Fighter* fp)
+#endif
 {
     Item* ip;
     Item* closest;
@@ -3177,7 +3186,11 @@ int ftCo_800A648C(Fighter* fp)
             }
         }
     }
+#ifdef MELEE_NATIVE
+    return closest;
+#else
     return (int) closest;
+#endif
 }
 
 static inline bool ftCo_800A6700_inline0(Fighter* fp, f32 x, f32 y)
@@ -3300,7 +3313,7 @@ s32 ftCo_800A6A98(Fighter* fp, Vec3* arg1)
             my = 0.5f * (b.y + a.y);
             result = mpCheckFloor(mx, 5.0f + my, mx, my - 20.0f, 0.0f,
                                   &floor_pos, &line_id, &flags, &floor_normal,
-                                  -1, -1, -1, NULL, (Fighter_GObj*) blocked);
+                                  -1, -1, -1, NULL, NULL);
             if (result != 0) {
                 line = line_id;
                 if (grBigBlue_801EF844(line) || grInishie1_801FCAAC(line) ||
@@ -3346,7 +3359,7 @@ static inline s32 ftCo_800A6D2C_inline0(f32 mx, f32 my, Vec3* fpos, int* lid,
                                         u32* fl, Vec3* fn, s32 blocked)
 {
     return mpCheckFloor(mx, 5.0f + my, mx, my - 20.0f, 0.0f, fpos, lid, fl, fn,
-                        -1, -1, -1, NULL, (Fighter_GObj*) blocked);
+                        -1, -1, -1, NULL, NULL);
 }
 
 s32 ftCo_800A6D2C(Fighter* fp, Vec3* arg1)
@@ -3477,7 +3490,7 @@ bool ftCo_800A6FC4(Fighter* fp, Vec3* arg1, Vec3* arg2)
         my = 0.5f * (a.y + b.y);
         result = mpCheckFloor(mx, 10.0 + my, mx, my - 10.0, 0.0f, &floor_pos,
                               &line_id, &flags, &floor_normal, -1, -1, -1,
-                              NULL, (Fighter_GObj*) blocked);
+                              NULL, NULL);
         if (result != 0) {
             line = line_id;
             if (grBigBlue_801EF844(line) || grInishie1_801FCAAC(line) ||
@@ -3522,7 +3535,7 @@ bool ftCo_800A6FC4(Fighter* fp, Vec3* arg1, Vec3* arg2)
         px = a.x + 5.0;
         blocked = mpCheckFloor(px, a.y + 10.0, px, a.y - 10.0, 0.0f,
                                &floor_pos, &line_id, &flags, &floor_normal, -1,
-                               -1, -1, NULL, (Fighter_GObj*) line);
+                               -1, -1, NULL, NULL);
         if (blocked != 0) {
             result = line_id;
             if (grBigBlue_801EF844(result) || grInishie1_801FCAAC(result) ||
@@ -3565,7 +3578,7 @@ bool ftCo_800A6FC4(Fighter* fp, Vec3* arg1, Vec3* arg2)
         px = b.x - 5.0;
         blocked = mpCheckFloor(px, b.y + 10.0, px, b.y - 10.0, 0.0f,
                                &floor_pos, &line_id, &flags, &floor_normal, -1,
-                               -1, -1, NULL, (Fighter_GObj*) line);
+                               -1, -1, NULL, NULL);
         if (blocked != 0) {
             result = line_id;
             if (grBigBlue_801EF844(result) || grInishie1_801FCAAC(result) ||
@@ -3621,9 +3634,8 @@ static inline s32 ftCo_800A75DC_CheckFloor(f32 x0, f32 above, f32 x1,
 
     blocked = 0;
     *line_id = -1;
-    result =
-        mpCheckFloor(x0, above, x1, below, 0.0f, floor_pos, line_id, flags,
-                     floor_normal, -1, -1, -1, NULL, (Fighter_GObj*) blocked);
+    result = mpCheckFloor(x0, above, x1, below, 0.0f, floor_pos, line_id,
+                          flags, floor_normal, -1, -1, -1, NULL, NULL);
     if (result != 0) {
         line = *line_id;
         if (grBigBlue_801EF844(line) || grInishie1_801FCAAC(line) ||
@@ -3667,9 +3679,9 @@ void ftCo_800A75DC(Fighter* fp0, Fighter* fp1)
             line_id = -1;
             below = fy - 1000.0f;
             above = 10.0f + fy;
-            result = mpCheckFloor(fx2, above, fx, below, 0.0f, &floor_pos,
-                                  &line_id, &flags, &floor_normal, -1, -1, -1,
-                                  NULL, (Fighter_GObj*) blocked);
+            result =
+                mpCheckFloor(fx2, above, fx, below, 0.0f, &floor_pos, &line_id,
+                             &flags, &floor_normal, -1, -1, -1, NULL, NULL);
         }
         if (result != 0) {
             int line = line_id;
@@ -3825,7 +3837,7 @@ void ftCo_800A7AAC(Fighter* fp)
         line_id = -1;
         result = mpCheckFloor(partner_pos.x, above, partner_pos.x, below, 0.0f,
                               &floor_pos, &line_id, &flags, &floor_normal, -1,
-                              -1, -1, NULL, (Fighter_GObj*) blocked);
+                              -1, -1, NULL, NULL);
         if (result != 0) {
             line = line_id;
             if (grBigBlue_801EF844(line) || grInishie1_801FCAAC(line) ||
@@ -4033,7 +4045,7 @@ void ftCo_800A866C(Fighter* fp)
                 f32 ix2 = ix;
                 found = mpCheckFloor(ix2, top, ix, bottom, 0.0f, &floor_pos,
                                      &line_id, &flags, &floor_normal, -1, -1,
-                                     -1, NULL, (Fighter_GObj*) blocked);
+                                     -1, NULL, NULL);
             }
             if (found != 0) {
                 int line = line_id;
@@ -5404,8 +5416,7 @@ void ftCo_800ABBA8(Fighter* fp)
             f32 cx2 = cx;
             f32 floor_y = cy - 1000.0;
             result = mpCheckFloor(cx2, cy, cx, floor_y, 0.0f, &sp74, &line_id,
-                                  &flags, &sp68, -1, -1, -1, NULL,
-                                  (Fighter_GObj*) blocked);
+                                  &flags, &sp68, -1, -1, -1, NULL, NULL);
         }
         if (result != 0) {
             int line = line_id;
@@ -6084,8 +6095,7 @@ static bool ftCo_800ADE48(Fighter* fp)
     line_id = -1;
     do {
         result = mpCheckFloor(x2, above, x, below, 0.0f, &floor_pos, &line_id,
-                              &flags, &floor_normal, -1, -1, -1, NULL,
-                              (Fighter_GObj*) found);
+                              &flags, &floor_normal, -1, -1, -1, NULL, NULL);
         if (result != 0 && ftCo_800A1B38_noinline(line_id) != 0) {
             (void) result;
         } else {
@@ -6117,7 +6127,7 @@ static bool ftCo_800ADE48(Fighter* fp)
             found = 0;
             result = mpCheckFloor(x2, y, x, ftCo_800ADE48_inline0(y), 0.0f,
                                   &floor_pos, &line_id, &flags, &floor_normal,
-                                  -1, -1, -1, NULL, (Fighter_GObj*) found);
+                                  -1, -1, -1, NULL, NULL);
             if (result != 0 && ftCo_800A1B38_noinline(line_id) != 0) {
                 (void) result;
             } else {
@@ -6556,8 +6566,7 @@ void ftCo_800AEA8C(Fighter* fp)
         below = y - 1000.0f;
         above = 10.0f + y;
         result = mpCheckFloor(x2, above, x, below, 0.0f, &floor_pos, &line_id,
-                              flags, &floor_normal, -1, -1, -1, NULL,
-                              (Fighter_GObj*) found);
+                              flags, &floor_normal, -1, -1, -1, NULL, NULL);
         if (result == 0) {
             goto do_assign;
         }
@@ -7371,102 +7380,82 @@ void ftCo_800B0AF4(Fighter* fp)
     }
 }
 
+static inline bool isInCaptureWait(Fighter* fp)
+{
+    if (fp->motion_id == ftCo_MS_CaptureWaitHi) {
+        return true;
+    } else if (fp->motion_id == ftCo_MS_CaptureWaitLw) {
+        return true;
+    } else if (fp->motion_id >= ftCo_MS_ShoulderedWait &&
+               fp->motion_id <= ftCo_MS_ShoulderedTurn)
+    {
+        return true;
+    }
+    return false;
+}
+
 bool ftCo_800B0CA8(Fighter* fp0, Fighter* fp1)
 {
     Item_GObj* temp_r5_2;
     enum ItemKind temp_r0;
-    s32 temp_r0_2;
     s32 temp_r5;
-    s32 var_r0;
-    s32 var_r0_2;
-    s32 var_r0_3;
     s32 var_r0_4;
 
     temp_r5 = fp1->motion_id;
-    if (ftCo_800A3200(fp1) != 0) {
-        goto jmp_9c;
-    } else {
-        if (temp_r5 == ftCo_MS_CaptureWaitHi) {
-            var_r0_2 = 1;
-        } else if (temp_r5 == ftCo_MS_CaptureWaitLw) {
-            var_r0_2 = 1;
-        } else if (temp_r5 >= ftCo_MS_ShoulderedWait &&
-                   temp_r5 <= ftCo_MS_ShoulderedTurn)
-        {
-            var_r0_2 = 1;
-        } else {
-            var_r0_2 = 0;
+    if (ftCo_800A3200(fp1) || isInCaptureWait(fp1) || isInTeeter(fp1)) {
+        return false;
+    }
+    if (temp_r5 >= ftCo_MS_CaptureKirby && temp_r5 <= ftCo_MS_CaptureWaitKirby)
+    {
+        return false;
+    }
+    if (temp_r5 >= ftCo_MS_Rebirth && temp_r5 <= ftCo_MS_RebirthWait) {
+        return false;
+    }
+    if (temp_r5 >= ftCo_MS_WarpStarJump && temp_r5 <= ftCo_MS_WarpStarFall) {
+        return false;
+    }
+    if (temp_r5 >= ftCo_MS_ItemParasolFall &&
+        temp_r5 <= ftCo_MS_ItemParasolDamageFall)
+    {
+        return false;
+    }
+    temp_r5_2 = fp0->item_gobj;
+    if (temp_r5_2 != NULL) {
+        temp_r0 = GET_ITEM(temp_r5_2)->kind;
+        switch (temp_r0) {
+        case It_Kind_Box:
+        case It_Kind_Taru:
+        case It_Kind_Kusudama:
+        case It_Kind_TaruCann:
+            var_r0_4 = true;
+            break;
+        default:
+            var_r0_4 = false;
         }
-        if (var_r0_2 != 0) {
-            goto jmp_9c;
-        } else {
-            if (temp_r5 == ftCo_MS_Ottotto || temp_r5 == ftCo_MS_OttottoWait) {
-                var_r0_3 = 1;
-            } else {
-                var_r0_3 = 0;
-            }
-            if (var_r0_3 != 0) {
-                /// @todo fakematched control flow
-            jmp_9c:
-                return false;
-            }
-            if (temp_r5 >= ftCo_MS_CaptureKirby &&
-                temp_r5 <= ftCo_MS_CaptureWaitKirby)
-            {
-                return false;
-            }
-            if (temp_r5 >= ftCo_MS_Rebirth && temp_r5 <= ftCo_MS_RebirthWait) {
-                return false;
-            }
-            if (temp_r5 >= ftCo_MS_WarpStarJump &&
-                temp_r5 <= ftCo_MS_WarpStarFall)
-            {
-                return false;
-            }
-            if (temp_r5 >= ftCo_MS_ItemParasolFall &&
-                temp_r5 <= ftCo_MS_ItemParasolDamageFall)
-            {
-                return false;
-            }
-            temp_r5_2 = fp0->item_gobj;
-            if (temp_r5_2 != NULL) {
-                temp_r0 = GET_ITEM(temp_r5_2)->kind;
-                switch (temp_r0) {
-                case It_Kind_Box:
-                case It_Kind_Taru:
-                case It_Kind_Kusudama:
-                case It_Kind_TaruCann:
-                    var_r0_4 = true;
-                    break;
-                default:
-                    var_r0_4 = false;
-                }
-                if (var_r0_4 != 0) {
-                    return false;
-                }
-            }
-            if (fp1->ground_or_air == GA_Ground &&
-                fp0->ground_or_air == GA_Air &&
-                fp1->cur_pos.y > fp0->cur_pos.y && fp0->pos_delta.y < 0.0f)
-            {
-                return false;
-            }
-            if (fp0->x2225_b3) {
-                return true;
-            }
-            switch (fp0->motion_id) {
-            case ftCo_MS_Squat:
-            case ftCo_MS_SquatWait:
-            case ftCo_MS_Landing:
-            case ftCo_MS_LandingFallSpecial:
-            case ftCo_MS_LandingAirN:
-            case ftCo_MS_LandingAirF:
-            case ftCo_MS_LandingAirB:
-            case ftCo_MS_LandingAirHi:
-            case ftCo_MS_LandingAirLw:
-                return true;
-            }
+        if (var_r0_4 != 0) {
+            return false;
         }
+    }
+    if (fp1->ground_or_air == GA_Ground && fp0->ground_or_air == GA_Air &&
+        fp1->cur_pos.y > fp0->cur_pos.y && fp0->pos_delta.y < 0.0f)
+    {
+        return false;
+    }
+    if (fp0->x2225_b3) {
+        return true;
+    }
+    switch (fp0->motion_id) {
+    case ftCo_MS_Squat:
+    case ftCo_MS_SquatWait:
+    case ftCo_MS_Landing:
+    case ftCo_MS_LandingFallSpecial:
+    case ftCo_MS_LandingAirN:
+    case ftCo_MS_LandingAirF:
+    case ftCo_MS_LandingAirB:
+    case ftCo_MS_LandingAirHi:
+    case ftCo_MS_LandingAirLw:
+        return true;
     }
     return false;
 }
@@ -8098,9 +8087,9 @@ void ftCo_800B2AFC(Fighter* fp)
             below = y - 1000.0f;
             above = 10.0f + y;
             line0 = -1;
-            result = mpCheckFloor(x2, above, x, below, 0.0f, &floor_pos0,
-                                  &line0, &flags0, &floor_normal0, -1, -1, -1,
-                                  NULL, (Fighter_GObj*) found);
+            result =
+                mpCheckFloor(x2, above, x, below, 0.0f, &floor_pos0, &line0,
+                             &flags0, &floor_normal0, -1, -1, -1, NULL, NULL);
             if (result == 0) {
                 goto assign0;
             }
@@ -8155,9 +8144,9 @@ void ftCo_800B2AFC(Fighter* fp)
             below = y - 1000.0f;
             above = 10.0f + y;
             line1 = -1;
-            result = mpCheckFloor(x2, above, x, below, 0.0f, &floor_pos1,
-                                  &line1, &flags1, &floor_normal1, -1, -1, -1,
-                                  NULL, (Fighter_GObj*) found);
+            result =
+                mpCheckFloor(x2, above, x, below, 0.0f, &floor_pos1, &line1,
+                             &flags1, &floor_normal1, -1, -1, -1, NULL, NULL);
             if (result == 0) {
                 goto assign1;
             }
@@ -8220,9 +8209,9 @@ void ftCo_800B2AFC(Fighter* fp)
             below = y - 1000.0f;
             above = 10.0f + y;
             line3 = -1;
-            result = mpCheckFloor(x2, above, x, below, 0.0f, &floor_pos3,
-                                  &line3, &flags3, &floor_normal3, -1, -1, -1,
-                                  NULL, (Fighter_GObj*) found);
+            result =
+                mpCheckFloor(x2, above, x, below, 0.0f, &floor_pos3, &line3,
+                             &flags3, &floor_normal3, -1, -1, -1, NULL, NULL);
             if (result == 0) {
                 goto assign3;
             }
@@ -8376,7 +8365,7 @@ void ftCo_800B2AFC(Fighter* fp)
             line26 = -1;
             result = mpCheckFloor(x2, above, x, below, 0.0f, &floor_pos26,
                                   &line26, &flags26, &floor_normal26, -1, -1,
-                                  -1, NULL, (Fighter_GObj*) found);
+                                  -1, NULL, NULL);
             if (result == 0) {
                 goto assign26;
             }
@@ -8477,9 +8466,9 @@ void ftCo_800B33B0(Fighter* fp)
         below = sy - 1000.0;
         tmp = 10.0 + sy;
         {
-            result = mpCheckFloor(sx, tmp, sx, below, 0.0f, &floor_pos, &line1,
-                                  &flags1, &floor_normal, -1, -1, -1, NULL,
-                                  (Fighter_GObj*) found);
+            result =
+                mpCheckFloor(sx, tmp, sx, below, 0.0f, &floor_pos, &line1,
+                             &flags1, &floor_normal, -1, -1, -1, NULL, NULL);
         }
     }
     if (result == 0) {
@@ -8559,9 +8548,9 @@ void ftCo_800B33B0(Fighter* fp)
     below = sy - 2.0;
     tmp = 2.0 + sy;
     fx = sx;
-    result = mpCheckFloor(fx, tmp, sx, below, 0.0f, &target_floor_pos, &line2,
-                          &flags2, &target_floor_normal, -1, -1, -1, NULL,
-                          (Fighter_GObj*) blocked);
+    result =
+        mpCheckFloor(fx, tmp, sx, below, 0.0f, &target_floor_pos, &line2,
+                     &flags2, &target_floor_normal, -1, -1, -1, NULL, NULL);
     if (result != 0) {
         int line = line2;
         if (grBigBlue_801EF844(line) || grInishie1_801FCAAC(line) ||

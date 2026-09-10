@@ -65,7 +65,7 @@ static inline void ifTime_SetDigit(HSD_JObj* jobj, unsigned int frame)
 
 void ifTime_SetTime(HSD_JObj* jobj, int seconds, int centiseconds)
 {
-    StartMeleeRules* rules = gm_GetRules();
+    StartMeleeRules* rules = gm_GetStartMeleeRules();
     int hours;
 
     // minutes
@@ -183,7 +183,7 @@ void ifTime_FreeCountdown(void)
 {
     struct ifTime_data* x = &ifTime_data;
     if (x->countdown_timer != NULL) {
-        HSD_GObjPLink_80390228(x->countdown_timer);
+        HSD_GObjFree(x->countdown_timer);
         x->countdown_timer = NULL;
     }
 }
@@ -197,7 +197,7 @@ void ifTime_UpdateTimers(HSD_GObj* arg0)
     u8 tmp;
     PAD_STACK(8);
 
-    gm_GetRules();
+    gm_GetStartMeleeRules();
     seconds = gm_8016AEEC();
     centiseconds = gm_8016AF0C();
     ifTime_SetTime(jobj, seconds, centiseconds);
@@ -218,7 +218,7 @@ void ifTime_UpdateTimers(HSD_GObj* arg0)
         HSD_JObjSetTranslate(jobj2, ifAll_GetTimerPosition());
         HSD_GObj_SetupProc(x->countdown_timer, ifTime_UpdateCountdown, 17);
         if (x->match_timer) {
-            HSD_GObjPLink_80390228(x->match_timer);
+            HSD_GObjFree(x->match_timer);
             x->match_timer = NULL;
         }
     }
@@ -227,7 +227,7 @@ void ifTime_UpdateTimers(HSD_GObj* arg0)
 
 void ifTime_CreateTimers(void)
 {
-    StartMeleeRules* rules = gm_GetRules();
+    StartMeleeRules* rules = gm_GetStartMeleeRules();
     HSD_GObj* gobj;
     HSD_JObj* jobj;
     HSD_JObj* digit;
@@ -282,11 +282,11 @@ void ifTime_FreeTimers(void)
 {
     struct ifTime_data* x = &ifTime_data;
     if (x->match_timer != NULL) {
-        HSD_GObjPLink_80390228(x->match_timer);
+        HSD_GObjFree(x->match_timer);
         x->match_timer = NULL;
     }
     if (x->countdown_timer != NULL) {
-        HSD_GObjPLink_80390228(x->countdown_timer);
+        HSD_GObjFree(x->countdown_timer);
         x->countdown_timer = NULL;
     }
 }

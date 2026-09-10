@@ -1,8 +1,8 @@
 #include "gm_18A1.h"
 
-#include "gm_16AE.h"
 #include "gmmain_lib.h"
 #include "gmregclear.h"
+#include "gmvs.h"
 #include "types.h"
 #include <melee/pl/player.h>
 
@@ -143,15 +143,14 @@ f32 gm_8018A314(u8 difficulty, u8 stage_slot)
            100.0F;
 }
 
-void fn_8018A364(int arg0_int)
+void fn_8018A364(MatchEnd* arg0)
 {
-    MatchEnd* arg0 = (MatchEnd*) arg0_int;
     struct StartMeleeRules* rules;
     gmm_x0_528_t* main_data;
     UnkAllstarData* data;
     u32 total_time;
 
-    rules = gm_GetRules();
+    rules = gm_GetStartMeleeRules();
     data = &gm_80473A18;
 
     if (fn_8017E318() > 0) {

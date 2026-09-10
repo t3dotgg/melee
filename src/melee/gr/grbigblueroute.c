@@ -13,7 +13,7 @@
 #include <dolphin/os.h>
 #include <melee/cm/camera.h>
 #include <melee/ft/ftlib.h>
-#include <melee/gm/gm_16AE.h>
+#include <melee/gm/gmvs.h>
 #include <melee/if/ifhazard.h>
 #include <melee/lb/lb_00B0.h>
 #include <melee/lb/lb_00F9.h>
@@ -46,7 +46,7 @@ struct grBigBlueRoute_8020DA9C_t {
     /* +8 */ int x8;
 };
 
-/* car_info stores 31 RouteEntry records in its 0x554-byte allocation. */
+/* car_info stores 31 RouteEntry records. */
 union grBigBlueRoute_RouteStorage {
     RouteEntry entries[31];
     u8 bytes[0x554];
@@ -153,7 +153,7 @@ static void order_data(void)
 }
 #endif
 
-void grBigBlueRoute_8020B864(bool arg)
+void grBigBlueRoute_8020B864(int arg)
 {
     HSD_GObj* gobj;
     gobj = Ground_GetMapGObj(0x1F);
@@ -501,9 +501,9 @@ void grBigBlueRoute_8020C238(Ground_GObj* gobj)
         }
     }
 
-    gp->u.car.car_info = HSD_MemAlloc(0x554);
+    gp->u.car.car_info = HSD_MemAlloc(sizeof(RouteEntry) * 31);
     HSD_ASSERT(0x2A2, gp->u.car.car_info);
-    memzero(gp->u.car.car_info, 0x554);
+    memzero(gp->u.car.car_info, sizeof(RouteEntry) * 31);
 
     gp->u.car.x10A = 0;
     gp->u.car.x108 = 0;
@@ -1043,9 +1043,7 @@ void grBigBlueRoute_8020CD20(Ground_GObj* gobj)
         }
 
         i++;
-        jobj = (jobj != NULL) ? (HSD_JObj*) grBigBlueRoute_8020DA9C(
-                                    (struct grBigBlueRoute_8020DA9C_t*) jobj)
-                              : NULL;
+        jobj = (jobj != NULL) ? jobj->next : NULL;
     } while (i < 31);
 }
 #undef RE_ENTRY

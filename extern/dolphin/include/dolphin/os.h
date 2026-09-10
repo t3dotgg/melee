@@ -45,9 +45,16 @@ typedef void (*__OSInterruptHandler)(__OSInterrupt interrupt,
 // IWYU pragma: end_exports
 
 // private macro, maybe shouldn't be defined here?
+#ifdef MELEE_NATIVE
+#define OFFSET(addr, align) ((uintptr_t) (addr) & ((uintptr_t) (align) - 1))
+#define ROUND(n, a) \
+    (((uintptr_t) (n) + (uintptr_t) (a) - 1) & ~((uintptr_t) (a) - 1))
+#define TRUNC(n, a) ((uintptr_t) (n) & ~((uintptr_t) (a) - 1))
+#else
 #define OFFSET(addr, align) (((u32) (addr) & ((align) - 1)))
 #define ROUND(n, a) (((u32) (n) + (a) - 1) & ~((a) - 1))
 #define TRUNC(n, a) (((u32) (n)) & ~((a) - 1))
+#endif
 
 u32 OSGetPhysicalMemSize(void);
 u32 OSGetConsoleSimulatedMemSize(void);
@@ -60,7 +67,10 @@ u32 OSGetConsoleSimulatedMemSize(void);
 #define OS_BASE_CACHED (OS_CACHED_REGION_PREFIX << 16)
 #define OS_BASE_UNCACHED (OS_UNCACHED_REGION_PREFIX << 16)
 
-#if defined(__MWERKS__) && !defined(M2CTX)
+#ifdef MELEE_NATIVE
+extern u32 __OSBusClock;
+extern u32 __OSCoreClock;
+#elif defined(__MWERKS__) && !defined(M2CTX)
 u32 __OSPhysicalMemSize : (OS_BASE_CACHED | 0x0028);
 volatile int __OSTVMode : (OS_BASE_CACHED | 0x00CC);
 OSThread* __gUnkThread1 : (OS_BASE_CACHED | 0x00D8);
@@ -87,15 +97,20 @@ int __EXIProbeStartTime[2] : (OS_BASE_CACHED | 0x30C0);
     (((nsec) * (OS_TIMER_CLOCK / 125000)) / 8000)
 #define OSMicrosecondsToTicks(usec) (((usec) * (OS_TIMER_CLOCK / 125000)) / 8)
 
-unsigned long OSGetConsoleType(void);
+u32 OSGetConsoleType(void);
 void OSInit(void);
 
 void* OSGetArenaHi(void);
 void* OSGetArenaLo(void);
 void OSSetArenaHi(void*);
 void OSSetArenaLo(void*);
+#ifdef MELEE_NATIVE
+void* OSAllocFromArenaLo(size_t size, size_t align);
+void* OSAllocFromArenaHi(size_t size, size_t align);
+#else
 void* OSAllocFromArenaLo(u32 size, u32 align);
 void* OSAllocFromArenaHi(u32 size, u32 align);
+#endif
 
 u32 OSGetPhysicalMemSize(void);
 
@@ -120,14 +135,14 @@ typedef struct OSCalendarTime {
 typedef struct OSBootInfo_s {
     // total size: 0x40
     DVDDiskID DVDDiskID;        // offset 0x0, size 0x20
-    unsigned long magic;        // offset 0x20, size 0x4
-    unsigned long version;      // offset 0x24, size 0x4
-    unsigned long memorySize;   // offset 0x28, size 0x4
-    unsigned long consoleType;  // offset 0x2C, size 0x4
+    u32 magic;        // offset 0x20, size 0x4
+    u32 version;      // offset 0x24, size 0x4
+    u32 memorySize;   // offset 0x28, size 0x4
+    u32 consoleType;  // offset 0x2C, size 0x4
     void* arenaLo;              // offset 0x30, size 0x4
     void* arenaHi;              // offset 0x34, size 0x4
     void* FSTLocation;          // offset 0x38, size 0x4
-    unsigned long FSTMaxLength; // offset 0x3C, size 0x4
+    u32 FSTMaxLength; // offset 0x3C, size 0x4
 } OSBootInfo;
 
 OSTick OSGetTick(void);
@@ -177,16 +192,21 @@ void OSSetSoundMode(u32 mode);
 void OSReport(char*, ...);
 DOLPHIN_ATTRIBUTE_NORETURN void OSPanic(char* file, int line, char* msg, ...);
 
+#ifdef MELEE_NATIVE
+#define OSRoundUp32B(x) ROUND(x, 32)
+#define OSRoundDown32B(x) TRUNC(x, 32)
+#else
 #define OSRoundUp32B(x) (((u32) (x) + 32 - 1) & ~(32 - 1))
 #define OSRoundDown32B(x) (((u32) (x)) & ~(32 - 1))
+#endif
 
-void* OSPhysicalToCached(u32 paddr);
-void* OSPhysicalToUncached(u32 paddr);
-u32 OSCachedToPhysical(void* caddr);
-u32 OSUncachedToPhysical(void* ucaddr);
+void* OSPhysicalToCached(uptr paddr);
+void* OSPhysicalToUncached(uptr paddr);
+uptr OSCachedToPhysical(void* caddr);
+uptr OSUncachedToPhysical(void* ucaddr);
 void* OSCachedToUncached(void* caddr);
 void* OSUncachedToCached(void* ucaddr);
-#if !DEBUG
+#if !DEBUG && !defined(MELEE_NATIVE)
 #define OSPhysicalToCached(paddr)                                             \
     ((void*) ((u32) (OS_BASE_CACHED + (u32) (paddr))))
 #define OSPhysicalToUncached(paddr)                                           \

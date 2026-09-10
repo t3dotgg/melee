@@ -383,7 +383,7 @@ static void resolveEnvelope(HSD_SList* list, HSD_EnvelopeDesc** edesc_p)
 
         while (env && edesc->joint) {
             HSD_JObjUnrefThis(env->jobj);
-            env->jobj = HSD_IDGetData((u32) edesc->joint, NULL);
+            env->jobj = HSD_IDGetData((uintptr_t) edesc->joint, NULL);
             HSD_ASSERT(736, env->jobj);
             HSD_JObjRefThis(env->jobj);
             env = env->next;
@@ -407,7 +407,7 @@ void HSD_PObjResolveRefs(HSD_PObj* pobj, HSD_PObjDesc* pdesc)
         HSD_JObjUnrefThis(pobj->u.jobj);
         pobj->u.jobj = NULL;
         if (pdesc->u.joint != NULL) {
-            pobj->u.jobj = HSD_IDGetData((u32) pdesc->u.joint, NULL);
+            pobj->u.jobj = HSD_IDGetData((uintptr_t) pdesc->u.joint, NULL);
             HSD_ASSERT(0x2FB, pobj->u.jobj);
             HSD_JObjRefThis(pobj->u.jobj);
         }
@@ -562,6 +562,44 @@ static inline void decode_s16_xyz(void* src_base, f32 dst[3], int scale)
     dst[2] = (f32) src[2] / scale;
 }
 
+#ifdef MELEE_NATIVE
+/* DAT vertices keep their GPU byte order. Shape blending reads the same data
+ * on the CPU, including unaligned integer and floating point components. */
+static void decode_shape_components(const HSD_VtxDescList* desc,
+                                    const void* source, f32* output, int count)
+{
+    const u8* bytes = source;
+    f32 scale = ldexpf(1.0f, -(int) desc->frac);
+    int i;
+    for (i = 0; i < count; ++i) {
+        switch (desc->comp_type) {
+        case GX_U8:
+            output[i] = bytes[i] * scale;
+            break;
+        case GX_S8:
+            output[i] = (s8) bytes[i] * scale;
+            break;
+        case GX_U16:
+            output[i] = ((u16) bytes[i * 2] << 8 | bytes[i * 2 + 1]) * scale;
+            break;
+        case GX_S16:
+            output[i] =
+                (s16) ((u16) bytes[i * 2] << 8 | bytes[i * 2 + 1]) * scale;
+            break;
+        case GX_F32: {
+            u32 bits = (u32) bytes[i * 4] << 24 |
+                       (u32) bytes[i * 4 + 1] << 16 |
+                       (u32) bytes[i * 4 + 2] << 8 | bytes[i * 4 + 3];
+            memcpy(&output[i], &bits, sizeof(bits));
+            break;
+        }
+        default:
+            HSD_Panic(__FILE__, __LINE__, "unexpected shape component type.");
+        }
+    }
+}
+#endif
+
 static void get_shape_vertex_xyz(HSD_ShapeSet* shape_set, int shape_id,
                                  int arrayidx, f32 dst[3])
 {
@@ -580,6 +618,9 @@ static void get_shape_vertex_xyz(HSD_ShapeSet* shape_set, int shape_id,
     src_base = ((u8*) shape_set->vertex_desc->vertex) +
                idx * shape_set->vertex_desc->stride;
 
+#ifdef MELEE_NATIVE
+    decode_shape_components(shape_set->vertex_desc, src_base, dst, 3);
+#else
     if (shape_set->vertex_desc->comp_type == GX_F32) {
         memcpy(dst, src_base, sizeof(f32[3]));
     } else {
@@ -605,6 +646,7 @@ static void get_shape_vertex_xyz(HSD_ShapeSet* shape_set, int shape_id,
             HSD_Panic(__FILE__, 1145, "unexpected vertex type.\n");
         }
     }
+#endif
 }
 
 static void get_shape_normal_xyz(HSD_ShapeSet* shape_set, int shape_id,
@@ -625,6 +667,9 @@ static void get_shape_normal_xyz(HSD_ShapeSet* shape_set, int shape_id,
     src_base = ((u8*) shape_set->normal_desc->vertex) +
                idx * shape_set->normal_desc->stride;
 
+#ifdef MELEE_NATIVE
+    decode_shape_components(shape_set->normal_desc, src_base, dst, 3);
+#else
     if (shape_set->normal_desc->comp_type == GX_F32) {
         memcpy(dst, src_base, sizeof(f32[3]));
     } else {
@@ -646,6 +691,7 @@ static void get_shape_normal_xyz(HSD_ShapeSet* shape_set, int shape_id,
             HSD_Panic(__FILE__, 1208, "unexpected normal type.");
         }
     }
+#endif
 }
 
 /// https://decomp.me/scratch/aleJ2
@@ -670,6 +716,9 @@ static void get_shape_nbt_xyz(HSD_ShapeSet* shape_set, int shape_id,
     src_base = ((u8*) shape_set->normal_desc->vertex) +
                idx * shape_set->normal_desc->stride;
 
+#ifdef MELEE_NATIVE
+    decode_shape_components(shape_set->normal_desc, src_base, dst, 9);
+#else
     if (shape_set->normal_desc->comp_type == GX_F32) {
         memcpy(dst, src_base, sizeof(f32[9]));
     } else {
@@ -699,6 +748,7 @@ static void get_shape_nbt_xyz(HSD_ShapeSet* shape_set, int shape_id,
             HSD_Panic(__FILE__, 1261, "unexpected normal type.");
         }
     }
+#endif
 }
 
 static void interpretShapeAnimDisplayList(HSD_PObj* pobj, float (*vertex)[3],

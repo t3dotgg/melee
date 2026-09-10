@@ -106,7 +106,9 @@ static inline TrainingItemEntry* TrainingItemTable_Get(void)
 /* 473814 */ CssSubStruct gm_80473814;
 
 STATIC_ASSERT(sizeof(lbl_80473700) == 0x114);
+#ifndef MELEE_NATIVE
 STATIC_ASSERT(sizeof(gm_80473814) == 0x204);
+#endif
 
 int gm_80188454(int idx)
 {
@@ -884,7 +886,7 @@ void gm_80189CDC(StartMeleeData* arg0)
 
     arg0->rules.match_kind = 0;
     arg0->rules.is_teams = 1;
-    arg0->rules.xB = -1;
+    arg0->rules.item_freq = -1;
     arg0->rules.x20 = 0xFFFFFFFFFFFFFFFFULL;
     arg0->rules.x5_0 = 1;
 

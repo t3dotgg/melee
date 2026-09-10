@@ -8,6 +8,24 @@
 OSHeapHandle HSD_Synth_804D6018 = -1; // audio heap
 
 struct SfxLoadStreamNode;
+#ifdef MELEE_NATIVE
+struct NativeSfxEntryNode;
+/* Host layout for the six-word SFX bank header. The original stores 32-bit
+ * pointers, so AXVPB cannot be used on a 64-bit host without shifting fields.
+ */
+struct NativeSfxBankNode {
+    union {
+        struct NativeSfxBankNode* next;
+        struct NativeSfxBankNode* x0;
+    };
+    int x4;
+    int x8;
+    int xC;
+    int x10;
+    int x14;
+    struct NativeSfxEntryNode* entries;
+};
+#endif
 
 /// Named after the assertion text pooled in this TU's `.data`.
 struct HSD_SynthSFXGroup {
@@ -53,7 +71,11 @@ static struct {
     /* 0C */ int xC;
 } HSD_Synth_804C2A60[6];
 static u32 hsd_SynthSFXLoadBuf[0x20 / 4];
+#ifdef MELEE_NATIVE
+static struct NativeSfxBankNode* HSD_Synth_804C2AE0[0x80 / 4];
+#else
 static AXVPB* HSD_Synth_804C2AE0[0x80 / 4];
+#endif
 static int hsd_SynthSFXBank[0x80 / 4];
 static int hsd_SynthSFXBankHead[0x84 / 4];
 static struct HSD_SynthSFXNode hsd_SynthSFXNodes[0x40];

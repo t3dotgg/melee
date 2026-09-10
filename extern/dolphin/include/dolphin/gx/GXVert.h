@@ -7,6 +7,7 @@
 extern "C" {
 #endif
 
+#ifndef MELEE_NATIVE
 #define GXFIFO_ADDR 0xCC008000
 
 typedef union
@@ -29,8 +30,11 @@ volatile PPCWGPipe GXWGFifo : GXFIFO_ADDR;
 #define GXWGFifo (*(volatile PPCWGPipe *)GXFIFO_ADDR)
 #endif
 
-#if DEBUG
+#endif // !MELEE_NATIVE
 
+#if DEBUG || defined(MELEE_NATIVE)
+
+// Native graphics use SDK calls instead of hardware FIFO writes.
 // external functions
 
 #define FUNC_1PARAM(name, T) void name##1##T(T x);

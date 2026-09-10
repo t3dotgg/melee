@@ -5,10 +5,12 @@
 
 typedef struct WaitStruct {
     union {
+#ifndef MELEE_NATIVE
         struct {
             int* x;
             int* y;
         } p;
+#endif
         struct {
             int x;
             int y;

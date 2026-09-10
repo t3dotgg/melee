@@ -37,7 +37,12 @@ typedef struct _GXColorS10
 
 typedef struct _GXTexObj
 {
+#ifdef MELEE_NATIVE
+    // Native texture state must retain full host pointers.
+    uptr dummy[8];
+#else
     u32 dummy[8];
+#endif
 } GXTexObj;
 
 typedef struct _GXLightObj
@@ -52,7 +57,11 @@ typedef struct _GXTexRegion
 
 typedef struct _GXTlutObj
 {
+#ifdef MELEE_NATIVE
+    uptr dummy[3];
+#else
     u32 dummy[3];
+#endif
 } GXTlutObj;
 
 typedef struct _GXTlutRegion

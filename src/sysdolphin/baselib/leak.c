@@ -51,6 +51,11 @@ static inline void HSD_LeakReportSpaces(u32 count)
 
 int HSD_Leak_80387DF8(int indent)
 {
+#ifdef MELEE_NATIVE
+    // Physical heap scanning is a GameCube diagnostic and has no host model.
+    (void) indent;
+    return 0;
+#else
     u32 val;
     HSD_LeakChecker* lc;
     u32* scan;
@@ -166,4 +171,5 @@ int HSD_Leak_80387DF8(int indent)
     OSReport("done.\n");
 
     return leak_count;
+#endif
 }

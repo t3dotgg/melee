@@ -14,8 +14,6 @@ static HSD_ClassInfo* default_class = NULL;
 
 static HSD_DObj* current_dobj = NULL;
 
-static char HSD_DObj_804D5C78[7] = "dobj.c\0";
-
 void HSD_DObjSetCurrent(HSD_DObj* dobj)
 {
     current_dobj = dobj;
@@ -195,13 +193,11 @@ static int DObjLoad(HSD_DObj* dobj, HSD_DObjDesc* desc)
         default:
             OSReport("mobj has unexpected blending flags (0x%x).",
                      dobj->mobj->rendermode);
-            HSD_Panic(HSD_DObj_804D5C78, 312, "\0");
+            HSD_Panic(__FILE__, 312, "\0");
         }
     }
     return 0;
 }
-
-static char HSD_DObj_804D5C84[5] = "dobj\0";
 
 HSD_DObj* HSD_DObjLoadDesc(HSD_DObjDesc* desc)
 {
@@ -218,9 +214,7 @@ HSD_DObj* HSD_DObjLoadDesc(HSD_DObjDesc* desc)
         dobj = HSD_DObjAlloc();
     } else {
         dobj = HSD_DOBJ(hsdNew(info));
-        if (dobj == NULL) {
-            __assert(HSD_DObj_804D5C78, 378, HSD_DObj_804D5C84);
-        }
+        HSD_ASSERT(378, dobj);
     }
     HSD_DOBJ_METHOD(dobj)->load(dobj, desc);
 
@@ -245,12 +239,8 @@ void HSD_DObjRemoveAll(HSD_DObj* dobj)
 void HSD_DObjSetDefaultClass(HSD_ClassInfo* info)
 {
     if (info) {
-        if (!hsdIsDescendantOf(info, &hsdDObj)) {
-            // The line number here is totally made up, this function is
-            // removed in practice but the string isn't
-            __assert(HSD_DObj_804D5C78, __LINE__,
-                     "hsdIsDescendantOf(info, &hsdDObj)");
-        }
+        // The original removes this function but retains the string.
+        HSD_ASSERT(__LINE__, hsdIsDescendantOf(info, &hsdDObj));
     }
     default_class = info;
 }
@@ -259,9 +249,7 @@ HSD_DObj* HSD_DObjAlloc(void)
 {
     HSD_DObj* dobj =
         (HSD_DObj*) hsdNew(default_class ? default_class : &hsdDObj.parent);
-    if (dobj == NULL) {
-        __assert(HSD_DObj_804D5C78, 525, HSD_DObj_804D5C84);
-    }
+    HSD_ASSERT(525, dobj);
     return dobj;
 }
 
@@ -287,17 +275,11 @@ void forceStringAllocation(
         mobj) // This function exists for the sole purpose of causing strings
               // to end up in data by the compiler despite not being used
 {
-    if (dobj->pobj == NULL) {
-        __assert(HSD_DObj_804D5C78, 700,
-                 "can not find specified pobj in link.\n");
-    }
-    if (dobj->pobj == NULL) {
-        __assert(HSD_DObj_804D5C78, 702,
-                 "can not find specified pobj in link.");
-    }
-    if (dobj->mobj != mobj) {
-        __assert(HSD_DObj_804D5C78, 704, "dobj->mobj == mobj");
-    }
+    HSD_ASSERTMSG(700, dobj->pobj != NULL,
+                  "can not find specified pobj in link.\n");
+    HSD_ASSERTMSG(702, dobj->pobj != NULL,
+                  "can not find specified pobj in link.");
+    HSD_ASSERT(704, dobj->mobj == mobj);
 }
 
 void HSD_DObjDisp(HSD_DObj* dobj, Mtx vmtx, Mtx pmtx, u32 rendermode)
