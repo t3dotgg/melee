@@ -151,7 +151,9 @@ static void test_css_records(void)
 
 static void test_stage_select_records(void)
 {
-    enum { DATA_SIZE = 0xD0 };
+    enum {
+        DATA_SIZE = 0xD0
+    };
     u8 bytes[32 + DATA_SIZE] = { 0 };
     NativeArchiveBinding binding;
     NativeArchiveError error = { 0 };
