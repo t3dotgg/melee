@@ -1823,7 +1823,14 @@ void ftData_80085B98(Fighter* fp, int arg1, int arg2)
                                      temp_r0);
                 }
                 temp_r3 = &fp->ft_data->x14[i];
+#ifdef MELEE_NATIVE
+                temp_r3->x14 = (uintptr_t) ftDataNativeReadMotion(
+                    fp->kind, (const void*) temp_r30,
+                    HSD_ArchiveNativeDataLimit((const void*) temp_r30),
+                    temp_r3);
+#else
                 temp_r3->x14 = temp_r30 + temp_r3->x4;
+#endif
             }
         }
         ftData_UnkIntPairs[fp->kind].data = 0;
