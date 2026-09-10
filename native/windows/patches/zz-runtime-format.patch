@@ -1,0 +1,119 @@
+--- a/Source/Core/Core/PowerPC/StaticRecomp/StaticRecompCore_Run.cpp
++++ b/Source/Core/Core/PowerPC/StaticRecomp/StaticRecompCore_Run.cpp
+@@ -53,7 +53,7 @@
+   }
+   return file;
+ }
+-}
++}  // namespace
+ 
+ // Boot calls run while the CPU is paused. The module includes the original
+ // apploader at its disc load address, so it can fill DOL sections and the FST
+@@ -103,8 +103,7 @@
+ 
+     // SetupGCMemory installs one RFI at the initial syscall vector. The
+     // apploader uses it to synchronize cache operations before OSInit.
+-    if ((ppc.pc == 0xc00u || ppc.pc == 0x80000c00u) &&
+-        memory.Read_U32(ppc.pc) == 0x4c000064u)
++    if ((ppc.pc == 0xc00u || ppc.pc == 0x80000c00u) && memory.Read_U32(ppc.pc) == 0x4c000064u)
+     {
+       SyncIn();
+       if (m_guest.msr & PPC_MSR_PR)
+@@ -113,8 +112,7 @@
+       }
+       else
+       {
+-        m_guest.msr = (m_guest.msr & ~PPC_MSR_RFI_MASK) |
+-                      (m_guest.srr1 & PPC_MSR_RFI_MASK);
++        m_guest.msr = (m_guest.msr & ~PPC_MSR_RFI_MASK) | (m_guest.srr1 & PPC_MSR_RFI_MASK);
+         m_guest.msr &= ~PPC_MSR_POW;
+         m_guest.pc = m_guest.srr0 & ~3u;
+       }
+@@ -143,8 +141,8 @@
+       power_pc.CheckExceptions();
+   }
+ 
+-  std::fprintf(stderr, "[staticrecomp] native boot call 0x%08X: %llu dispatches\n",
+-               entry, static_cast<unsigned long long>(m_native_dispatches - dispatches_before));
++  std::fprintf(stderr, "[staticrecomp] native boot call 0x%08X: %llu dispatches\n", entry,
++               static_cast<unsigned long long>(m_native_dispatches - dispatches_before));
+ }
+ 
+ void StaticRecompCore::Run()
+@@ -203,8 +201,7 @@
+ 
+     const u32 instruction_pc = pc - 4u;
+     const u8* code = nullptr;
+-    if (instruction_pc >= 0x80000000u &&
+-        instruction_pc - 0x80000000u + 4u <= m_guest.ram_size)
++    if (instruction_pc >= 0x80000000u && instruction_pc - 0x80000000u + 4u <= m_guest.ram_size)
+     {
+       code = m_guest.ram + instruction_pc - 0x80000000u;
+     }
+@@ -358,8 +355,8 @@
+           }
+           if ((ppc.Exceptions & SYNC_EXCEPTION_MASK) != 0)
+             break;  // Hook-raised synchronous exception: deliver via Dolphin below.
+-          if ((ppc.Exceptions & EXCEPTION_EXTERNAL_INT) != 0 &&
+-              (m_guest.msr & 0x8000u) != 0 && after_mtmsr(m_guest.pc))
++          if ((ppc.Exceptions & EXCEPTION_EXTERNAL_INT) != 0 && (m_guest.msr & 0x8000u) != 0 &&
++              after_mtmsr(m_guest.pc))
+             break;
+         } while (m_module_active && fast_dispatchable_at(m_guest.pc) &&
+                  !(m_guest.host_call && IsHostCallAddress(m_guest.pc)) && ppc.downcount > 0 &&
+@@ -420,9 +417,8 @@
+           {
+             ppc.downcount -= interpreter.SingleStepInner();
+             ++m_fallback_steps;
+-          } while (!(m_module_active && DispatchableAt(ppc.pc)) &&
+-                   !IsHostCallAddress(ppc.pc) && ppc.downcount > 0 &&
+-                   *state_ptr == CPU::State::Running);
++          } while (!(m_module_active && DispatchableAt(ppc.pc)) && !IsHostCallAddress(ppc.pc) &&
++                   ppc.downcount > 0 && *state_ptr == CPU::State::Running);
+         }
+       }
+     } while (ppc.downcount > 0 && *state_ptr == CPU::State::Running);
+--- a/Source/Core/DolphinNoGUI/PlatformWin32.cpp
++++ b/Source/Core/DolphinNoGUI/PlatformWin32.cpp
+@@ -3,8 +3,8 @@
+ 
+ #include "DolphinNoGUI/Platform.h"
+ 
++#include "Core/Config/ConfigManager.h"
+ #include "Core/Config/MainSettings.h"
+-#include "Core/Config/ConfigManager.h"
+ #include "Core/Core.h"
+ #include "Core/SavestateLayout.h"
+ #include "Core/State.h"
+@@ -14,16 +14,16 @@
+ #include "Common/FileUtil.h"
+ #include "Common/StringUtil.h"
+ 
++#include <windows.h>
+ #include <algorithm>
+ #include <chrono>
++#include <climits>
+ #include <ctime>
++#include <dwmapi.h>
+ #include <filesystem>
+ #include <string>
++#include <thread>
+ #include <vector>
+-#include <windows.h>
+-#include <climits>
+-#include <dwmapi.h>
+-#include <thread>
+ 
+ #include "VideoCommon/Present.h"
+ #include "resource.h"
+@@ -205,8 +205,8 @@
+     return;
+   }
+ 
+-  const std::size_t limit = std::min<std::size_t>(
+-      states.size(), ID_LOAD_STATE_LAST - ID_LOAD_STATE_FIRST + 1);
++  const std::size_t limit =
++      std::min<std::size_t>(states.size(), ID_LOAD_STATE_LAST - ID_LOAD_STATE_FIRST + 1);
+   for (std::size_t i = 0; i < limit; ++i)
+   {
+     AppendMenuW(m_load_menu, MF_STRING, ID_LOAD_STATE_FIRST + i,

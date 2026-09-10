@@ -1,0 +1,146 @@
+#pragma once
+
+#include "native_game_memory.h"
+#include "native_fighter.h"
+#include "native_audio.h"
+#include "native_dat_scene.h"
+#include "native_match.h"
+#include "native_render.h"
+#include "native_scene.h"
+#include "native_timing.h"
+
+#include <cstdint>
+#include <filesystem>
+#include <vector>
+
+namespace melee::native {
+
+struct NativeInput {
+    float stick_x = 0.0F;
+    float stick_y = 0.0F;
+    bool attack = false;
+    bool special = false;
+    bool jump = false;
+    bool start = false;
+    // Optional second pad, used by NativeTrainingGame. Appending these fields
+    // keeps existing one-pad aggregate initializers source-compatible.
+    float stick_x2 = 0.0F;
+    float stick_y2 = 0.0F;
+    bool attack2 = false;
+    bool special2 = false;
+    bool jump2 = false;
+    bool start2 = false;
+};
+
+struct NativeFrameState {
+    std::uint64_t frame = 0;
+    float player_x = 0.0F;
+    float player_y = 0.0F;
+};
+
+class NativeGame {
+public:
+    virtual ~NativeGame() = default;
+    virtual void update(const NativeInput& input, double dt_seconds) = 0;
+    virtual const NativeFrameState& state() const noexcept = 0;
+
+    // The renderer consumes an owned snapshot so simulation state never leaks
+    // pointers or guest-memory assumptions across the thread boundary.  A
+    // default one-object snapshot keeps small host games source compatible.
+    virtual RenderSnapshot render_snapshot() const;
+};
+
+// A tiny deterministic implementation used by the shell and tests. Real
+// fighters, collision, archives, and rendering can replace this interface one
+// subsystem at a time without reintroducing guest memory assumptions.
+class NativeDemoGame final : public NativeGame {
+public:
+    explicit NativeDemoGame(NativeGameMemory& memory);
+    void update(const NativeInput& input, double dt_seconds) override;
+    const NativeFrameState& state() const noexcept override { return state_; }
+    RenderSnapshot render_snapshot() const override;
+
+private:
+    NativeGameMemory& memory_;
+    NativeFighter fighter_;
+    NativeScene scene_;
+    NativeObjectId fighter_object_ = 0;
+    NativeFrameState state_;
+};
+
+// A NativeGame adapter around the two-fighter training rules.  It gives the
+// executable a real game path while retaining NativeDemoGame for deterministic
+// API tests and compatibility with existing hosts. Both player slots receive
+// independent pad state through the native input boundary and are simulated
+// and rendered through the same snapshot contract.
+class NativeTrainingGame final : public NativeGame {
+public:
+    NativeTrainingGame();
+    void update(const NativeInput& input, double dt_seconds) override;
+    const NativeFrameState& state() const noexcept override { return state_; }
+    RenderSnapshot render_snapshot() const override { return match_.snapshot(); }
+    const NativeTrainingMatch& match() const noexcept { return match_; }
+
+private:
+    NativeTrainingMatch match_;
+    NativeAudioMixer audio_;
+    NativeFrameState state_;
+};
+
+class NativeInputSource {
+public:
+    virtual ~NativeInputSource() = default;
+    virtual NativeInput poll() = 0;
+};
+
+class NativeRenderer {
+public:
+    virtual ~NativeRenderer() = default;
+    virtual bool running() const noexcept { return true; }
+    virtual void render(const NativeFrameState& state) = 0;
+    virtual void render(const NativeFrameState& state,
+                        const RenderSnapshot& snapshot)
+    {
+        (void)snapshot;
+        render(state);
+    }
+};
+
+// Asset preview host used to validate the DAT-to-render boundary before full
+// fighter scene loading is complete. It owns copied archive bytes and emits
+// joint transforms as immutable render objects.
+class NativeAssetPreviewGame final : public NativeGame {
+public:
+    NativeAssetPreviewGame(std::filesystem::path dat_path, std::size_t joint_offset);
+    void update(const NativeInput&, double) override;
+    const NativeFrameState& state() const noexcept override { return state_; }
+    RenderSnapshot render_snapshot() const override;
+
+private:
+    std::vector<NativeDatJointRef> joints_;
+    NativeFrameState state_;
+};
+
+// Drives the same simulation/presentation path from either measured host time
+// or explicit replay time. Render snapshots interpolate adjacent simulation
+// ticks; missed presentation slots coalesce into one latest frame.
+class NativeGameLoop final {
+public:
+    NativeGameLoop(NativeGame& game, NativeInputSource& input, NativeRenderer& renderer);
+    TimingStepResult advance(double elapsed_seconds);
+    std::uint64_t presented_frames() const noexcept { return presented_frames_; }
+
+private:
+    NativeGame& game_;
+    NativeInputSource& input_;
+    NativeRenderer& renderer_;
+    NativeTimingScheduler scheduler_;
+    RenderSnapshot previous_snapshot_;
+    RenderSnapshot current_snapshot_;
+    std::uint64_t presented_frames_ = 0;
+};
+
+int run_native_loop(NativeGame& game, NativeInputSource& input,
+                   NativeRenderer& renderer, std::uint64_t max_frames = 0);
+
+} // namespace melee::native

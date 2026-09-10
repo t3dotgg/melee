@@ -1,0 +1,55 @@
+#pragma once
+
+#include "native_archive.h"
+#include "native_dat_archive.h"
+#include "native_material.h"
+
+#include <cstdint>
+#include <cstddef>
+#include <span>
+#include <string_view>
+
+namespace melee::native {
+
+class NativeAssetStore;
+
+// HSD_Material is the pointer-free part of an HSD_MObjDesc. Its wire layout is
+// five big-endian fields: three GXColor values followed by alpha and
+// shininess. The descriptor's pointer fields and TEV expression graph are not
+// present in this record and are intentionally not inferred here.
+constexpr std::size_t kHsdMaterialRecordSize = 20;
+
+// Decode one serialized HSD_Material record. The render mode belongs to the
+// containing HSD_MObjDesc, so callers provide it explicitly rather than
+// guessing a value from adjacent bytes.
+NativeMaterial decode_hsd_material(std::span<const std::byte> record,
+                                   std::uint32_t render_mode = 0);
+
+// Decode a material record at a checked offset in a real HSD DAT archive.
+// The offset is supplied by a proven descriptor traversal; this function does
+// not infer pointer or descriptor meaning from adjacent bytes.
+NativeMaterial decode_hsd_material(const NativeDatArchive& archive,
+                                   std::size_t data_offset,
+                                   std::uint32_t render_mode = 0);
+
+// Decode the proven HSD_MObjDesc layout: render mode at +4 and the relocated
+// HSD_Material pointer at +12. Every pointer field must be listed in the DAT
+// relocation table; no raw 32-bit value is treated as a host pointer.
+NativeMaterial decode_hsd_material_desc(const NativeDatArchive& archive,
+                                        std::size_t descriptor_offset);
+
+// Resolve a named MARC entry and decode it as an HSD_Material record. The
+// returned values own no archive memory and are safe after the archive is
+// released.
+NativeMaterial load_material_asset(const NativeArchive& archive,
+                                   std::string_view entry_name,
+                                   std::uint32_t render_mode = 0);
+
+// Read a MARC archive through the rooted native asset service, then decode the
+// selected material entry. No guest pointer or GameCube address is exposed.
+NativeMaterial read_material_asset(const NativeAssetStore& assets,
+                                   std::string_view archive_path,
+                                   std::string_view entry_name,
+                                   std::uint32_t render_mode = 0);
+
+} // namespace melee::native

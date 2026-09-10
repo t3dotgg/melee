@@ -15,6 +15,8 @@ ModernGekko, DolRecomp, RecompCore, Dolphin, and their contributors.
 
 ## Try the experiment
 
+For the native Windows x64 build, see [the Windows build and play guide](../docs/native-windows.md).
+
 You need an Apple Silicon Mac and your own Melee USA v1.02 disc image.
 No game image, extracted game data, generated game code, or playable binary is
 included here.

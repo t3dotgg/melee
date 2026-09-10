@@ -1,0 +1,26 @@
+diff --git a/Source/Core/DolphinNoGUI/PlatformWin32.cpp b/Source/Core/DolphinNoGUI/PlatformWin32.cpp
+--- a/Source/Core/DolphinNoGUI/PlatformWin32.cpp
++++ b/Source/Core/DolphinNoGUI/PlatformWin32.cpp
+@@ -90,7 +90,12 @@
+ PlatformWin32::~PlatformWin32()
+ {
+   if (m_hwnd)
++  {
++    // DestroyWindow sends focus messages after the runtime has shut down Config.
++    // Detach first so those messages cannot call back into this platform.
++    SetWindowLongPtr(m_hwnd, GWLP_USERDATA, 0);
+     DestroyWindow(m_hwnd);
++  }
+ }
+ 
+ bool PlatformWin32::RegisterRenderWindowClass()
+@@ -335,6 +340,9 @@
+                                const LPARAM lParam)
+ {
+   PlatformWin32* platform = reinterpret_cast<PlatformWin32*>(GetWindowLongPtr(hwnd, GWLP_USERDATA));
++  if (!platform && msg != WM_NCCREATE)
++    return DefWindowProc(hwnd, msg, wParam, lParam);
++
+   switch (msg)
+   {
+   case WM_NCCREATE:
